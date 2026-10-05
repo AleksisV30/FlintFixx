@@ -54,6 +54,19 @@ contextBridge.exposeInMainWorld("flintfix", {
     updateInstanceMod: (instanceId, fileName, options) => ipcRenderer.invoke("mods:update", instanceId, fileName, options),
     getMinecraftFlintIcon: versionId => ipcRenderer.invoke("minecraft:getFlintIcon", versionId),
 
+    searchResourcePacks: options => ipcRenderer.invoke("packs:search", options),
+    getResourcePackDetails: (projectId, options) => ipcRenderer.invoke("packs:details", projectId, options),
+    listResourcePacks: () => ipcRenderer.invoke("packs:list"),
+    installResourcePack: options => ipcRenderer.invoke("packs:install", options),
+    setResourcePackEnabled: (fileName, enabled) => ipcRenderer.invoke("packs:setEnabled", fileName, enabled),
+    removeResourcePack: fileName => ipcRenderer.invoke("packs:remove", fileName),
+    openResourcePacksFolder: () => ipcRenderer.invoke("packs:openFolder"),
+    onResourcePackProgress: callback => {
+        const listener = (_event, data) => callback(data);
+        ipcRenderer.on("packs:progress", listener);
+        return () => ipcRenderer.removeListener("packs:progress", listener);
+    },
+
     getDiscordPresenceStatus: () => ipcRenderer.invoke("discord:presence:status"),
     setDiscordPresenceEnabled: (enabled, context = {}) => ipcRenderer.invoke("discord:presence:setEnabled", enabled, context),
     updateDiscordLauncherPresence: (context = {}) => ipcRenderer.invoke("discord:presence:updateLauncher", context),

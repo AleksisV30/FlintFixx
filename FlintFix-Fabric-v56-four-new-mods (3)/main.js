@@ -14,6 +14,7 @@ const microsoftAuth = require("./auth/microsoft");
 const { launchMinecraft } = require("./minecraft/launcher");
 const { installFabric } = require("./minecraft/fabric");
 const { FlintFixDiscordPresence } = require("./discord/presence");
+const { createResourcePackManager } = require("./minecraft/resourcepacks");
 
 function loadDiscordPresenceConfig() {
     const configPath = path.join(__dirname, "discord", "config.json");
@@ -111,6 +112,12 @@ function getInstanceRoot(instanceId) {
     const safeId = normalizeInstanceId(instanceId);
     return path.join(app.getPath("userData"), "minecraft", "instances", safeId);
 }
+
+function getGameDir() {
+    return path.join(app.getPath("userData"), "minecraft", "game");
+}
+
+const resourcePacks = createResourcePackManager({ getGameDir });
 
 function getInstanceModsDir(instanceId) {
     return path.join(getInstanceRoot(instanceId), "mods");
@@ -2590,6 +2597,69 @@ ipcMain.handle("mods:openFolder", async (_event, instanceId) => {
         const result = await shell.openPath(modsDir);
         if (result) throw new Error(result);
         return { success: true, path: modsDir };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle("packs:search", async (_event, options) => {
+    try {
+        return { success: true, ...(await resourcePacks.search(options || {})) };
+    } catch (error) {
+        return { success: false, packs: [], totalHits: 0, error: error.message };
+    }
+});
+
+ipcMain.handle("packs:details", async (_event, projectId, options) => {
+    try {
+        return { success: true, details: await resourcePacks.details(projectId, options || {}) };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle("packs:list", async () => {
+    try {
+        return { success: true, ...(await resourcePacks.list()) };
+    } catch (error) {
+        return { success: false, packs: [], error: error.message };
+    }
+});
+
+ipcMain.handle("packs:install", async (event, options) => {
+    try {
+        const result = await resourcePacks.install(options || {}, progress => {
+            if (!event.sender.isDestroyed()) event.sender.send("packs:progress", progress);
+        });
+        return { success: true, ...result };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle("packs:setEnabled", async (_event, fileName, enabled) => {
+    try {
+        return { success: true, ...(await resourcePacks.setPackEnabled(fileName, Boolean(enabled))) };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle("packs:remove", async (_event, fileName) => {
+    try {
+        return { success: true, ...(await resourcePacks.remove(fileName)) };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle("packs:openFolder", async () => {
+    try {
+        const dir = resourcePacks.packsDir();
+        await fs.promises.mkdir(dir, { recursive: true });
+        const result = await shell.openPath(dir);
+        if (result) throw new Error(result);
+        return { success: true, path: dir };
     } catch (error) {
         return { success: false, error: error.message };
     }

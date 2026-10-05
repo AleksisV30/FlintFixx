@@ -260,6 +260,7 @@ const pageHeaderIcons = {
     instances: "dashboard",
     mods: "extension",
     explore: "travel_explore",
+    packs: "palette",
     chat: "chat_bubble",
     settings: "settings"
 };
@@ -1609,7 +1610,7 @@ function renderModDescription(source) {
 }
 
 function updatePageHeader(name) {
-    const display = name === "home" ? "Home" : name.charAt(0).toUpperCase() + name.slice(1);
+    const display = name === "packs" ? "Resource packs" : name.charAt(0).toUpperCase() + name.slice(1);
     if (pageName) pageName.textContent = display;
     if (pageIcon) {
         pageIcon.classList.add("material-symbols-rounded");
@@ -2555,7 +2556,7 @@ loadInstancesFromStorage();
 updatePageHeader("home");
 
 function setActiveNavigation(name) {
-    const allowed = new Set(["home", "instances", "mods", "explore", "chat"]);
+    const allowed = new Set(["home", "instances", "mods", "explore", "packs", "chat"]);
     const page = allowed.has(name) ? name : "home";
     activeContentPage = page;
     navItems.forEach(item => item.classList.toggle("active", item.dataset.nav === name));
@@ -2568,6 +2569,7 @@ function setActiveNavigation(name) {
     if (page === "instances") renderInstances();
     if (page === "mods") void renderModsPage();
     if (page === "explore") void renderExplorePage(true);
+    if (page === "packs") void renderPacksPage();
     if (page === "chat") {
         renderChatPage();
         void refreshSocial({ force: true, suppressNotifications: true });
@@ -4132,5 +4134,611 @@ async function initializeFlintFix() {
         "Launcher ready"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Resource packs: browse Modrinth, preview galleries, install into the game.
+// ---------------------------------------------------------------------------
+
+const PACKS_PAGE_SIZE = 12;
+const packsPage = document.getElementById("packsPage");
+const packsSearch = document.getElementById("packsSearch");
+const packsVersionSelect = document.getElementById("packsVersionSelect");
+const packsSortSelect = document.getElementById("packsSortSelect");
+const packsCategoryButtons = Array.from(document.querySelectorAll("#packsCategoryRow .explore-category"));
+const packsStatus = document.getElementById("packsStatus");
+const packsGrid = document.getElementById("packsGrid");
+const packsPagination = document.getElementById("packsPagination");
+const packsPrevPage = document.getElementById("packsPrevPage");
+const packsNextPage = document.getElementById("packsNextPage");
+const packsPageNumbers = document.getElementById("packsPageNumbers");
+const packsViewTabs = Array.from(document.querySelectorAll(".packs-view-tab"));
+const packsBrowse = document.getElementById("packsBrowse");
+const packsInstalled = document.getElementById("packsInstalled");
+const packsInstalledList = document.getElementById("packsInstalledList");
+const packsInstalledCount = document.getElementById("packsInstalledCount");
+const packsOpenFolder = document.getElementById("packsOpenFolder");
+const packPreviewBackdrop = document.getElementById("packPreviewBackdrop");
+const packPreviewImage = document.getElementById("packPreviewImage");
+const packPreviewFallback = document.getElementById("packPreviewFallback");
+const packPreviewPrev = document.getElementById("packPreviewPrev");
+const packPreviewNext = document.getElementById("packPreviewNext");
+const packPreviewCaption = document.getElementById("packPreviewCaption");
+const packPreviewThumbs = document.getElementById("packPreviewThumbs");
+const packPreviewClose = document.getElementById("packPreviewClose");
+const packPreviewIcon = document.getElementById("packPreviewIcon");
+const packPreviewTitle = document.getElementById("packPreviewTitle");
+const packPreviewSubtitle = document.getElementById("packPreviewSubtitle");
+const packPreviewTags = document.getElementById("packPreviewTags");
+const packPreviewBody = document.getElementById("packPreviewBody");
+const packPreviewDownloads = document.getElementById("packPreviewDownloads");
+const packPreviewFollowers = document.getElementById("packPreviewFollowers");
+const packPreviewVersions = document.getElementById("packPreviewVersions");
+const packPreviewProgress = document.getElementById("packPreviewProgress");
+const packPreviewInstall = document.getElementById("packPreviewInstall");
+const packPreviewWeb = document.getElementById("packPreviewWeb");
+
+const packsState = {
+    view: "browse",
+    category: "",
+    page: 1,
+    totalHits: 0,
+    results: [],
+    installed: [],
+    installing: new Map(),
+    requestId: 0,
+    preview: null,
+    previewIndex: 0
+};
+
+function packsVersion() {
+    return packsVersionSelect?.value || "";
+}
+
+function populatePacksVersions() {
+    if (!packsVersionSelect) return;
+    const previous = packsVersionSelect.value || localStorage.getItem("flintfix.packs.version");
+    const ids = getMinecraftVersionIds(40);
+    const preferred = getSelectedModsInstance()?.version || instances[0]?.version || ids[0] || "";
+    packsVersionSelect.innerHTML = "";
+    const any = document.createElement("option");
+    any.value = "";
+    any.textContent = "Any version";
+    packsVersionSelect.appendChild(any);
+    for (const id of new Set([preferred, ...ids].filter(Boolean))) {
+        const option = document.createElement("option");
+        option.value = id;
+        option.textContent = `Minecraft ${id}`;
+        packsVersionSelect.appendChild(option);
+    }
+    const options = Array.from(packsVersionSelect.options).map(option => option.value);
+    packsVersionSelect.value = previous !== null && options.includes(previous) ? previous : preferred;
+    enhanceFlintSelect(packsVersionSelect);
+    refreshFlintSelect(packsVersionSelect);
+}
+
+/** Card banner: the pack's featured screenshot, or a tint from its brand color. */
+function packBanner(pack) {
+    const banner = document.createElement("div");
+    banner.className = "pack-card-banner";
+    if (Number.isFinite(pack.color)) {
+        const hex = `#${pack.color.toString(16).padStart(6, "0")}`;
+        banner.style.setProperty("--pack-tint", hex);
+    }
+    if (pack.previewUrl) {
+        const img = document.createElement("img");
+        img.loading = "lazy";
+        img.decoding = "async";
+        img.alt = "";
+        img.src = pack.previewUrl;
+        img.addEventListener("load", () => banner.classList.add("loaded"));
+        img.addEventListener("error", () => img.remove());
+        banner.appendChild(img);
+    } else if (pack.iconUrl) {
+        banner.classList.add("icon-only");
+        const img = document.createElement("img");
+        img.alt = "";
+        img.src = pack.iconUrl;
+        img.className = "pack-card-banner-icon";
+        banner.appendChild(img);
+    }
+    const zoom = document.createElement("span");
+    zoom.className = "pack-card-zoom material-symbols-rounded";
+    zoom.setAttribute("aria-hidden", "true");
+    zoom.textContent = "zoom_in";
+    banner.appendChild(zoom);
+    return banner;
+}
+
+function installedPackFor(projectId) {
+    return packsState.installed.find(pack => pack.projectId === projectId) || null;
+}
+
+function packInstallLabel(pack) {
+    const progress = packsState.installing.get(pack.projectId);
+    if (progress) return progress.total ? `Downloading ${Math.round(progress.received / progress.total * 100)}%` : "Downloading...";
+    const installed = installedPackFor(pack.projectId);
+    if (!installed) return "Download";
+    return installed.enabled ? "Active" : "Installed";
+}
+
+function syncPackButtons(projectId) {
+    const pack = packsState.results.find(item => item.projectId === projectId)
+        || (packsState.preview?.projectId === projectId ? packsState.preview : null);
+    if (!pack) return;
+    const busy = packsState.installing.has(projectId);
+    const installed = installedPackFor(projectId);
+    for (const button of document.querySelectorAll(`[data-pack-install="${CSS.escape(projectId)}"]`)) {
+        button.textContent = packInstallLabel(pack);
+        button.disabled = busy || Boolean(installed);
+        button.classList.toggle("is-installed", Boolean(installed));
+    }
+    if (packsState.preview?.projectId === projectId && packPreviewProgress) {
+        const progress = packsState.installing.get(projectId);
+        packPreviewProgress.hidden = !progress;
+        const bar = packPreviewProgress.querySelector("span");
+        if (bar && progress) bar.style.width = `${progress.total ? Math.round(progress.received / progress.total * 100) : 30}%`;
+    }
+}
+
+function renderPacksGrid() {
+    if (!packsGrid) return;
+    packsGrid.innerHTML = "";
+    if (!packsState.results.length) {
+        const empty = document.createElement("div");
+        empty.className = "mods-explore-empty";
+        empty.textContent = packsState.loading ? "" : "No resource packs found. Try another search, category or version.";
+        if (packsState.loading) {
+            packsGrid.classList.add("loading");
+            for (let i = 0; i < 6; i += 1) {
+                const skeleton = document.createElement("div");
+                skeleton.className = "pack-card skeleton";
+                packsGrid.appendChild(skeleton);
+            }
+            return;
+        }
+        packsGrid.classList.remove("loading");
+        packsGrid.appendChild(empty);
+        return;
+    }
+    packsGrid.classList.remove("loading");
+    packsState.results.forEach((pack, index) => {
+        const card = document.createElement("article");
+        card.className = "pack-card";
+        card.tabIndex = 0;
+        card.style.setProperty("--stagger", `${Math.min(index, 11) * 28}ms`);
+        card.setAttribute("aria-label", `${pack.title} resource pack`);
+
+        const body = document.createElement("div");
+        body.className = "pack-card-body";
+        const head = document.createElement("div");
+        head.className = "pack-card-head";
+        const icon = document.createElement("div");
+        icon.className = "pack-card-icon";
+        if (pack.iconUrl) {
+            const img = document.createElement("img");
+            img.src = pack.iconUrl;
+            img.alt = "";
+            img.loading = "lazy";
+            icon.appendChild(img);
+        } else {
+            icon.textContent = (pack.title || "?").charAt(0).toUpperCase();
+        }
+        const titles = document.createElement("div");
+        titles.className = "pack-card-titles";
+        const title = document.createElement("strong");
+        title.textContent = pack.title;
+        const author = document.createElement("small");
+        author.textContent = pack.author ? `by ${pack.author}` : "Modrinth";
+        titles.append(title, author);
+        head.append(icon, titles);
+
+        const desc = document.createElement("p");
+        desc.textContent = pack.description || "A resource pack on Modrinth.";
+
+        const foot = document.createElement("div");
+        foot.className = "pack-card-foot";
+        const stats = document.createElement("span");
+        stats.className = "pack-card-stats";
+        stats.innerHTML = '<span class="material-symbols-rounded" aria-hidden="true">download</span>';
+        stats.append(formatDownloadCount(pack.downloads));
+        const install = document.createElement("button");
+        install.type = "button";
+        install.className = "pack-card-install";
+        install.dataset.packInstall = pack.projectId;
+        install.addEventListener("click", event => {
+            event.stopPropagation();
+            void installPack(pack);
+        });
+        foot.append(stats, install);
+        body.append(head, desc, foot);
+
+        card.append(packBanner(pack), body);
+        card.addEventListener("click", () => void openPackPreview(pack));
+        card.addEventListener("keydown", event => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                void openPackPreview(pack);
+            }
+        });
+        packsGrid.appendChild(card);
+        syncPackButtons(pack.projectId);
+    });
+}
+
+function renderPacksPagination() {
+    if (!packsPagination || !packsPageNumbers) return;
+    const totalPages = Math.max(1, Math.ceil(packsState.totalHits / PACKS_PAGE_SIZE));
+    packsPagination.hidden = totalPages <= 1;
+    if (totalPages <= 1) return;
+    if (packsPrevPage) packsPrevPage.disabled = packsState.page <= 1;
+    if (packsNextPage) packsNextPage.disabled = packsState.page >= totalPages;
+    packsPageNumbers.innerHTML = "";
+    const pages = Array.from(new Set([1, totalPages, packsState.page - 1, packsState.page, packsState.page + 1]))
+        .filter(page => page >= 1 && page <= totalPages)
+        .sort((a, b) => a - b);
+    let previous = 0;
+    for (const page of pages) {
+        if (previous && page - previous > 1) {
+            const dots = document.createElement("span");
+            dots.className = "explore-page-dots";
+            dots.textContent = "…";
+            packsPageNumbers.appendChild(dots);
+        }
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `explore-page-number${page === packsState.page ? " active" : ""}`;
+        button.textContent = String(page);
+        button.addEventListener("click", () => {
+            if (page === packsState.page) return;
+            packsState.page = page;
+            void loadPacks();
+        });
+        packsPageNumbers.appendChild(button);
+        previous = page;
+    }
+}
+
+async function loadPacks() {
+    if (!packsGrid) return;
+    const requestId = ++packsState.requestId;
+    packsState.loading = true;
+    packsState.results = [];
+    renderPacksGrid();
+    const version = packsVersion();
+    if (packsStatus) packsStatus.textContent = "Loading resource packs...";
+    const result = await window.flintfix.searchResourcePacks({
+        query: String(packsSearch?.value || "").trim(),
+        version,
+        category: packsState.category,
+        index: packsSortSelect?.value || "downloads",
+        limit: PACKS_PAGE_SIZE,
+        offset: (packsState.page - 1) * PACKS_PAGE_SIZE
+    });
+    if (requestId !== packsState.requestId) return;
+    packsState.loading = false;
+    if (!result?.success) {
+        packsState.results = [];
+        packsState.totalHits = 0;
+        if (packsStatus) packsStatus.textContent = result?.error || "Could not reach Modrinth right now.";
+        renderPacksGrid();
+        renderPacksPagination();
+        return;
+    }
+    packsState.results = Array.isArray(result.packs) ? result.packs : [];
+    packsState.totalHits = Number(result.totalHits) || packsState.results.length;
+    const totalPages = Math.max(1, Math.ceil(packsState.totalHits / PACKS_PAGE_SIZE));
+    if (packsStatus) {
+        packsStatus.textContent = `${formatDownloadCount(packsState.totalHits)} packs${version ? ` for Minecraft ${version}` : ""} • page ${packsState.page} of ${totalPages}`;
+    }
+    renderPacksGrid();
+    renderPacksPagination();
+}
+
+async function refreshInstalledPacks() {
+    const result = await window.flintfix.listResourcePacks();
+    packsState.installed = result?.success && Array.isArray(result.packs) ? result.packs : [];
+    if (packsInstalledCount) packsInstalledCount.textContent = String(packsState.installed.length);
+    renderInstalledPacks();
+    for (const pack of packsState.results) syncPackButtons(pack.projectId);
+    if (packsState.preview) syncPackButtons(packsState.preview.projectId);
+}
+
+function renderInstalledPacks() {
+    if (!packsInstalledList) return;
+    packsInstalledList.innerHTML = "";
+    if (!packsState.installed.length) {
+        const empty = document.createElement("div");
+        empty.className = "mods-explore-empty";
+        empty.textContent = "No resource packs yet. Download one from Browse, or drop .zip packs into the folder.";
+        packsInstalledList.appendChild(empty);
+        return;
+    }
+    for (const pack of packsState.installed) {
+        const row = document.createElement("div");
+        row.className = `pack-row${pack.enabled ? " active" : ""}`;
+        const icon = document.createElement("span");
+        icon.className = "pack-row-icon material-symbols-rounded";
+        icon.setAttribute("aria-hidden", "true");
+        icon.textContent = pack.folder ? "folder" : "texture";
+        const copy = document.createElement("div");
+        copy.className = "pack-row-copy";
+        const name = document.createElement("strong");
+        name.textContent = pack.title;
+        const meta = document.createElement("small");
+        const size = pack.folder ? "Folder" : `${(pack.size / 1048576).toFixed(pack.size > 10485760 ? 0 : 1)} MB`;
+        meta.textContent = [pack.versionNumber, size, pack.projectId ? "Modrinth" : "Added manually"].filter(Boolean).join(" • ");
+        copy.append(name, meta);
+
+        const toggle = document.createElement("label");
+        toggle.className = "pack-switch";
+        toggle.title = pack.enabled ? "Active in game" : "Not active";
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.checked = pack.enabled;
+        input.setAttribute("aria-label", `Use ${pack.title} in game`);
+        input.addEventListener("change", async () => {
+            input.disabled = true;
+            const result = await window.flintfix.setResourcePackEnabled(pack.fileName, input.checked);
+            if (!result?.success) {
+                input.checked = !input.checked;
+                showToast(result?.error || "Could not change the pack.", "error");
+            } else {
+                showToast(input.checked ? `${pack.title} will load next launch.` : `${pack.title} turned off.`, "success");
+            }
+            await refreshInstalledPacks();
+        });
+        const track = document.createElement("span");
+        track.setAttribute("aria-hidden", "true");
+        toggle.append(input, track);
+
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "pack-row-remove";
+        remove.setAttribute("aria-label", `Remove ${pack.title}`);
+        remove.innerHTML = '<span class="material-symbols-rounded" aria-hidden="true">delete</span>';
+        remove.addEventListener("click", async () => {
+            if (remove.dataset.confirm !== "1") {
+                remove.dataset.confirm = "1";
+                remove.classList.add("confirm");
+                remove.title = "Click again to remove";
+                setTimeout(() => {
+                    remove.dataset.confirm = "";
+                    remove.classList.remove("confirm");
+                }, 2500);
+                return;
+            }
+            const result = await window.flintfix.removeResourcePack(pack.fileName);
+            if (!result?.success) showToast(result?.error || "Could not remove the pack.", "error");
+            else showToast(`${pack.title} removed.`, "success");
+            await refreshInstalledPacks();
+        });
+
+        row.append(icon, copy, toggle, remove);
+        packsInstalledList.appendChild(row);
+    }
+}
+
+async function installPack(pack) {
+    if (!pack?.projectId || packsState.installing.has(pack.projectId) || installedPackFor(pack.projectId)) return;
+    packsState.installing.set(pack.projectId, { received: 0, total: 0 });
+    syncPackButtons(pack.projectId);
+    const result = await window.flintfix.installResourcePack({
+        projectId: pack.projectId,
+        version: packsVersion(),
+        title: pack.title
+    });
+    packsState.installing.delete(pack.projectId);
+    if (!result?.success) {
+        showToast(result?.error || `Could not download ${pack.title}.`, "error");
+    } else if (result.alreadyInstalled) {
+        showToast(`${pack.title} is already in your game.`, "success");
+    } else {
+        const note = result.exactMatch === false ? " (no exact match for this version)" : "";
+        showToast(`${pack.title} added and turned on for your next launch${note}.`, "success");
+    }
+    await refreshInstalledPacks();
+    syncPackButtons(pack.projectId);
+}
+
+function showPackPreviewImage(index) {
+    const gallery = packsState.preview?.gallery || [];
+    if (!packPreviewImage) return;
+    if (!gallery.length) {
+        packPreviewImage.hidden = true;
+        if (packPreviewFallback) packPreviewFallback.hidden = false;
+        if (packPreviewPrev) packPreviewPrev.hidden = true;
+        if (packPreviewNext) packPreviewNext.hidden = true;
+        if (packPreviewCaption) packPreviewCaption.textContent = "";
+        return;
+    }
+    packsState.previewIndex = (index + gallery.length) % gallery.length;
+    const item = gallery[packsState.previewIndex];
+    if (packPreviewFallback) packPreviewFallback.hidden = true;
+    packPreviewImage.hidden = false;
+    packPreviewImage.classList.remove("ready");
+    packPreviewImage.onload = () => packPreviewImage.classList.add("ready");
+    packPreviewImage.src = item.rawUrl || item.url;
+    packPreviewImage.alt = item.title || packsState.preview.title;
+    const many = gallery.length > 1;
+    if (packPreviewPrev) packPreviewPrev.hidden = !many;
+    if (packPreviewNext) packPreviewNext.hidden = !many;
+    if (packPreviewCaption) {
+        packPreviewCaption.textContent = [item.title, many ? `${packsState.previewIndex + 1} / ${gallery.length}` : ""].filter(Boolean).join("  •  ");
+    }
+    if (packPreviewThumbs) {
+        Array.from(packPreviewThumbs.children).forEach((thumb, i) => thumb.classList.toggle("active", i === packsState.previewIndex));
+        packPreviewThumbs.children[packsState.previewIndex]?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+    }
+}
+
+async function openPackPreview(pack) {
+    if (!packPreviewBackdrop || !pack) return;
+    packsState.preview = { ...pack, gallery: pack.previewUrl ? [{ url: pack.previewUrl, rawUrl: pack.previewUrl, title: "" }] : [] };
+    packPreviewBackdrop.hidden = false;
+    requestAnimationFrame(() => packPreviewBackdrop.classList.add("open"));
+    if (packPreviewTitle) packPreviewTitle.textContent = pack.title;
+    if (packPreviewSubtitle) packPreviewSubtitle.textContent = pack.author ? `by ${pack.author}` : "";
+    if (packPreviewBody) packPreviewBody.textContent = pack.description || "";
+    if (packPreviewDownloads) packPreviewDownloads.textContent = formatDownloadCount(pack.downloads);
+    if (packPreviewFollowers) packPreviewFollowers.textContent = formatDownloadCount(pack.follows);
+    if (packPreviewVersions) packPreviewVersions.textContent = "Checking...";
+    if (packPreviewTags) packPreviewTags.innerHTML = "";
+    if (packPreviewThumbs) packPreviewThumbs.innerHTML = "";
+    if (packPreviewIcon) {
+        packPreviewIcon.innerHTML = "";
+        if (pack.iconUrl) {
+            const img = document.createElement("img");
+            img.src = pack.iconUrl;
+            img.alt = "";
+            packPreviewIcon.appendChild(img);
+        } else {
+            packPreviewIcon.textContent = (pack.title || "?").charAt(0).toUpperCase();
+        }
+    }
+    if (packPreviewInstall) packPreviewInstall.dataset.packInstall = pack.projectId;
+    syncPackButtons(pack.projectId);
+    showPackPreviewImage(0);
+
+    const result = await window.flintfix.getResourcePackDetails(pack.projectId, { version: packsVersion() });
+    if (packsState.preview?.projectId !== pack.projectId) return;
+    if (!result?.success) {
+        if (packPreviewVersions) packPreviewVersions.textContent = "Unknown";
+        return;
+    }
+    const details = result.details;
+    packsState.preview = { ...packsState.preview, ...details, gallery: details.gallery.length ? details.gallery : packsState.preview.gallery };
+    if (packPreviewSubtitle) packPreviewSubtitle.textContent = details.description || packPreviewSubtitle.textContent;
+    if (packPreviewBody) packPreviewBody.innerHTML = renderModDescription(String(details.body || details.description || "").slice(0, 24000));
+    if (packPreviewFollowers) packPreviewFollowers.textContent = formatDownloadCount(details.followers);
+    if (packPreviewVersions) {
+        const versions = details.gameVersions || [];
+        packPreviewVersions.textContent = versions.length > 1 ? `${versions[0]} – ${versions[versions.length - 1]}` : (versions[0] || "Unknown");
+    }
+    if (packPreviewTags) {
+        for (const tag of Array.from(new Set(details.categories || [])).slice(0, 6)) {
+            const span = document.createElement("span");
+            span.textContent = tag;
+            packPreviewTags.appendChild(span);
+        }
+    }
+    if (packPreviewThumbs) {
+        packPreviewThumbs.innerHTML = "";
+        packsState.preview.gallery.forEach((item, i) => {
+            const thumb = document.createElement("button");
+            thumb.type = "button";
+            thumb.className = "pack-preview-thumb";
+            thumb.setAttribute("aria-label", item.title || `Preview ${i + 1}`);
+            const img = document.createElement("img");
+            img.src = item.url;
+            img.alt = "";
+            img.loading = "lazy";
+            thumb.appendChild(img);
+            thumb.addEventListener("click", () => showPackPreviewImage(i));
+            packPreviewThumbs.appendChild(thumb);
+        });
+        packPreviewThumbs.hidden = packsState.preview.gallery.length < 2;
+    }
+    showPackPreviewImage(0);
+}
+
+function closePackPreview() {
+    if (!packPreviewBackdrop || packPreviewBackdrop.hidden) return;
+    packPreviewBackdrop.classList.remove("open");
+    packsState.preview = null;
+    setTimeout(() => {
+        if (!packPreviewBackdrop.classList.contains("open")) packPreviewBackdrop.hidden = true;
+    }, 180);
+}
+
+function setPacksView(view) {
+    packsState.view = view === "installed" ? "installed" : "browse";
+    packsViewTabs.forEach(tab => {
+        const active = tab.dataset.packsView === packsState.view;
+        tab.classList.toggle("active", active);
+        tab.setAttribute("aria-selected", String(active));
+    });
+    if (packsBrowse) packsBrowse.hidden = packsState.view !== "browse";
+    if (packsInstalled) packsInstalled.hidden = packsState.view !== "installed";
+}
+
+async function renderPacksPage() {
+    if (!packsPage) return;
+    populatePacksVersions();
+    await refreshInstalledPacks();
+    if (!packsState.results.length && !packsState.loading) await loadPacks();
+}
+
+if (packsSearch) {
+    let timer = null;
+    packsSearch.addEventListener("input", () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+            packsState.page = 1;
+            void loadPacks();
+        }, 300);
+    });
+}
+for (const select of [packsVersionSelect, packsSortSelect]) {
+    if (!select) continue;
+    select.addEventListener("change", () => {
+        if (select === packsVersionSelect) localStorage.setItem("flintfix.packs.version", select.value);
+        packsState.page = 1;
+        void loadPacks();
+    });
+}
+enhanceFlintSelect(packsSortSelect);
+refreshFlintSelect(packsSortSelect);
+packsCategoryButtons.forEach(button => button.addEventListener("click", () => {
+    packsState.category = button.dataset.category || "";
+    packsState.page = 1;
+    packsCategoryButtons.forEach(item => item.classList.toggle("active", item === button));
+    void loadPacks();
+}));
+packsViewTabs.forEach(tab => tab.addEventListener("click", () => setPacksView(tab.dataset.packsView)));
+if (packsPrevPage) packsPrevPage.addEventListener("click", () => {
+    if (packsState.page <= 1) return;
+    packsState.page -= 1;
+    void loadPacks();
+});
+if (packsNextPage) packsNextPage.addEventListener("click", () => {
+    if (packsState.page >= Math.ceil(packsState.totalHits / PACKS_PAGE_SIZE)) return;
+    packsState.page += 1;
+    void loadPacks();
+});
+if (packsOpenFolder) packsOpenFolder.addEventListener("click", async () => {
+    const result = await window.flintfix.openResourcePacksFolder();
+    if (!result?.success) showToast(result?.error || "Could not open the folder.", "error");
+});
+if (packPreviewClose) packPreviewClose.addEventListener("click", closePackPreview);
+if (packPreviewBackdrop) packPreviewBackdrop.addEventListener("click", event => {
+    if (event.target === packPreviewBackdrop) closePackPreview();
+});
+if (packPreviewPrev) packPreviewPrev.addEventListener("click", () => showPackPreviewImage(packsState.previewIndex - 1));
+if (packPreviewNext) packPreviewNext.addEventListener("click", () => showPackPreviewImage(packsState.previewIndex + 1));
+if (packPreviewInstall) packPreviewInstall.addEventListener("click", () => {
+    if (packsState.preview) void installPack(packsState.preview);
+});
+if (packPreviewWeb) packPreviewWeb.addEventListener("click", () => {
+    if (packsState.preview?.pageUrl) window.flintfix.openExternal(packsState.preview.pageUrl);
+});
+if (packPreviewBody) packPreviewBody.addEventListener("click", event => {
+    const anchor = event.target.closest("a[data-external-link=\"true\"]");
+    if (!anchor) return;
+    event.preventDefault();
+    const href = anchor.getAttribute("href");
+    if (href && /^https?:\/\//i.test(href)) window.flintfix.openExternal(href);
+});
+document.addEventListener("keydown", event => {
+    if (!packPreviewBackdrop || packPreviewBackdrop.hidden) return;
+    if (event.key === "Escape") closePackPreview();
+    else if (event.key === "ArrowLeft") showPackPreviewImage(packsState.previewIndex - 1);
+    else if (event.key === "ArrowRight") showPackPreviewImage(packsState.previewIndex + 1);
+});
+window.flintfix.onResourcePackProgress?.(progress => {
+    if (!progress?.projectId || !packsState.installing.has(progress.projectId)) return;
+    packsState.installing.set(progress.projectId, progress);
+    syncPackButtons(progress.projectId);
+});
+
 
 initializeFlintFix();

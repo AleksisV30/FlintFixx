@@ -94,6 +94,10 @@
                         <span class="nav-icon material-symbols-rounded" aria-hidden="true">travel_explore</span>
                         <span class="nav-label sidebar-copy">Explore</span>
                     </button>
+                    <button class="nav-item" type="button" data-nav="packs" aria-label="Resource packs">
+                        <span class="nav-icon material-symbols-rounded" aria-hidden="true">palette</span>
+                        <span class="nav-label sidebar-copy">Packs</span>
+                    </button>
                     <button class="nav-item" type="button" data-nav="chat" aria-label="Chat">
                         <span class="nav-icon material-symbols-rounded" aria-hidden="true">chat_bubble</span>
                         <span class="nav-label sidebar-copy">Chat</span>
@@ -388,6 +392,84 @@
                         <button class="explore-page-nav" id="exploreNextPage" type="button" aria-label="Next page">
                             <span class="material-symbols-rounded" aria-hidden="true">chevron_right</span>
                         </button>
+                    </div>
+                </section>
+
+                <section class="app-page packs-page" data-page="packs" id="packsPage" hidden>
+                    <div class="explore-hero packs-hero">
+                        <div>
+                            <span class="section-kicker">RESOURCE PACKS</span>
+                            <h1>Restyle your game</h1>
+                            <p>Find popular texture packs on Modrinth, preview them, and add them to your game in one click.</p>
+                        </div>
+                        <div class="packs-hero-tiles" aria-hidden="true">
+                            <span></span><span></span><span></span><span></span>
+                        </div>
+                    </div>
+
+                    <div class="explore-control-surface packs-controls">
+                        <div class="explore-search-large">
+                            <span class="material-symbols-rounded" aria-hidden="true">search</span>
+                            <input id="packsSearch" type="text" placeholder="Search Faithful, PvP, realistic, vanilla tweaks..." autocomplete="off" spellcheck="false">
+                        </div>
+                        <label class="explore-sort">
+                            <span>Version</span>
+                            <select id="packsVersionSelect" aria-label="Minecraft version"></select>
+                        </label>
+                        <label class="explore-sort">
+                            <span>Sort</span>
+                            <select id="packsSortSelect">
+                                <option value="downloads">Most popular</option>
+                                <option value="follows">Most followed</option>
+                                <option value="relevance">Relevant</option>
+                                <option value="updated">Recently updated</option>
+                                <option value="newest">Newest</option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <div class="packs-subbar">
+                        <div class="packs-view-tabs" role="tablist" aria-label="Resource pack views">
+                            <button class="packs-view-tab active" type="button" data-packs-view="browse" role="tab" aria-selected="true">Browse</button>
+                            <button class="packs-view-tab" type="button" data-packs-view="installed" role="tab" aria-selected="false">
+                                Installed <span class="packs-count" id="packsInstalledCount">0</span>
+                            </button>
+                        </div>
+                        <button class="mods-folder-button" id="packsOpenFolder" type="button">
+                            <span class="material-symbols-rounded" aria-hidden="true">folder_open</span>
+                            Open folder
+                        </button>
+                    </div>
+
+                    <div class="packs-browse" id="packsBrowse">
+                        <div class="explore-category-row" id="packsCategoryRow">
+                            <button class="explore-category active" type="button" data-category="">All</button>
+                            <button class="explore-category" type="button" data-category="vanilla-like">Vanilla-like</button>
+                            <button class="explore-category" type="button" data-category="combat">PvP</button>
+                            <button class="explore-category" type="button" data-category="simplistic">Simplistic</button>
+                            <button class="explore-category" type="button" data-category="realistic">Realistic</button>
+                            <button class="explore-category" type="button" data-category="themed">Themed</button>
+                            <button class="explore-category" type="button" data-category="tweaks">Tweaks</button>
+                            <button class="explore-category" type="button" data-category="gui">GUI</button>
+                            <button class="explore-category" type="button" data-category="16x">16x</button>
+                            <button class="explore-category" type="button" data-category="32x">32x</button>
+                        </div>
+                        <div class="mods-explore-status" id="packsStatus">Loading popular packs...</div>
+                        <div class="packs-grid" id="packsGrid"></div>
+                        <div class="explore-pagination" id="packsPagination" hidden>
+                            <button class="explore-page-nav" id="packsPrevPage" type="button" aria-label="Previous page">
+                                <span class="material-symbols-rounded" aria-hidden="true">chevron_left</span>
+                            </button>
+                            <div class="explore-page-numbers" id="packsPageNumbers"></div>
+                            <button class="explore-page-nav" id="packsNextPage" type="button" aria-label="Next page">
+                                <span class="material-symbols-rounded" aria-hidden="true">chevron_right</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="packs-installed" id="packsInstalled" hidden>
+                        <p class="packs-installed-hint">Active packs load the next time you launch. The pack at the top of the list wins when two packs change the same texture.</p>
+                        <div class="packs-installed-list" id="packsInstalledList"></div>
                     </div>
                 </section>
 
@@ -786,6 +868,51 @@
             </div>
         </div>
     </div>
+    <div class="modal-backdrop" id="packPreviewBackdrop" hidden>
+        <div class="pack-preview-modal" role="dialog" aria-modal="true" aria-labelledby="packPreviewTitle">
+            <div class="pack-preview-stage" id="packPreviewStage">
+                <img class="pack-preview-image" id="packPreviewImage" alt="">
+                <div class="pack-preview-fallback" id="packPreviewFallback" hidden>
+                    <span class="material-symbols-rounded" aria-hidden="true">image_not_supported</span>
+                    <span>This pack has no preview images.</span>
+                </div>
+                <button class="pack-preview-nav prev" id="packPreviewPrev" type="button" aria-label="Previous image">
+                    <span class="material-symbols-rounded" aria-hidden="true">chevron_left</span>
+                </button>
+                <button class="pack-preview-nav next" id="packPreviewNext" type="button" aria-label="Next image">
+                    <span class="material-symbols-rounded" aria-hidden="true">chevron_right</span>
+                </button>
+                <div class="pack-preview-caption" id="packPreviewCaption"></div>
+                <button class="modal-close pack-preview-close" id="packPreviewClose" type="button" aria-label="Close preview">
+                    <span class="material-symbols-rounded" aria-hidden="true">close</span>
+                </button>
+            </div>
+            <div class="pack-preview-thumbs" id="packPreviewThumbs"></div>
+            <div class="pack-preview-info">
+                <div class="pack-preview-main">
+                    <div class="mod-details-identity">
+                        <div class="mod-details-icon" id="packPreviewIcon"></div>
+                        <div>
+                            <span class="section-kicker">RESOURCE PACK</span>
+                            <h2 id="packPreviewTitle">Pack</h2>
+                            <p id="packPreviewSubtitle"></p>
+                        </div>
+                    </div>
+                    <div class="pack-preview-tags" id="packPreviewTags"></div>
+                    <div class="mod-details-body pack-preview-body" id="packPreviewBody"></div>
+                </div>
+                <aside class="pack-preview-side">
+                    <div class="mod-details-stat"><span>Downloads</span><strong id="packPreviewDownloads">—</strong></div>
+                    <div class="mod-details-stat"><span>Followers</span><strong id="packPreviewFollowers">—</strong></div>
+                    <div class="mod-details-stat"><span>Works with</span><strong id="packPreviewVersions">—</strong></div>
+                    <div class="pack-preview-progress" id="packPreviewProgress" hidden><span></span></div>
+                    <button class="explore-install-button" id="packPreviewInstall" type="button">Download</button>
+                    <button class="explore-open-button" id="packPreviewWeb" type="button">Open on Modrinth</button>
+                </aside>
+            </div>
+        </div>
+    </div>
+
     <script src="renderer.js"></script>
 </body>
 </html>
