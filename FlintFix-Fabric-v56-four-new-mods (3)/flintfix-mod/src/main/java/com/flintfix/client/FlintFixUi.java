@@ -105,6 +105,9 @@ public final class FlintFixUi {
         int saturation = Math.max(red, Math.max(green, blue)) - Math.min(red, Math.min(green, blue));
         if (light >= 190) return (alpha << 24) | (theme.text() & 0x00FFFFFF);
         if (saturation < 55 && light >= 105) return (alpha << 24) | (theme.muted() & 0x00FFFFFF);
+        // Saturated pastel colors made for dark panels (greens, golds) wash out on
+        // white; deepen them so they keep their meaning and stay readable.
+        if (saturation >= 55 && light >= 150) return blendColors(color, 0xFF000000, 0.35f);
         return color;
     }
 
@@ -137,7 +140,7 @@ public final class FlintFixUi {
     }
 
     public static int interactiveBorder(boolean hovered) {
-        if (activeTheme == FlintFixTheme.LIGHT) return hovered ? 0xFF151A20 : 0xFF616B76;
+        if (activeTheme == FlintFixTheme.LIGHT) return hovered ? ACCENT : 0xFFB4BCC8;
         return hovered ? ACCENT_BRIGHT : BORDER;
     }
 
@@ -350,9 +353,10 @@ public final class FlintFixUi {
 
     /** Standard window: shadow, edge, background and a faint top highlight. */
     public static void panelFrame(DrawContext c, int x, int y, int w, int h) {
-        shadow(c, x, y, w, h, 1.0f);
+        boolean light = activeTheme == FlintFixTheme.LIGHT;
+        shadow(c, x, y, w, h, light ? 0.6f : 1.0f);
         surface(c, x, y, w, h, bg(), border());
-        c.fill(x + 3, y + 1, x + w - 3, y + 2, 0x0CFFFFFF);
+        if (!light) c.fill(x + 3, y + 1, x + w - 3, y + 2, 0x0CFFFFFF);
     }
 
     /** Dims the game behind a FlintFix screen. */

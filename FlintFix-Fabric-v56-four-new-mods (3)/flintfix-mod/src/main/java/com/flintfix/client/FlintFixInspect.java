@@ -1,18 +1,37 @@
 package com.flintfix.client;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.math.RotationAxis;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 /**
- * Press-to-inspect animation for the item in the main hand. The hand and
- * item lift toward the center, turn to show both sides, the item twirls in
- * the fingers, and everything settles back.
+ * Press-to-inspect "showcase" for the item in the main hand: the hand lifts
+ * it into view and turns the face toward the camera, flips it over in the
+ * fingers to show the back, tilts the wrist to show the edge, then flips it
+ * back while lowering it.
  */
 public final class FlintFixInspect {
-    private static final float DURATION_SECONDS = 2.6f;
+    private static final float DURATION_SECONDS = 3.4f;
+
+    /**
+     * Hand pose keyframes: time, offset x/y/z, then rotation x/y/z in degrees
+     * around the wrist. x offsets and y/z rotations are mirrored for left hands.
+     */
+    private static final float[][] KEYS = {
+        {0.00f, 0.00f, 0.00f, 0.00f, 0f, 0f, 0f},
+        {0.15f, -0.20f, 0.15f, 0.06f, -12f, -32f, -18f},
+        {0.40f, -0.21f, 0.17f, 0.06f, -8f, -44f, -12f},
+        {0.47f, -0.20f, 0.22f, 0.06f, -14f, -36f, -16f},
+        {0.58f, -0.20f, 0.15f, 0.06f, -10f, -30f, -18f},
+        {0.72f, -0.18f, 0.14f, 0.07f, -38f, -12f, -8f},
+        {0.82f, -0.16f, 0.13f, 0.06f, -30f, -18f, -10f},
+        {1.00f, 0.00f, 0.00f, 0.00f, 0f, 0f, 0f}
+    };
 
     private static boolean active;
     private static long startedAt;
@@ -25,6 +44,7 @@ public final class FlintFixInspect {
         if (!FlintFixClient.CONFIG.itemInspectEnabled || client.player == null) return;
         ItemStack stack = client.player.getMainHandStack();
         if (stack.isEmpty()) return;
+        // Pressing again mid-animation restarts it smoothly from the beginning.
         active = true;
         startedAt = System.nanoTime();
         slot = client.player.getInventory().selectedSlot;
@@ -56,30 +76,33 @@ public final class FlintFixInspect {
      * side is 1 for a right-handed player and -1 for a left-handed one.
      */
     public static void applyHand(MatrixStack matrices, int side) {
-        float t = clamp01(progress());
-        float envelope = envelope(t);
-        float arc = (float) Math.sin(Math.PI * t);
-
-        // Lift toward the center of the screen and slightly closer to the camera.
-        matrices.translate(-0.16f * side * envelope, 0.10f * envelope, 0.06f * envelope);
-
-        // Rotate around the wrist so the arm and item turn as one.
+        float[] pose = sample(clamp01(progress()));
+        matrices.translate(pose[0] * side, pose[1], pose[2]);
         float pivotX = 0.58f * side;
-        float pivotY = -0.56f;
-        float pivotZ = -0.72f;
+        float pivotY = -0.58f;
+        float pivotZ = -0.78f;
         matrices.translate(pivotX, pivotY, pivotZ);
-        matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(side * -35.0f * (float) Math.sin(Math.PI * 2.0 * t) * envelope));
-        matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(side * -28.0f * arc * envelope));
-        matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(-18.0f * arc * arc * envelope));
+        matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(pose[4] * side));
+        matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(pose[5] * side));
+        matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(pose[3]));
         matrices.translate(-pivotX, -pivotY, -pivotZ);
     }
 
-    /** Extra twirl of only the item, in the middle of the animation. */
-    public static void applyItem(MatrixStack matrices, int side) {
+    /**
+     * Flips only the item around its own handle, so it turns over inside the
+     * fist: once to show the back, and once more on the way down.
+     */
+    public static void applyItem(MatrixStack matrices, AbstractClientPlayerEntity player, ItemStack stack, boolean right) {
         float t = clamp01(progress());
-        float twirl = easeInOutCubic((t - 0.32f) / 0.36f);
-        if (twirl <= 0.0f || twirl >= 1.0f) return;
-        matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(side * 360.0f * twirl));
+        float angle = 180.0f * easeInOutCubic((t - 0.44f) / 0.16f)
+            + 180.0f * easeInOutCubic((t - 0.84f) / 0.14f);
+        if (angle <= 0.0f || angle >= 360.0f) return;
+        Vector3f[] axis = FlintFixHand.handleAxis(player, stack, right);
+        Vector3f grip = axis[0];
+        Vector3f dir = axis[1];
+        matrices.translate(grip.x, grip.y, grip.z);
+        matrices.multiply(new Quaternionf().rotationAxis((float) Math.toRadians(angle * (right ? 1 : -1)), dir.x, dir.y, dir.z));
+        matrices.translate(-grip.x, -grip.y, -grip.z);
     }
 
     /**
@@ -89,11 +112,32 @@ public final class FlintFixInspect {
     public static float armVisibility(boolean showHand) {
         if (showHand) return 1.0f;
         float t = clamp01(progress());
-        return smooth(t / 0.16f) * (1.0f - smooth((t - 0.84f) / 0.16f));
+        return smooth(t / 0.14f) * (1.0f - smooth((t - 0.86f) / 0.14f));
     }
 
-    private static float envelope(float t) {
-        return smooth(t / 0.18f) * (1.0f - smooth((t - 0.82f) / 0.18f));
+    /** Pose (x, y, z, rotX, rotY, rotZ) at time t on a Catmull-Rom spline through the keys. */
+    private static float[] sample(float t) {
+        int i = 0;
+        while (i < KEYS.length - 2 && t > KEYS[i + 1][0]) i++;
+        float[] p0 = KEYS[Math.max(0, i - 1)];
+        float[] p1 = KEYS[i];
+        float[] p2 = KEYS[i + 1];
+        float[] p3 = KEYS[Math.min(KEYS.length - 1, i + 2)];
+        float u = clamp01((t - p1[0]) / Math.max(1.0e-4f, p2[0] - p1[0]));
+        // Ease the very first and last segments so the hand starts and stops softly.
+        if (i == 0 || i == KEYS.length - 2) u = smooth(u);
+        float u2 = u * u;
+        float u3 = u2 * u;
+        float[] out = new float[6];
+        for (int k = 0; k < 6; k++) {
+            float a = p0[k + 1], b = p1[k + 1], c = p2[k + 1], d = p3[k + 1];
+            out[k] = 0.5f * (2.0f * b + (c - a) * u + (2.0f * a - 5.0f * b + 4.0f * c - d) * u2
+                + (3.0f * b - a - 3.0f * c + d) * u3);
+        }
+        // Gentle breathing while the item is held up.
+        float hold = smooth(t / 0.15f) * (1.0f - smooth((t - 0.82f) / 0.18f));
+        out[1] += 0.006f * (float) Math.sin(t * DURATION_SECONDS * 2.6f) * hold;
+        return out;
     }
 
     private static float clamp01(float t) {

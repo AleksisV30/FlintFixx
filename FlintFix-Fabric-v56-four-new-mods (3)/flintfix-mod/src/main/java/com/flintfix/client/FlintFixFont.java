@@ -29,6 +29,12 @@ public final class FlintFixFont {
 
     /** Draws with the given color as-is, for colors already taken from the active theme. */
     public static void drawExact(DrawContext context, String text, int x, int y, int size, int color, boolean bold) {
+        drawExact(context, text, x, y, size, color, bold, false);
+    }
+
+    /** As {@link #drawExact(DrawContext, String, int, int, int, int, boolean)}, optionally with a drop shadow. */
+    public static void drawExact(DrawContext context, String text, int x, int y, int size, int color, boolean bold,
+                                 boolean shadow) {
         if (text == null || text.isEmpty() || size <= 0) return;
 
         TextRenderer renderer = MinecraftClient.getInstance().textRenderer;
@@ -38,8 +44,26 @@ public final class FlintFixFont {
         context.getMatrices().scale(scale, scale, 1.0f);
         // Render once at the intended scale. A sub-pixel duplicate pass
         // softened every regular label and made this screen look out of focus.
-        context.drawText(renderer, styled(text, bold), 0, 0, color, false);
+        context.drawText(renderer, styled(text, bold), 0, 0, color, shadow);
         context.getMatrices().pop();
+    }
+
+    /**
+     * Height in GUI pixels that a line of the given size really occupies. Small
+     * sizes are snapped to whole screen pixels, so this can be larger than size;
+     * layouts should use it instead of assuming the nominal size.
+     */
+    public static int lineHeight(int size) {
+        if (size <= 0) return 0;
+        TextRenderer renderer = MinecraftClient.getInstance().textRenderer;
+        return Math.max(1, Math.round(renderer.fontHeight * scaleFor(renderer, size)));
+    }
+
+    /** Height of capital letters and digits for the given size (no descender gap). */
+    public static int capHeight(int size) {
+        if (size <= 0) return 0;
+        TextRenderer renderer = MinecraftClient.getInstance().textRenderer;
+        return Math.max(1, Math.round(7.0f * scaleFor(renderer, size)));
     }
 
     public static void drawCentered(DrawContext context, String text, int centerX, int y, int size,

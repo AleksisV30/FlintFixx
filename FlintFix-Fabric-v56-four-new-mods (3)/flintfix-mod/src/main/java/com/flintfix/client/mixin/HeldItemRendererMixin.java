@@ -1,6 +1,7 @@
 package com.flintfix.client.mixin;
 
 import com.flintfix.client.FlintFixClient;
+import com.flintfix.client.FlintFixHand;
 import com.flintfix.client.FlintFixInspect;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.render.VertexConsumerProvider;
@@ -11,7 +12,6 @@ import net.minecraft.item.Items;
 import net.minecraft.util.Arm;
 import net.minecraft.util.Hand;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -19,60 +19,57 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(HeldItemRenderer.class)
 public abstract class HeldItemRendererMixin {
-    @Unique private boolean flintfix$inspectPushed;
-
-    @Shadow
-    protected abstract void renderArmHoldingItem(MatrixStack matrices, VertexConsumerProvider vertexConsumers,
-                                                 int light, float equipProgress, float swingProgress, Arm arm);
+    @Unique private boolean flintfix$pushed;
+    @Unique private boolean flintfix$inspecting;
 
     /**
-     * Draws the arm behind held items (Show Hand), and drives the inspect
-     * animation for the main hand.
+     * Show Hand lifts the view model slightly so the hand around the grip is on
+     * screen, and Item Inspect moves the whole hand for its animation.
      */
     @Inject(method = "renderFirstPersonItem", at = @At("HEAD"))
     private void flintfix$beginHand(AbstractClientPlayerEntity player, float tickDelta, float pitch, Hand hand,
                                     float swingProgress, ItemStack item, float equipProgress,
                                     MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light,
                                     CallbackInfo ci) {
-        flintfix$inspectPushed = false;
-        if (item.isEmpty()) return;
-        Arm arm = hand == Hand.MAIN_HAND ? player.getMainArm() : player.getMainArm().getOpposite();
+        flintfix$pushed = false;
+        flintfix$inspecting = false;
+        if (item.isEmpty() || item.isOf(Items.FILLED_MAP)) return;
+        boolean inspecting = hand == Hand.MAIN_HAND && FlintFixInspect.isActive();
         boolean showHand = FlintFixClient.CONFIG.showHandEnabled;
+        if (!inspecting && !showHand) return;
 
-        if (hand == Hand.MAIN_HAND && FlintFixInspect.isActive()) {
-            int side = player.getMainArm() == Arm.RIGHT ? 1 : -1;
-            matrices.push();
-            flintfix$inspectPushed = true;
-            FlintFixInspect.applyHand(matrices, side);
-            // With Show Hand off, the arm slides in from below the screen and back out again.
-            float visible = FlintFixInspect.armVisibility(showHand);
-            if (visible > 0.01f && !player.isInvisible()) {
-                float hidden = 1.0f - visible;
-                matrices.push();
-                matrices.translate(0.35f * side * hidden, -0.75f * hidden, 0.0f);
-                renderArmHoldingItem(matrices, vertexConsumers, light, 0.0F, 0.0F, arm);
-                matrices.pop();
-            }
-            return;
-        }
-
-        boolean usingThisHand = player.isUsingItem() && player.getActiveHand() == hand;
-        if (showHand && !usingThisHand && !item.isOf(Items.FILLED_MAP) && !player.isInvisible()) {
-            matrices.push();
-            renderArmHoldingItem(matrices, vertexConsumers, light, equipProgress, swingProgress, arm);
-            matrices.pop();
+        matrices.push();
+        flintfix$pushed = true;
+        if (showHand) FlintFixHand.applyViewLift(matrices);
+        if (inspecting) {
+            flintfix$inspecting = true;
+            FlintFixInspect.applyHand(matrices, player.getMainArm() == Arm.RIGHT ? 1 : -1);
         }
     }
 
-    /** Twirls just the item, right before it is drawn. */
+    /**
+     * Right before the item is drawn the matrix sits in the item's hand frame:
+     * draw the arm there so its fist closes around the item's grip and follows
+     * every swing, then apply the inspect flip to the item alone.
+     */
     @Inject(method = "renderFirstPersonItem", at = @At(value = "INVOKE",
         target = "Lnet/minecraft/client/render/item/HeldItemRenderer;renderItem(Lnet/minecraft/entity/LivingEntity;Lnet/minecraft/item/ItemStack;Lnet/minecraft/client/render/model/json/ModelTransformationMode;ZLnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;I)V"))
-    private void flintfix$twirlItem(AbstractClientPlayerEntity player, float tickDelta, float pitch, Hand hand,
-                                    float swingProgress, ItemStack item, float equipProgress,
-                                    MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light,
-                                    CallbackInfo ci) {
-        if (!flintfix$inspectPushed) return;
-        FlintFixInspect.applyItem(matrices, player.getMainArm() == Arm.RIGHT ? 1 : -1);
+    private void flintfix$holdItem(AbstractClientPlayerEntity player, float tickDelta, float pitch, Hand hand,
+                                   float swingProgress, ItemStack item, float equipProgress,
+                                   MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light,
+                                   CallbackInfo ci) {
+        if (!flintfix$pushed || player.isInvisible()) {
+            if (flintfix$inspecting) FlintFixInspect.applyItem(matrices, player, item, player.getMainArm() == Arm.RIGHT);
+            return;
+        }
+        Arm arm = hand == Hand.MAIN_HAND ? player.getMainArm() : player.getMainArm().getOpposite();
+        float visible = flintfix$inspecting
+            ? FlintFixInspect.armVisibility(FlintFixClient.CONFIG.showHandEnabled)
+            : 1.0f;
+        if (visible > 0.01f) {
+            FlintFixHand.renderGrippingArm(player, item, arm, visible, matrices, vertexConsumers, light);
+        }
+        if (flintfix$inspecting) FlintFixInspect.applyItem(matrices, player, item, player.getMainArm() == Arm.RIGHT);
     }
 
     @Inject(method = "renderFirstPersonItem", at = @At("RETURN"))
@@ -80,9 +77,10 @@ public abstract class HeldItemRendererMixin {
                                   float swingProgress, ItemStack item, float equipProgress,
                                   MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light,
                                   CallbackInfo ci) {
-        if (flintfix$inspectPushed) {
+        if (flintfix$pushed) {
             matrices.pop();
-            flintfix$inspectPushed = false;
+            flintfix$pushed = false;
+            flintfix$inspecting = false;
         }
     }
 }

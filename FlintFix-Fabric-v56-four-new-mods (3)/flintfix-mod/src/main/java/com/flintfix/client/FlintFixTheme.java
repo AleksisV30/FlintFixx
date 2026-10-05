@@ -4,8 +4,11 @@ package com.flintfix.client;
 public enum FlintFixTheme {
     GRAPHITE("Graphite", "Balanced neutral gray", 0xFF10151D, 0xFF171E28, 0xFF1E2024, 0xFF303239,
         0xFF414141, 0xFF454545, 0xFFB0B0B0, 0xFFD4D4D4, 0xFFF1F2F4, 0xFFA4A4A4),
-    LIGHT("Light", "Soft gray with dark edges", 0xFFE2E5E8, 0xFFECEEF0, 0xFFF7F8F9, 0xFFD9DDE1,
-        0xFF49515B, 0xFF7D858F, 0xFF394653, 0xFF202832, 0xFF151A20, 0xFF4D5661),
+    // Light: white cards on a cool off-white window, soft borders and an indigo accent.
+    // "accentBright" is the stronger accent used for text and icons, so on a light
+    // background it is darker than the accent, not lighter.
+    LIGHT("Light", "Clean white with an indigo accent", 0xFFF3F5F8, 0xFFE9ECF1, 0xFFFFFFFF, 0xFFE2E6EC,
+        0xFFC9D0DA, 0xFFDCE1E8, 0xFF4F63E0, 0xFF3446BE, 0xFF161B24, 0xFF5B6576),
     MIDNIGHT("Midnight", "Deep blue slate", 0xFF0D1119, 0xFF121A25, 0xFF182333, 0xFF223248,
         0xFF2A3A50, 0xFF34465E, 0xFF6F9FE8, 0xFF9FC0FA, 0xFFEAF1FC, 0xFF9AAAC0),
     FOREST("Forest", "Muted evergreen", 0xFF101713, 0xFF17211B, 0xFF1D2A22, 0xFF293A2F,

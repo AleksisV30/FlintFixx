@@ -196,7 +196,7 @@ function buildUniqueModFileName(modsDir, originalName) {
 async function fetchJson(url) {
     const response = await fetch(url, {
         headers: {
-            "User-Agent": "FlintFix-Client/40",
+            "User-Agent": "FlintFix-Client/0.57",
             "Accept": "application/json"
         }
     });
@@ -299,7 +299,7 @@ async function postJson(url, body) {
     const response = await fetch(url, {
         method: "POST",
         headers: {
-            "User-Agent": "FlintFix-Client/40",
+            "User-Agent": "FlintFix-Client/0.57",
             "Accept": "application/json",
             "Content-Type": "application/json"
         },
@@ -360,7 +360,7 @@ async function applyInstanceModUpdate(instanceId, fileName, options = {}) {
     if (!mod) throw new Error("Mod file was not found.");
     const update = await getCompatibleModUpdate(mod, String(options.version || ""), String(options.loader || "fabric"));
     if (!update?.updateAvailable || !update.fileUrl) return { updated: false, reason: "Already up to date." };
-    const response = await fetch(update.fileUrl, { headers: { "User-Agent": "FlintFix-Client/40" } });
+    const response = await fetch(update.fileUrl, { headers: { "User-Agent": "FlintFix-Client/0.57" } });
     if (!response.ok) throw new Error(`Download failed (${response.status}).`);
     const bytes = Buffer.from(await response.arrayBuffer());
     const modsDir = getInstanceModsDir(instanceId);
@@ -399,7 +399,7 @@ async function installCatalogMod(instanceId, options = {}) {
         }
     }
     if (!chosenFile?.url) throw new Error("This mod does not expose a downloadable .jar file.");
-    const response = await fetch(chosenFile.url, { headers: { "User-Agent": "FlintFix-Client/40" } });
+    const response = await fetch(chosenFile.url, { headers: { "User-Agent": "FlintFix-Client/0.57" } });
     if (!response.ok) throw new Error(`Download failed (${response.status}).`);
     const arrayBuffer = await response.arrayBuffer();
     const finalName = buildUniqueModFileName(modsDir, chosenFile.filename || `${projectId}.jar`);

@@ -14,7 +14,8 @@
     "WorldRendererSkyMixin",
     "BackgroundRendererMixin",
     "HeldItemRendererMixin",
-    "LightmapTextureManagerMixin"
+    "LightmapTextureManagerMixin",
+    "ScreenInvoker"
   ],
   "injectors": {
     "defaultRequire": 1

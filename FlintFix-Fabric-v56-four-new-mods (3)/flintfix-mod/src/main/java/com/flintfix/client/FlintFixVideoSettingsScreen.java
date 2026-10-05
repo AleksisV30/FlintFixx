@@ -1,5 +1,6 @@
 package com.flintfix.client;
 
+import com.flintfix.client.mixin.ScreenInvoker;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -429,7 +430,7 @@ public final class FlintFixVideoSettingsScreen extends Screen {
         return switch (tier) {
             case "Performance" -> preset("Performance");
             case "High headroom" -> new Recommendation(16, 10, ParticlesMode.DECREASED, CloudRenderMode.FAST,
-                true, 0.9, 240, false, GraphicsMode.FAST);
+                true, 1.0, 240, false, GraphicsMode.FAST);
             default -> preset("Balanced");
         };
     }
@@ -669,6 +670,10 @@ public final class FlintFixVideoSettingsScreen extends Screen {
         if (client == null) return;
         client.options.write();
         client.setScreen(parent);
+        // Since 1.21 a screen keeps its widgets when it is shown again, so the
+        // vanilla Video Settings page would still display (and later save back)
+        // the values from before this page changed them. Rebuild it.
+        if (parent != null) ((ScreenInvoker) parent).flintfix$clearAndInit();
     }
 
     // ------------------------------------------------------------------

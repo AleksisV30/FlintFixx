@@ -31,8 +31,8 @@ import java.util.Random;
  */
 public final class FlintFixSky {
     private static final float RADIUS = 100.0f;
-    private static final float[] LATITUDES = {-90, -40, -20, -8, -3, 0, 2, 5, 9, 14, 20, 28, 38, 50, 64, 78, 90};
-    private static final int LONGITUDES = 48;
+    private static final float[] LATITUDES = {-90, -40, -20, -8, -3, 0, 1, 2.5f, 4, 6, 9, 13, 18, 24, 31, 40, 50, 62, 76, 90};
+    private static final int LONGITUDES = 72;
     private static final int STAR_COUNT = 1400;
     private static final int GALAXY_STAR_COUNT = 2200;
     private static final int STAR_STRIDE = 11;
@@ -194,14 +194,14 @@ public final class FlintFixSky {
         RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
         RenderSystem.setShader(GameRenderer::getPositionColorProgram);
 
+        // Sun direction in world space; matches the celestial rotation below.
         float theta = skyAngle * (float) (Math.PI * 2.0);
-        float sunX = -(float) Math.sin(theta);
-        float sunY = (float) Math.cos(theta);
+        float[] sunDir = {-(float) Math.sin(theta), (float) Math.cos(theta), 0.0f};
         Matrix4f world0 = matrices.peek().getPositionMatrix();
-        draw(dome(world0, preset, daylight, rain, sunX, sunY, config.skyHorizonGlow));
+        draw(dome(world0, preset, daylight, rain, sunDir, config.skyHorizonGlow));
 
         // Everything below glows, so add it on top of the dome.
-        RenderSystem.blendFunc(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE);
+        additive();
         if (config.skyAurora && night * clear * preset.aurora > 0.02f) {
             draw(aurora(world0, preset, night * clear * preset.aurora, time));
         }
@@ -212,16 +212,29 @@ public final class FlintFixSky {
         Matrix4f celestial = matrices.peek().getPositionMatrix();
         float starAlpha = preset.stars * Math.max(night, preset.starsInDay) * clear;
         if (config.skyMilkyWay && starAlpha > 0.02f) {
-            draw(milkyWay(celestial, starAlpha, time));
+            draw(milkyWay(celestial, starAlpha, time, theta));
         }
         if (config.skyNebula && preset.nebula > 0.0f) {
             draw(nebulae(celestial, (night + 0.4f * daylight) * clear * preset.nebula));
         }
         if (config.skyStars && starAlpha > 0.02f) {
-            draw(stars(celestial, STARS, Math.round(STAR_COUNT * preset.stars), starAlpha, time, 1.0f));
+            draw(stars(celestial, STARS, Math.round(STAR_COUNT * preset.stars), starAlpha, time, 1.0f, theta));
         }
-        draw(sun(celestial, preset, clear, time, config.skySunGlow, config.skySunRays));
-        draw(moon(celestial, preset, clear, world.getMoonPhase(), config.skySunGlow, config.skyMoonPhases));
+
+        // The sun fades as it sinks below the horizon so it never shows through the ground.
+        float sunUp = smooth((sunDir[1] + 0.07f) / 0.09f);
+        if (sunUp > 0.0f && clear > 0.0f) {
+            float sunAlpha = clear * sunUp;
+            draw(sunGlow(celestial, preset, sunAlpha, sunDir[1], time, config.skySunGlow, config.skySunRays));
+            // Solid core with normal blending, so it stays visible against bright skies.
+            RenderSystem.defaultBlendFunc();
+            draw(sunCore(celestial, preset, sunAlpha, sunDir[1]));
+            additive();
+        }
+        float moonUp = smooth((-sunDir[1] + 0.07f) / 0.09f);
+        if (moonUp > 0.0f && clear > 0.0f) {
+            draw(moon(celestial, preset, clear * moonUp, world.getMoonPhase(), config.skySunGlow, config.skyMoonPhases));
+        }
         matrices.pop();
 
         if (config.skyShootingStars && night * clear > 0.3f) {
@@ -233,6 +246,10 @@ public final class FlintFixSky {
         RenderSystem.disableBlend();
         RenderSystem.enableCull();
         RenderSystem.depthMask(true);
+    }
+
+    private static void additive() {
+        RenderSystem.blendFunc(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE);
     }
 
     public static final String[] TIME_MODES = {"Follow world", "Day", "Sunset", "Night"};
@@ -267,18 +284,25 @@ public final class FlintFixSky {
     // Dome
     // ------------------------------------------------------------------
 
-    private static BufferBuilder dome(Matrix4f m, Preset preset, float daylight, float rain, float sunX, float sunY,
+    /** Colors shared by every vertex of the dome for one frame. */
+    private record DomeLight(int zenith, int horizon, int ground, int glow, float twilight, float haze,
+                             float day, float[] sun) {}
+
+    private static BufferBuilder dome(Matrix4f m, Preset preset, float daylight, float rain, float[] sunDir,
                                       boolean horizonGlow) {
         Palette day = preset.day;
         Palette night = preset.night;
-        int zenith = weather(lerpColor(night.zenith, day.zenith, daylight), rain);
-        int horizon = weather(lerpColor(night.horizon, day.horizon, daylight), rain);
-        int ground = weather(lerpColor(night.ground, day.ground, daylight), rain);
-        int glow = lerpColor(night.glow, day.glow, daylight);
-        // Twilight: strongest when the sun sits on the horizon.
-        float twilight = horizonGlow ? Math.max(0.0f, 1.0f - Math.abs(sunY) * 2.6f) * (1.0f - rain * 0.8f) : 0.0f;
-        float haze = horizonGlow ? 1.0f - rain * 0.5f : 0.0f;
-        float sunSide = Math.signum(sunX);
+        // Twilight peaks while the sun sits on the horizon and fades out by ~25 degrees.
+        float twilight = horizonGlow ? smooth(1.0f - Math.abs(sunDir[1]) * 2.4f) * (1.0f - rain * 0.8f) : 0.0f;
+        DomeLight light = new DomeLight(
+            weather(lerpColor(night.zenith, day.zenith, daylight), rain),
+            weather(lerpColor(night.horizon, day.horizon, daylight), rain),
+            weather(lerpColor(night.ground, day.ground, daylight), rain),
+            lerpColor(night.glow, day.glow, daylight),
+            twilight,
+            horizonGlow ? 1.0f - rain * 0.5f : 0.0f,
+            daylight,
+            sunDir);
 
         BufferBuilder b = begin();
         for (int ring = 0; ring < LATITUDES.length - 1; ring++) {
@@ -291,10 +315,10 @@ public final class FlintFixSky {
                 float[] c = domePoint(lat1, lon0);
                 float[] d = domePoint(lat1, lon1);
                 float[] e = domePoint(lat0, lon1);
-                int ca = domeColor(a, lat0, zenith, horizon, ground, glow, twilight, haze, sunSide);
-                int cc = domeColor(c, lat1, zenith, horizon, ground, glow, twilight, haze, sunSide);
-                int cd = domeColor(d, lat1, zenith, horizon, ground, glow, twilight, haze, sunSide);
-                int ce = domeColor(e, lat0, zenith, horizon, ground, glow, twilight, haze, sunSide);
+                int ca = domeColor(a, lat0, light);
+                int cc = domeColor(c, lat1, light);
+                int cd = domeColor(d, lat1, light);
+                int ce = domeColor(e, lat0, light);
                 vertex(b, m, a, ca); vertex(b, m, c, cc); vertex(b, m, d, cd);
                 vertex(b, m, a, ca); vertex(b, m, d, cd); vertex(b, m, e, ce);
             }
@@ -312,69 +336,106 @@ public final class FlintFixSky {
         };
     }
 
-    private static int domeColor(float[] p, float lat, int zenith, int horizon, int ground, int glow,
-                                 float twilight, float haze, float sunSide) {
+    /**
+     * Gradient from horizon to zenith, plus a scattering halo around the sun,
+     * a warm twilight band on the sun's side, and the pink "belt" with the
+     * darker Earth shadow on the opposite side during sunrise and sunset.
+     */
+    private static int domeColor(float[] p, float lat, DomeLight light) {
         int color;
         if (lat < 0.0f) {
-            color = lerpColor(horizon, ground, smooth(Math.min(1.0f, -lat / 25.0f)));
+            color = lerpColor(light.horizon, light.ground, smooth(Math.min(1.0f, -lat / 20.0f)));
         } else {
-            color = lerpColor(horizon, zenith, (float) Math.pow(lat / 90.0f, 0.5));
-            // Thin bright band of atmospheric haze just above the horizon.
-            if (haze > 0.0f && lat < 10.0f) {
-                color = lerpColor(color, lighten(horizon, 0.35f), haze * 0.45f * (1.0f - lat / 10.0f));
+            color = lerpColor(light.horizon, light.zenith, (float) Math.pow(lat / 90.0f, 0.45));
+            if (light.haze > 0.0f && lat < 8.0f) {
+                color = lerpColor(color, lighten(light.horizon, 0.25f), light.haze * 0.35f * (1.0f - lat / 8.0f));
             }
         }
-        if (twilight > 0.0f) {
-            float toward = Math.max(0.0f, p[0] / RADIUS * sunSide);
-            float low = 1.0f - Math.min(1.0f, Math.abs(lat) / 35.0f);
-            float amount = twilight * toward * toward * low * 0.85f;
-            if (amount > 0.0f) color = lerpColor(color, glow, Math.min(1.0f, amount));
+        float[] sun = light.sun;
+        float mu = (p[0] * sun[0] + p[1] * sun[1] + p[2] * sun[2]) / RADIUS;
+        float toward = Math.max(0.0f, mu);
+        float low = 1.0f - Math.min(1.0f, Math.abs(lat) / 38.0f);
+        if (light.twilight > 0.0f) {
+            // Warm glow hugging the horizon under the sun.
+            float band = light.twilight * (toward * toward) * low * 0.9f;
+            if (band > 0.0f) color = lerpColor(color, light.glow, Math.min(0.9f, band));
+            // Opposite the sun: pink belt above a cool, darker shadow band.
+            float away = Math.max(0.0f, -mu);
+            if (away > 0.0f && lat >= 0.0f) {
+                float belt = light.twilight * away * smooth(1.0f - Math.abs(lat - 9.0f) / 9.0f) * 0.32f;
+                color = lerpColor(color, 0xFFD898B8, belt);
+                float shadow = light.twilight * away * smooth(1.0f - lat / 4.0f) * 0.30f;
+                color = lerpColor(color, 0xFF1C2440, shadow);
+            }
         }
-        return color;
+        // Daytime forward scattering: a soft brightening around the sun that never
+        // reaches white, so the sun disc keeps its contrast.
+        float halo = (float) Math.pow(toward, 6.0) * 0.28f * light.day * (0.5f + 0.5f * low);
+        if (halo > 0.0f) color = lerpColor(color, lighten(light.glow, 0.35f), halo);
+        return capBrightness(color, 0.86f);
+    }
+
+    /** Keeps sky colors below a luminance ceiling so the sun always reads brighter. */
+    private static int capBrightness(int color, float ceiling) {
+        int r = (color >>> 16) & 0xFF, g = (color >>> 8) & 0xFF, b = color & 0xFF;
+        float lum = (r * 0.2126f + g * 0.7152f + b * 0.0722f) / 255.0f;
+        if (lum <= ceiling) return color;
+        float k = ceiling / lum;
+        return (color & 0xFF000000) | (Math.round(r * k) << 16) | (Math.round(g * k) << 8) | Math.round(b * k);
     }
 
     // ------------------------------------------------------------------
     // Effects
     // ------------------------------------------------------------------
 
+    /**
+     * Aurora curtains: folded ribbons with fine vertical rays, a bright lower
+     * edge in the preset's first color fading upward into the second.
+     */
     private static BufferBuilder aurora(Matrix4f m, Preset preset, float strength, float time) {
         BufferBuilder b = begin();
-        int segments = 64;
+        int segments = 140;
         for (int ribbon = 0; ribbon < 3; ribbon++) {
             float offset = ribbon * 1.7f;
             float[][] bottom = new float[segments + 1][];
-            float[][] middle = new float[segments + 1][];
+            float[][] edge = new float[segments + 1][];
             float[][] top = new float[segments + 1][];
-            int[] colors = new int[segments + 1];
+            int[] low = new int[segments + 1];
+            int[] high = new int[segments + 1];
             for (int k = 0; k <= segments; k++) {
                 float u = k / (float) segments;
-                float lon = 195.0f + u * 150.0f + 6.0f * (float) Math.sin(time * 0.21f + u * 9.0f + offset);
+                // Slow folds travel along the ribbon.
+                float lon = 190.0f + u * 160.0f + 7.0f * (float) Math.sin(time * 0.17f + u * 8.0f + offset)
+                    + 2.5f * (float) Math.sin(time * 0.41f + u * 23.0f + offset * 3.0f);
                 float rad = (float) Math.toRadians(lon);
-                float base = 13.0f + ribbon * 5.0f + 5.0f * (float) Math.sin(rad * 3.0f + time * 0.25f + offset);
-                float height = 18.0f + 9.0f * (float) Math.sin(rad * 2.0f - time * 0.18f + offset * 2.0f);
-                bottom[k] = domePoint(base, lon);
-                middle[k] = domePoint(base + height * 0.28f, lon);
+                float base = 12.0f + ribbon * 5.5f + 4.0f * (float) Math.sin(rad * 3.0f + time * 0.21f + offset);
+                float height = 20.0f + 10.0f * (float) Math.sin(rad * 2.0f - time * 0.15f + offset * 2.0f);
+                bottom[k] = domePoint(base - 1.0f, lon);
+                edge[k] = domePoint(base + 2.2f, lon);
                 top[k] = domePoint(base + height, lon);
-                float shift = 0.5f + 0.5f * (float) Math.sin(rad * 1.5f + time * 0.1f + offset);
                 float fade = (float) Math.sin(Math.PI * u);
-                float shimmer = 0.7f + 0.3f * (float) Math.sin(time * 1.1f + u * 18.0f + offset);
-                float alpha = 0.45f * strength * fade * shimmer;
-                colors[k] = withAlpha(lerpColor(preset.auroraA, preset.auroraB, shift), alpha);
+                fade *= fade;
+                // Vertical rays: fine, slowly drifting striations.
+                float rays = 0.55f + 0.45f * (float) Math.sin(u * 190.0f + time * 0.9f + offset * 5.0f)
+                    * (float) Math.sin(u * 47.0f - time * 0.35f + offset);
+                float pulse = 0.75f + 0.25f * (float) Math.sin(time * 0.6f + u * 6.0f + offset * 2.0f);
+                float alpha = strength * fade * pulse * (0.55f + 0.45f * rays) / (1.0f + ribbon * 0.35f);
+                low[k] = withAlpha(lighten(preset.auroraA, 0.25f), 0.55f * alpha);
+                high[k] = withAlpha(lerpColor(preset.auroraA, preset.auroraB, 0.75f), 0.30f * alpha);
             }
             for (int k = 0; k < segments; k++) {
-                int c0 = colors[k];
-                int c1 = colors[k + 1];
-                int clear0 = c0 & 0x00FFFFFF;
-                int clear1 = c1 & 0x00FFFFFF;
-                quad(b, m, bottom[k], bottom[k + 1], middle[k + 1], middle[k], clear0, clear1, c1, c0);
-                quad(b, m, middle[k], middle[k + 1], top[k + 1], top[k], c0, c1, clear1, clear0);
+                // Sharp lower edge, long soft fade upward.
+                quad(b, m, bottom[k], bottom[k + 1], edge[k + 1], edge[k],
+                    low[k] & 0x00FFFFFF, low[k + 1] & 0x00FFFFFF, low[k + 1], low[k]);
+                quad(b, m, edge[k], edge[k + 1], top[k + 1], top[k],
+                    low[k], low[k + 1], high[k + 1] & 0x00FFFFFF, high[k] & 0x00FFFFFF);
             }
         }
         return b;
     }
 
     /** A soft glowing band with a dense cluster of faint stars along one great circle. */
-    private static BufferBuilder milkyWay(Matrix4f m, float alpha, float time) {
+    private static BufferBuilder milkyWay(Matrix4f m, float alpha, float time, float theta) {
         BufferBuilder b = begin();
         float[] u = GALAXY_BASIS[0];
         float[] v = GALAXY_BASIS[1];
@@ -390,12 +451,14 @@ public final class FlintFixSky {
             for (int side = -1; side <= 1; side += 2) {
                 float[] e0 = galaxyPoint(u, v, n, a0, side * 0.16f);
                 float[] e1 = galaxyPoint(u, v, n, a1, side * 0.16f);
-                int center0 = withAlpha(0xFFB8C6FF, 0.13f * alpha * core0);
-                int center1 = withAlpha(0xFFB8C6FF, 0.13f * alpha * core1);
+                float fade0 = smooth((worldHeight(c0[1] / RADIUS, c0[2] / RADIUS, theta) + 0.05f) / 0.35f);
+                float fade1 = smooth((worldHeight(c1[1] / RADIUS, c1[2] / RADIUS, theta) + 0.05f) / 0.35f);
+                int center0 = withAlpha(lerpColor(0xFFB8C6FF, 0xFFE8D2B8, core0 * 0.35f), 0.15f * alpha * core0 * fade0);
+                int center1 = withAlpha(lerpColor(0xFFB8C6FF, 0xFFE8D2B8, core1 * 0.35f), 0.15f * alpha * core1 * fade1);
                 quad(b, m, c0, c1, e1, e0, center0, center1, 0x00B8C6FF, 0x00B8C6FF);
             }
         }
-        appendStars(b, m, GALAXY_STARS, GALAXY_STAR_COUNT, alpha * 0.55f, time, 0.8f);
+        appendStars(b, m, GALAXY_STARS, GALAXY_STAR_COUNT, alpha * 0.55f, time, 0.8f, theta);
         return b;
     }
 
@@ -420,20 +483,34 @@ public final class FlintFixSky {
         return b;
     }
 
-    private static BufferBuilder stars(Matrix4f m, float[] data, int count, float alpha, float time, float sizeScale) {
+    private static BufferBuilder stars(Matrix4f m, float[] data, int count, float alpha, float time, float sizeScale,
+                                       float theta) {
         BufferBuilder b = begin();
-        appendStars(b, m, data, count, alpha, time, sizeScale);
+        appendStars(b, m, data, count, alpha, time, sizeScale, theta);
         return b;
     }
 
+    /**
+     * World-space height (-1..1) of a celestial direction. The celestial frame is
+     * rotated by theta around X, then -90 degrees around Y, which keeps height.
+     */
+    private static float worldHeight(float y, float z, float theta) {
+        return y * (float) Math.cos(theta) - z * (float) Math.sin(theta);
+    }
+
     private static void appendStars(BufferBuilder b, Matrix4f m, float[] data, int count, float alpha, float time,
-                                    float sizeScale) {
+                                    float sizeScale, float theta) {
         for (int i = 0; i < count; i++) {
             int o = i * STAR_STRIDE;
-            float twinkle = 0.55f + 0.45f * (float) Math.sin(time * (1.3f + (i % 7) * 0.35f) + data[o + 9]);
+            // Atmospheric extinction: stars dim and stop twinkling-out near the horizon.
+            float height = worldHeight(data[o + 1], data[o + 2], theta);
+            float extinction = smooth((height + 0.02f) / 0.32f);
+            if (extinction <= 0.0f) continue;
+            float scintillation = 0.35f + 0.25f * (1.0f - extinction);
+            float twinkle = (1.0f - scintillation) + scintillation * (float) Math.sin(time * (1.3f + (i % 7) * 0.35f) + data[o + 9]);
             float tint = data[o + 10];
             int base = tint < 0.25f ? 0xFFBFD4FF : (tint < 0.8f ? 0xFFFFFFFF : 0xFFFFE2B8);
-            int color = withAlpha(base, alpha * twinkle);
+            int color = withAlpha(base, alpha * twinkle * extinction);
             float x = data[o] * RADIUS, y = data[o + 1] * RADIUS, z = data[o + 2] * RADIUS;
             float ux = data[o + 3] * sizeScale, uy = data[o + 4] * sizeScale, uz = data[o + 5] * sizeScale;
             float vx = data[o + 6] * sizeScale, vy = data[o + 7] * sizeScale, vz = data[o + 8] * sizeScale;
@@ -445,32 +522,66 @@ public final class FlintFixSky {
         }
     }
 
-    private static BufferBuilder sun(Matrix4f m, Preset preset, float clear, float time, boolean glow, boolean rays) {
+    /** Sun color: the preset's tint, warming toward orange-red near the horizon. */
+    private static int sunColor(Preset preset, float elevation) {
+        float low = smooth(1.0f - elevation / 0.32f);
+        return lerpColor(preset.sun, 0xFFFF7A38, low * 0.75f);
+    }
+
+    /** Soft bloom, corona and slow light shafts around the sun (additive). */
+    private static BufferBuilder sunGlow(Matrix4f m, Preset preset, float alpha, float elevation, float time,
+                                         boolean glow, boolean rays) {
         BufferBuilder b = begin();
         float[][] flat = {{1, 0, 0}, {0, 0, 1}};
         float[] center = {0, RADIUS, 0};
-        int sun = preset.sun;
+        int sun = sunColor(preset, elevation);
+        float low = smooth(1.0f - elevation / 0.32f);
         if (rays) {
-            int count = 14;
+            int count = 18;
             for (int i = 0; i < count; i++) {
-                double angle = i * Math.PI * 2.0 / count + time * 0.03;
-                float length = 30.0f + 18.0f * (0.5f + 0.5f * (float) Math.sin(i * 1.7 + time * 0.4));
-                float spread = 0.07f;
+                double angle = i * Math.PI * 2.0 / count + time * 0.012 + Math.sin(i * 12.9898) * 0.12;
+                float pulse = 0.5f + 0.5f * (float) Math.sin(i * 1.7 + time * 0.23);
+                float length = 34.0f + 26.0f * pulse + 14.0f * low;
+                float spread = 0.035f + 0.02f * (float) Math.sin(i * 3.1);
                 float[] tip0 = offset(center, flat[0], flat[1], (float) Math.cos(angle - spread) * length, (float) Math.sin(angle - spread) * length);
                 float[] tip1 = offset(center, flat[0], flat[1], (float) Math.cos(angle + spread) * length, (float) Math.sin(angle + spread) * length);
-                int core = withAlpha(sun, 0.16f * clear);
-                vertex(b, m, center, core);
+                vertex(b, m, center, withAlpha(sun, (0.07f + 0.05f * pulse) * alpha));
                 vertex(b, m, tip0, sun & 0x00FFFFFF);
                 vertex(b, m, tip1, sun & 0x00FFFFFF);
             }
         }
         if (glow) {
-            disc(b, m, center, flat, 0.0f, 36.0f, withAlpha(sun, 0.32f * clear), sun & 0x00FFFFFF);
-            disc(b, m, center, flat, 0.0f, 14.0f, withAlpha(sun, 0.25f * clear), sun & 0x00FFFFFF);
+            // Several rings approximate an exponential falloff instead of a hard cone.
+            float bloom = 1.0f + 0.6f * low;
+            softDisc(b, m, center, flat, 46.0f * bloom, sun, 0.22f * alpha);
+            softDisc(b, m, center, flat, 20.0f * bloom, sun, 0.30f * alpha);
+            softDisc(b, m, center, flat, 10.5f, lighten(sun, 0.4f), 0.45f * alpha);
         }
-        disc(b, m, center, flat, 0.0f, 6.5f, withAlpha(lighten(sun, 0.5f), clear), withAlpha(sun, clear));
-        disc(b, m, center, flat, 6.5f, 9.0f, withAlpha(sun, clear), sun & 0x00FFFFFF);
         return b;
+    }
+
+    /** The disc itself, drawn with normal blending: bright center, warmer limb, crisp edge. */
+    private static BufferBuilder sunCore(Matrix4f m, Preset preset, float alpha, float elevation) {
+        BufferBuilder b = begin();
+        float[][] flat = {{1, 0, 0}, {0, 0, 1}};
+        float[] center = {0, RADIUS, 0};
+        int sun = sunColor(preset, elevation);
+        int hot = lerpColor(lighten(sun, 0.82f), 0xFFFFFFFF, 0.3f);
+        disc(b, m, center, flat, 0.0f, 4.2f, withAlpha(hot, alpha), withAlpha(lighten(sun, 0.6f), alpha));
+        disc(b, m, center, flat, 4.2f, 5.6f, withAlpha(lighten(sun, 0.6f), alpha), withAlpha(lighten(sun, 0.3f), alpha * 0.9f));
+        disc(b, m, center, flat, 5.6f, 6.6f, withAlpha(lighten(sun, 0.3f), alpha * 0.9f), sun & 0x00FFFFFF);
+        return b;
+    }
+
+    /** Disc that fades from the center outward over a few rings, like a blurred spot. */
+    private static void softDisc(BufferBuilder b, Matrix4f m, float[] center, float[][] basis, float radius,
+                                 int color, float alpha) {
+        float[] stops = {0.0f, 0.18f, 0.42f, 0.7f, 1.0f};
+        float[] weights = {1.0f, 0.62f, 0.3f, 0.1f, 0.0f};
+        for (int i = 0; i < stops.length - 1; i++) {
+            disc(b, m, center, basis, stops[i] * radius, stops[i + 1] * radius,
+                withAlpha(color, alpha * weights[i]), withAlpha(color, alpha * weights[i + 1]));
+        }
     }
 
     /** Moon with a lit crescent/gibbous shape that follows the world's moon phase. */
@@ -481,7 +592,8 @@ public final class FlintFixSky {
         int moon = preset.moon;
         float lit = phases ? (1.0f + (float) Math.cos(phase * Math.PI / 4.0)) / 2.0f : 1.0f;
         if (glow) {
-            disc(b, m, center, flat, 0.0f, 18.0f, withAlpha(moon, 0.20f * clear * (0.3f + 0.7f * lit)), moon & 0x00FFFFFF);
+            softDisc(b, m, center, flat, 26.0f, moon, 0.16f * clear * (0.3f + 0.7f * lit));
+            softDisc(b, m, center, flat, 10.0f, moon, 0.20f * clear * (0.3f + 0.7f * lit));
         }
         float radius = 5.0f;
         // Faint full disc so the dark part of the moon still reads against the stars.

@@ -10,7 +10,7 @@ const FABRIC_AGENT = new https.Agent({ keepAlive: true, maxSockets: 16, maxFreeS
 
 function getJson(url) {
     return new Promise((resolve, reject) => {
-        https.get(url, { agent: FABRIC_AGENT, headers: { "User-Agent": "FlintFix-Client/0.56" } }, response => {
+        https.get(url, { agent: FABRIC_AGENT, headers: { "User-Agent": "FlintFix-Client/0.57" } }, response => {
             if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
                 response.resume();
                 return getJson(new URL(response.headers.location, url).toString()).then(resolve, reject);
@@ -35,7 +35,7 @@ function download(url, destination) {
         if (fs.existsSync(destination) && fs.statSync(destination).size > 0) return resolve(destination);
         const temp = `${destination}.part`;
         const request = currentUrl => {
-            https.get(currentUrl, { agent: FABRIC_AGENT, headers: { "User-Agent": "FlintFix-Client/0.56" } }, response => {
+            https.get(currentUrl, { agent: FABRIC_AGENT, headers: { "User-Agent": "FlintFix-Client/0.57" } }, response => {
                 if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
                     response.resume();
                     request(new URL(response.headers.location, currentUrl).toString());
@@ -133,10 +133,13 @@ async function ensureModJar(projectRoot, javaExecutable, emit) {
         }
         return newest;
     })();
-    const cached = fs.existsSync(libs)
+    // Newest built JAR; after a version bump build/libs holds several, and the
+    // alphabetically first one could be an older build.
+    const newestJar = () => fs.existsSync(libs)
         ? fs.readdirSync(libs).filter(file => /^flintfix-client-mod-.*\.jar$/i.test(file) && !/-sources\.jar$/i.test(file))
-            .map(file => path.join(libs, file)).sort((a,b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)[0]
+            .map(file => path.join(libs, file)).sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)[0] || null
         : null;
+    const cached = newestJar();
     if (cached && fs.statSync(cached).mtimeMs >= newestSource) return cached;
 
     emit?.({ stage: "fabric", message: "Building FlintFix in-game client..." });
@@ -144,11 +147,9 @@ async function ensureModJar(projectRoot, javaExecutable, emit) {
     if (!fs.existsSync(script)) throw new Error("flintfix-mod/build-mod.ps1 is missing.");
     await runPowerShell(script, modRoot, javaExecutable);
 
-    const candidate = fs.existsSync(libs)
-        ? fs.readdirSync(libs).find(file => /^flintfix-client-mod-.*\.jar$/i.test(file) && !/-sources\.jar$/i.test(file))
-        : null;
+    const candidate = newestJar();
     if (!candidate) throw new Error("The FlintFix mod build completed but no mod JAR was produced.");
-    return path.join(libs, candidate);
+    return candidate;
 }
 
 async function installFabric({ rootDir, projectRoot, minecraftVersion, javaExecutable, emit }) {
