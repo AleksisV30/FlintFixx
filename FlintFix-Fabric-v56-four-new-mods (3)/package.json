@@ -12,7 +12,8 @@
   "dependencies": {
     "@azure/msal-node": "^6.0.1",
     "extract-zip": "^2.0.1",
-    "@xhayper/discord-rpc": "^1.5.1"
+    "@xhayper/discord-rpc": "^1.5.1",
+    "material-symbols": "^0.47.6"
   },
   "productName": "FlintFix Client"
 }

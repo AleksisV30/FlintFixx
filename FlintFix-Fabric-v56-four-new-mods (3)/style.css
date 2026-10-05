@@ -4131,3 +4131,226 @@ body::after { display: none; }
     .pack-card, .packs-hero-tiles span, .pack-card.skeleton { animation: none; }
     .pack-card:hover { transform: none; }
 }
+
+/* ================================================================== */
+/* v57 refresh: one calm visual system on top of the earlier layers.  */
+/* Flat surfaces, a single accent, consistent type and button sizes.  */
+/* ================================================================== */
+
+:root {
+    --ff-bg: #0a0c10;
+    --ff-panel: #101319;
+    --ff-panel-2: #151922;
+    --ff-panel-3: #1b202b;
+    --ff-line: rgba(255, 255, 255, .06);
+    --ff-line-2: rgba(255, 255, 255, .1);
+    --ff-text: #eef1f6;
+    --ff-muted: #8b93a3;
+    --ff-subtle: #5f6878;
+    --ff-accent: #9466ff;
+    --ff-accent-hover: #a57dff;
+    --ff-accent-soft: rgba(148, 102, 255, .14);
+    --ff-radius: 14px;
+    --ff-radius-sm: 10px;
+}
+
+body,
+.app-frame,
+.workspace,
+.main-shell { background: var(--ff-bg); }
+body { color: var(--ff-text); }
+.app-frame .app-page { background: none; }
+
+/* Top bar and sidebar: same color as the page, separated by hairlines. */
+.app-frame .topbar { background: var(--ff-bg); border-bottom: 1px solid var(--ff-line); box-shadow: none; }
+.app-frame .page-chip { display: none; }
+.app-frame .sidebar { background: var(--ff-bg); border-right: 1px solid var(--ff-line); }
+.app-frame .nav-item { border-color: transparent; background: transparent; color: var(--ff-muted); }
+.app-frame .nav-item:hover { background: var(--ff-panel-2); color: var(--ff-text); transform: none; }
+.app-frame .nav-item.active { background: var(--ff-accent-soft); border-color: transparent; color: #fff; }
+.app-frame .nav-item.active .nav-icon { color: var(--ff-accent-hover); }
+
+/* Headings */
+.app-frame .section-kicker { color: var(--ff-accent-hover); font-size: 10px; font-weight: 800; letter-spacing: .14em; }
+.app-frame .launch-card-header h1,
+.app-frame .instances-header h1,
+.app-frame .mods-header h1,
+.app-frame .explore-hero h1 { font-size: 22px; font-weight: 750; letter-spacing: -.01em; margin: 6px 0 4px; }
+.app-frame .launch-card-header p,
+.app-frame .instances-header p,
+.app-frame .mods-header p,
+.app-frame .explore-hero p { color: var(--ff-muted); font-size: 13px; line-height: 1.5; }
+
+/* Outer cards: one flat surface with a hairline border. */
+.app-frame .launch-card,
+.app-frame .console-card,
+.app-frame .explore-hero,
+.app-frame .explore-target-bar,
+.app-frame .explore-control-surface,
+.app-frame .mods-instance-panel,
+.app-frame .mods-config-strip,
+.app-frame .mods-workspace-panel,
+.app-frame .instance-card,
+.app-frame .instance-summary-card,
+.app-frame .chat-shell,
+.app-frame .explore-mod-card,
+.app-frame .pack-card,
+.app-frame .pack-row {
+    background: var(--ff-panel);
+    border: 1px solid var(--ff-line);
+    border-radius: var(--ff-radius);
+    box-shadow: none;
+}
+.app-frame .premium-card:hover,
+.app-frame .instance-card:hover,
+.app-frame .pack-card:hover { border-color: var(--ff-line-2); box-shadow: none; transform: translateY(-2px); }
+
+/* Heroes are now a simple header, not a banner. */
+.app-frame .explore-hero { padding: 18px 22px; min-height: 0; background: var(--ff-panel); }
+.app-frame .explore-hero-orbit,
+.app-frame .packs-hero-tiles,
+.app-frame .minecraft-badge { display: none; }
+
+/* Inner blocks: a step lighter, no border, so cards never look nested. */
+.app-frame .selection-trigger,
+.app-frame .runtime-card,
+.app-frame .player-card,
+.app-frame .mod-row,
+.app-frame .instance-details > div,
+.app-frame .mods-instance-option,
+.app-frame .explore-search-large,
+.app-frame .instances-search,
+.app-frame .mods-search,
+.app-frame .console {
+    background: var(--ff-panel-2);
+    border: 1px solid transparent;
+    border-radius: var(--ff-radius-sm);
+    box-shadow: none;
+}
+.app-frame .selection-trigger:hover,
+.app-frame .mods-instance-option:hover { background: var(--ff-panel-3); border-color: transparent; }
+.app-frame .mods-instance-option.active { background: var(--ff-accent-soft); border-color: rgba(148, 102, 255, .35); }
+.app-frame .explore-search-large:focus-within,
+.app-frame .instances-search:focus-within,
+.app-frame .mods-search:focus-within { border-color: rgba(148, 102, 255, .45); }
+.app-frame .selection-icon,
+.app-frame .runtime-symbol,
+.app-frame .instance-card-icon { background: var(--ff-panel-3); border-color: transparent; box-shadow: none; }
+
+/* Small labels above fields. */
+.app-frame .setting-block > label,
+.app-frame .mods-config-field > span,
+.app-frame .explore-sort > span {
+    color: var(--ff-muted);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+}
+
+/* Buttons: primary = solid accent, secondary = quiet surface. Same radius everywhere. */
+.app-frame .play-button,
+.app-frame .create-instance-button,
+.app-frame .mods-config-save,
+.app-frame .explore-install-button,
+.app-frame .pack-card-install,
+.app-frame .instance-play-action,
+.app-frame #packPreviewInstall {
+    background: var(--ff-accent);
+    border: 1px solid transparent;
+    border-radius: var(--ff-radius-sm);
+    color: #fff;
+    box-shadow: none;
+    filter: none;
+}
+.app-frame .play-button:hover,
+.app-frame .create-instance-button:hover,
+.app-frame .instance-play-action:hover,
+.app-frame .mods-config-save:hover,
+.app-frame .explore-install-button:hover:not(:disabled),
+.app-frame .pack-card-install:hover:not(:disabled),
+.app-frame #packPreviewInstall:hover:not(:disabled) {
+    background: var(--ff-accent-hover);
+    box-shadow: none;
+    filter: none;
+    transform: translateY(-1px);
+}
+.app-frame .create-instance-button,
+.app-frame .mods-add-button,
+.app-frame .mods-config-save { height: 38px; padding: 0 16px; font-size: 13px; font-weight: 700; }
+.app-frame .mods-folder-button,
+.app-frame .explore-open-button,
+.app-frame .mod-toggle-button,
+.app-frame .mod-remove-button,
+.app-frame .instance-secondary-action,
+.app-frame .instance-icon-button,
+.app-frame .pack-row-remove {
+    background: var(--ff-panel-2);
+    border: 1px solid var(--ff-line);
+    border-radius: var(--ff-radius-sm);
+    color: var(--ff-text);
+    box-shadow: none;
+}
+.app-frame .mods-folder-button:hover,
+.app-frame .explore-open-button:hover,
+.app-frame .mod-toggle-button:hover,
+.app-frame .instance-secondary-action:hover,
+.app-frame .instance-icon-button:hover { background: var(--ff-panel-3); border-color: var(--ff-line-2); filter: none; }
+.app-frame .pack-card-install.is-installed,
+.app-frame #packPreviewInstall.is-installed { background: rgba(95, 211, 138, .12); border-color: rgba(95, 211, 138, .3); color: #7fe0a3; }
+
+/* Play button: big and clear, without the glow. */
+.app-frame .play-button { font-size: 15px; letter-spacing: .08em; }
+.app-frame .quick-launch-button { background: var(--ff-panel-2); border: 1px solid var(--ff-line); box-shadow: none; }
+.app-frame .quick-launch-button:hover { background: var(--ff-panel-3); }
+
+/* Chips and category pills. */
+.app-frame .explore-category,
+.app-frame .packs-view-tabs,
+.app-frame .explore-page-number,
+.app-frame .explore-page-nav {
+    background: var(--ff-panel);
+    border: 1px solid var(--ff-line);
+    box-shadow: none;
+}
+.app-frame .explore-category.active,
+.app-frame .explore-page-number.active,
+.app-frame .packs-view-tab.active { background: var(--ff-accent-soft); border-color: rgba(148, 102, 255, .35); color: #fff; }
+.app-frame .explore-category:hover { transform: none; border-color: var(--ff-line-2); }
+
+/* Mods page: the config row was oversized. */
+.app-frame .mods-config-strip { padding: 14px 16px; gap: 12px; align-items: end; }
+.app-frame .mods-config-field select,
+.app-frame .mods-config-field .flint-select-trigger { height: 40px; font-size: 13px; text-transform: none; letter-spacing: 0; }
+
+/* Status badges keep their colors but drop the glow. */
+.app-frame .instance-card::before { box-shadow: none; }
+.app-frame .launcher-ready { background: var(--ff-panel-2); border-color: var(--ff-line); }
+
+/* Modals */
+.app-frame ~ .modal-backdrop .mod-details-modal,
+.mod-details-modal,
+.pack-preview-modal { background: var(--ff-panel); border-color: var(--ff-line-2); }
+.mod-details-stat { background: var(--ff-panel-2); border-color: transparent; }
+
+/* Console */
+.app-frame .console { font-size: 12px; }
+.app-frame .mods-config-field .flint-select-value { text-transform: none; letter-spacing: 0; font-size: 13px; }
+.app-frame .instance-delete-button { background: var(--ff-panel-2); border: 1px solid var(--ff-line); border-radius: var(--ff-radius-sm); box-shadow: none; }
+.app-frame .instance-delete-button:hover { background: var(--red-soft); border-color: rgba(255, 123, 143, .3); }
+.app-frame .packs-hero { margin-bottom: 16px; }
+.app-frame #packsStatus { margin: 12px 0 10px; }
+.app-frame .login-button {
+    height: 34px;
+    padding: 0 16px;
+    border-radius: var(--ff-radius-sm);
+    background: var(--ff-accent);
+    border: 1px solid transparent;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    box-shadow: none;
+}
+.app-frame .login-button:hover { background: var(--ff-accent-hover); }
+.app-frame .packs-controls { margin-bottom: 14px; }
+.app-frame .packs-view-tab { font-size: 13px; height: 32px; }
