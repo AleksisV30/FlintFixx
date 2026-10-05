@@ -1,0 +1,8 @@
+{
+  "key.flintfix.open_client": "Open FlintFix Client",
+  "key.flintfix.freecam": "Toggle Freecam",
+  "key.flintfix.zoom": "Hold to Zoom",
+  "key.flintfix.look_around": "Hold to Look Around",
+  "key.flintfix.inspect": "Inspect Held Item",
+  "category.flintfix": "FlintFix Client"
+}

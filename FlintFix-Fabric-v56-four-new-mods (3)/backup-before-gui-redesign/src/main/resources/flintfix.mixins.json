@@ -1,0 +1,18 @@
+{
+  "required": true,
+  "package": "com.flintfix.client.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "MouseMixin",
+    "EntityMixin",
+    "CameraMixin",
+    "GameRendererMixin",
+    "HandledScreenAccessor",
+    "KeyboardInputMixin",
+    "TitleScreenMixin",
+    "TitleButtonMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlintFix Client</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..700,0..1,-50..200&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-frame">
+        <header class="topbar">
+            <button class="brand-home" id="brandHomeButton" type="button" aria-label="Go to Home">
+                <img id="brandIcon" src="assets/flintfix-client-icon.png" alt="FlintFix Client">
+                <span>FlintFix Client</span>
+            </button>
+
+            <div class="topbar-center">
+                <span class="page-chip" id="pageChip">
+                    <span class="page-chip-icon material-symbols-rounded" id="pageIcon" aria-hidden="true">home</span>
+                    <span class="page-name" id="pageName">Home</span>
+                </span>
+            </div>
+
+            <div class="topbar-actions">
+                <div class="launcher-ready not-ready" id="launcherReady" data-tooltip="Sign in to a Minecraft account.">
+                    <span class="ready-dot"></span>
+                    <span id="launcherReadyText">NOT READY</span>
+                </div>
+
+                <button class="quick-launch-button" id="quickLaunchButton" type="button" aria-label="Quick launch Minecraft" data-tooltip="Quick launch with the current Home setup">
+                    <span class="material-symbols-rounded quick-launch-icon" aria-hidden="true">play_arrow</span>
+                    <span>Play</span>
+                </button>
+
+                <button class="login-button" id="loginButton" type="button">Log in</button>
+
+                <div class="account-area" id="accountArea" hidden>
+                    <button class="account-button" id="accountButton" type="button" aria-label="Open account menu">
+                        <span class="skin-face account-face" id="accountAvatar"></span>
+                        <span class="account-name-mini" id="accountNameMini">Account</span>
+                        <span class="account-chevron material-symbols-rounded" aria-hidden="true">expand_more</span>
+                    </button>
+
+                    <div class="account-dropdown" id="accountDropdown" hidden>
+                        <div class="account-dropdown-header">
+                            <span class="skin-face dropdown-face" id="dropdownAvatar"></span>
+                            <div class="account-dropdown-copy">
+                                <div class="account-dropdown-name" id="dropdownAccountName">Minecraft account</div>
+                                <div class="account-dropdown-email" id="dropdownAccountEmail">Connected</div>
+                            </div>
+                        </div>
+                        <button type="button" id="changeAccountButton">Change account</button>
+                        <button type="button" id="userSettingsButton">User settings</button>
+                        <button type="button" id="signOutButton" class="danger-item">Log out</button>
+                    </div>
+                </div>
+
+                <div class="window-controls" aria-label="Window controls">
+                    <button class="window-control" id="windowMinimize" type="button" aria-label="Minimize">
+                        <svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg>
+                    </button>
+                    <button class="window-control" id="windowMaximize" type="button" aria-label="Maximize" aria-pressed="false">
+                        <span class="window-icon-stack" aria-hidden="true">
+                            <svg class="window-icon maximize-icon" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="1"/></svg>
+                            <svg class="window-icon restore-icon" viewBox="0 0 24 24"><path d="M9 7.5h8.5V16H15M6.5 10H15v8.5H6.5z"/></svg>
+                        </span>
+                    </button>
+                    <button class="window-control close" id="windowClose" type="button" aria-label="Close">
+                        <svg viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17"/></svg>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <div class="workspace">
+            <aside class="sidebar" id="sidebar">
+                <nav class="sidebar-nav">
+                    <button class="nav-item active" type="button" data-nav="home" aria-label="Home">
+                        <span class="nav-icon material-symbols-rounded" aria-hidden="true">home</span>
+                        <span class="nav-label sidebar-copy">Home</span>
+                    </button>
+                    <button class="nav-item" type="button" data-nav="instances" aria-label="Instances">
+                        <span class="nav-icon material-symbols-rounded" aria-hidden="true">dashboard</span>
+                        <span class="nav-label sidebar-copy">Instances</span>
+                    </button>
+                    <button class="nav-item" type="button" data-nav="mods" aria-label="Mods">
+                        <span class="nav-icon material-symbols-rounded" aria-hidden="true">extension</span>
+                        <span class="nav-label sidebar-copy">Mods</span>
+                    </button>
+                    <button class="nav-item" type="button" data-nav="explore" aria-label="Explore">
+                        <span class="nav-icon material-symbols-rounded" aria-hidden="true">travel_explore</span>
+                        <span class="nav-label sidebar-copy">Explore</span>
+                    </button>
+                    <button class="nav-item" type="button" data-nav="chat" aria-label="Chat">
+                        <span class="nav-icon material-symbols-rounded" aria-hidden="true">chat_bubble</span>
+                        <span class="nav-label sidebar-copy">Chat</span>
+                        <span class="nav-unread" id="chatNavUnread" hidden>0</span>
+                    </button>
+                </nav>
+
+                <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="Expand sidebar">
+                    <span class="material-symbols-rounded" aria-hidden="true">chevron_right</span>
+                </button>
+
+                <nav class="sidebar-bottom-nav">
+                    <button class="nav-item" type="button" data-nav="settings" id="sidebarSettingsNav" aria-label="Settings">
+                        <span class="nav-icon material-symbols-rounded" aria-hidden="true">settings</span>
+                        <span class="nav-label sidebar-copy">Settings</span>
+                    </button>
+                </nav>
+            </aside>
+
+            <main class="main-shell">
+                <section class="app-page active" data-page="home" id="homePage">
+                <section class="launch-card">
+                    <div class="launch-card-header">
+                        <div>
+                            <span class="section-kicker">PLAY</span>
+                            <h1>Launch Minecraft</h1>
+                            <p>Choose a Minecraft version and loader, then launch with FlintFix.</p>
+                        </div>
+                        <div class="minecraft-badge">JAVA EDITION</div>
+                    </div>
+
+                    <div class="launcher-grid">
+                        <div class="setting-block">
+                            <label>Minecraft Version</label>
+                            <div class="version-dropdown" id="versionDropdown">
+                                <button class="selection-trigger" id="versionTrigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                                    <div class="selection-trigger-left">
+                                        <div class="selection-icon mc-version-icon material-symbols-rounded" aria-hidden="true">deployed_code</div>
+                                        <div class="selection-copy">
+                                            <span class="selection-value" id="versionTriggerValue">Loading...</span>
+                                            <span class="selection-subtitle">Minecraft Java Edition</span>
+                                        </div>
+                                    </div>
+                                    <span class="selection-chevron material-symbols-rounded" aria-hidden="true">expand_more</span>
+                                </button>
+
+                                <div class="selection-menu" id="versionMenu">
+                                    <div class="version-search-wrapper">
+                                        <span class="material-symbols-rounded" aria-hidden="true">search</span>
+                                        <input id="versionSearch" class="version-search" type="text" placeholder="Search versions..." autocomplete="off" spellcheck="false">
+                                    </div>
+                                    <div class="selection-list" id="versionList" role="listbox">
+                                        <div class="selection-empty">Loading Minecraft versions...</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="setting-block">
+                            <label>Mod Loader</label>
+                            <div class="loader-dropdown" id="loaderDropdown">
+                                <button class="selection-trigger" id="loaderTrigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                                    <div class="selection-trigger-left">
+                                        <div class="selection-icon loader-icon material-symbols-rounded" aria-hidden="true">extension</div>
+                                        <div class="selection-copy">
+                                            <span class="selection-value" id="loaderTriggerValue">Vanilla</span>
+                                            <span class="selection-subtitle">Select your mod loader</span>
+                                        </div>
+                                    </div>
+                                    <span class="selection-chevron material-symbols-rounded" aria-hidden="true">expand_more</span>
+                                </button>
+                                <div class="selection-menu" id="loaderMenu">
+                                    <div class="selection-list" id="loaderList" role="listbox"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="runtime-card">
+                        <div class="runtime-symbol material-symbols-rounded" aria-hidden="true">coffee</div>
+                        <div class="runtime-copy">
+                            <strong>Java Runtime</strong>
+                            <span id="javaStatus">Detecting Java...</span>
+                            <small id="javaPath"></small>
+                        </div>
+                        <button class="java-install-button" id="javaInstallButton" type="button" hidden>Install Java</button>
+                        <div class="runtime-badge checking" id="javaBadge">CHECKING</div>
+                    </div>
+
+                    <div class="account-play-row">
+                        <div class="player-card">
+                            <span class="skin-face player-face" id="playerSkin"></span>
+                            <div class="player-copy">
+                                <span class="player-kicker">ACTIVE ACCOUNT</span>
+                                <strong id="playerUsername">Not signed in</strong>
+                                <span id="playerMeta">Sign in to a Minecraft account to play.</span>
+                            </div>
+                            <div class="player-ready not-ready" id="profileStatus" data-tooltip="Sign in to a Minecraft account.">NOT READY</div>
+                            <span class="profile-description" id="profileDescription">Sign in to launch Minecraft.</span>
+                        </div>
+
+                        <button class="play-button" id="playButton" type="button">
+                            <span class="material-symbols-rounded" aria-hidden="true">play_arrow</span>
+                            <span id="playButtonText">SIGN IN & PLAY</span>
+                        </button>
+                    </div>
+                </section>
+
+                <section class="console-card">
+                    <div class="console-header">
+                        <div>
+                            <span class="section-kicker">OUTPUT</span>
+                            <h2>Launcher Console</h2>
+                        </div>
+                        <div class="console-status-group">
+                            <span class="launch-eta" id="launchEta" hidden>ETA --</span>
+                            <span class="console-live">● LIVE</span>
+                        </div>
+                    </div>
+                    <div class="console" id="console">
+                        <div class="console-placeholder" id="consolePlaceholder">Launch preparation and game output will appear here.</div>
+                    </div>
+                </section>
+                </section>
+
+                <section class="app-page instances-page" data-page="instances" id="instancesPage" hidden>
+                    <div class="instances-header">
+                        <div>
+                            <span class="section-kicker">INSTANCES</span>
+                            <h1>Your Minecraft instances</h1>
+                            <p>Keep different versions and mod loaders organized, and see what is ready to play.</p>
+                        </div>
+                        <button class="create-instance-button" id="createInstanceButton" type="button">
+                            <span class="material-symbols-rounded" aria-hidden="true">add</span>
+                            <span>Create instance</span>
+                        </button>
+                    </div>
+
+                    <div class="instance-summary" id="instanceSummary">
+                        <div class="instance-summary-card"><span>Total</span><strong id="instanceTotalCount">0</strong></div>
+                        <div class="instance-summary-card in-game"><span>In game</span><strong id="instanceInGameCount">0</strong></div>
+                        <div class="instance-summary-card ready"><span>Ready</span><strong id="instanceReadyCount">0</strong></div>
+                        <div class="instance-summary-card not-ready"><span>Not ready</span><strong id="instanceNotReadyCount">0</strong></div>
+                    </div>
+
+                    <div class="instances-toolbar">
+                        <div class="instances-search">
+                            <span class="material-symbols-rounded" aria-hidden="true">search</span>
+                            <input id="instancesSearch" type="text" placeholder="Search instances..." autocomplete="off" spellcheck="false">
+                        </div>
+                        <div class="instances-hint">Configured instances use your connected Minecraft account.</div>
+                    </div>
+
+                    <div class="instances-grid" id="instancesGrid"></div>
+                    <div class="instances-empty" id="instancesEmpty" hidden>
+                        <div class="instances-empty-icon material-symbols-rounded" aria-hidden="true">dashboard</div>
+                        <h2>No instances yet</h2>
+                        <p>Create one from your current Home version and loader.</p>
+                        <button type="button" id="instancesEmptyCreate">Create your first instance</button>
+                    </div>
+                </section>
+
+                <section class="app-page mods-page" data-page="mods" id="modsPage" hidden>
+                    <div class="mods-header">
+                        <div>
+                            <span class="section-kicker">MODS</span>
+                            <h1>Instance mods</h1>
+                            <p>Manage the exact mod set for each instance and keep compatible mods up to date.</p>
+                        </div>
+                        <button class="create-instance-button mods-add-button" id="addModButton" type="button">
+                            <span class="material-symbols-rounded" aria-hidden="true">add</span>
+                            <span>Add mod</span>
+                        </button>
+                    </div>
+
+                    <div class="mods-instance-panel mods-instance-panel--enhanced">
+                        <div class="mods-instance-copy">
+                            <span>Target instance</span>
+                            <strong id="modsTargetName">Choose an instance</strong>
+                            <small id="modsTargetMeta">Select an instance below to manage its mods.</small>
+                        </div>
+                        <div class="mods-instance-picker" id="modsInstancePicker"></div>
+                    </div>
+
+                    <div class="mods-config-strip">
+                        <label class="mods-config-field">
+                            <span>Minecraft version</span>
+                            <select id="modsVersionSelect"></select>
+                        </label>
+                        <label class="mods-config-field">
+                            <span>Mod loader</span>
+                            <select id="modsLoaderSelect">
+                                <option value="vanilla">Vanilla</option>
+                                <option value="fabric">Fabric</option>
+                                <option value="forge">Forge</option>
+                                <option value="neoforge">NeoForge</option>
+                            </select>
+                        </label>
+                        <button class="mods-config-save" id="modsConfigSave" type="button">Save instance setup</button>
+                    </div>
+
+                    <div class="mods-workspace-panel active" id="modsInstalledPanel">
+                        <div class="mods-toolbar mods-toolbar-enhanced">
+                            <div class="instances-search mods-search">
+                                <span class="material-symbols-rounded" aria-hidden="true">search</span>
+                                <input id="modsSearch" type="text" placeholder="Search installed mods..." autocomplete="off" spellcheck="false">
+                            </div>
+                            <div class="mods-toolbar-actions">
+                                <button class="mods-folder-button mods-update-button" id="checkModUpdatesButton" type="button">
+                                    <span class="material-symbols-rounded" aria-hidden="true">update</span>
+                                    Check updates
+                                </button>
+                                <button class="mods-folder-button" id="openModsFolderButton" type="button">
+                                    <span class="material-symbols-rounded" aria-hidden="true">folder_open</span>
+                                    Open folder
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="mods-notice" id="modsNotice" hidden></div>
+                        <div class="mods-list" id="modsList"></div>
+                        <div class="mods-empty" id="modsEmpty">
+                            <div class="mods-empty-icon material-symbols-rounded" aria-hidden="true">extension_off</div>
+                            <h2>No mods installed</h2>
+                            <p>Add a local .jar or discover compatible mods from Explore.</p>
+                            <button type="button" id="modsEmptyAdd">Add your first mod</button>
+                        </div>
+                    </div>
+                </section>
+
+
+                <section class="app-page explore-page" data-page="explore" id="explorePage" hidden>
+                    <div class="explore-hero">
+                        <div>
+                            <span class="section-kicker">EXPLORE</span>
+                            <h1>Discover mods</h1>
+                            <p>Browse compatible Modrinth projects and install them straight into a FlintFix instance.</p>
+                        </div>
+                        <div class="explore-hero-orbit" aria-hidden="true">
+                            <span></span><span></span><span></span>
+                        </div>
+                    </div>
+
+                    <div class="explore-target-bar">
+                        <div class="explore-target-copy">
+                            <span>Install to</span>
+                            <strong id="exploreTargetName">Choose an instance</strong>
+                            <small id="exploreTargetMeta">Explore is filtered to the selected instance version and loader.</small>
+                        </div>
+                        <select id="exploreInstanceSelect" aria-label="Explore target instance"></select>
+                    </div>
+
+                    <div class="explore-control-surface">
+                        <div class="explore-search-large">
+                            <span class="material-symbols-rounded" aria-hidden="true">search</span>
+                            <input id="modsExploreSearch" type="text" placeholder="Search performance, adventure, UI, utilities..." autocomplete="off" spellcheck="false">
+                        </div>
+                        <label class="explore-sort">
+                            <span>Sort</span>
+                            <select id="exploreSortSelect">
+                                <option value="relevance">Relevant</option>
+                                <option value="downloads">Most downloaded</option>
+                                <option value="follows">Most followed</option>
+                                <option value="updated">Recently updated</option>
+                                <option value="newest">Newest</option>
+                            </select>
+                        </label>
+                        <button class="mods-folder-button" id="modsExploreRefresh" type="button">
+                            <span class="material-symbols-rounded" aria-hidden="true">refresh</span>
+                            Refresh
+                        </button>
+                    </div>
+
+                    <div class="explore-category-row" id="exploreCategoryRow">
+                        <button class="explore-category active" type="button" data-category="">All</button>
+                        <button class="explore-category" type="button" data-category="optimization">Performance</button>
+                        <button class="explore-category" type="button" data-category="technology">Technology</button>
+                        <button class="explore-category" type="button" data-category="adventure">Adventure</button>
+                        <button class="explore-category" type="button" data-category="utility">Utility</button>
+                        <button class="explore-category" type="button" data-category="decoration">Decoration</button>
+                        <button class="explore-category" type="button" data-category="magic">Magic</button>
+                        <button class="explore-category" type="button" data-category="storage">Storage</button>
+                    </div>
+
+                    <div class="mods-explore-status" id="modsExploreStatus">Choose an instance to see compatible mods.</div>
+                    <div class="mods-explore-grid premium" id="modsExploreGrid"></div>
+                    <div class="explore-pagination" id="explorePagination" hidden>
+                        <button class="explore-page-nav" id="explorePrevPage" type="button" aria-label="Previous page">
+                            <span class="material-symbols-rounded" aria-hidden="true">chevron_left</span>
+                        </button>
+                        <div class="explore-page-numbers" id="explorePageNumbers"></div>
+                        <button class="explore-page-nav" id="exploreNextPage" type="button" aria-label="Next page">
+                            <span class="material-symbols-rounded" aria-hidden="true">chevron_right</span>
+                        </button>
+                    </div>
+                </section>
+
+                <section class="app-page chat-page" data-page="chat" id="chatPage" hidden>
+                    <div class="chat-shell">
+                        <aside class="chat-rail">
+                            <div class="chat-rail-header">
+                                <div>
+                                    <span class="section-kicker">SOCIAL</span>
+                                    <h1>Chat</h1>
+                                </div>
+                                <button class="chat-settings-button" id="chatSettingsButton" type="button" aria-label="Chat settings">
+                                    <span class="material-symbols-rounded" aria-hidden="true">tune</span>
+                                </button>
+                            </div>
+
+                            <div class="chat-add-row">
+                                <div class="chat-user-search">
+                                    <span class="material-symbols-rounded" aria-hidden="true">person_search</span>
+                                    <input id="chatUserSearch" type="text" maxlength="16" placeholder="Minecraft username" autocomplete="off" spellcheck="false">
+                                </div>
+                                <button class="chat-add-by-name" id="chatAddFriendButton" type="button">
+                                    <span class="material-symbols-rounded" aria-hidden="true">person_add</span>
+                                    <span>Add</span>
+                                </button>
+                            </div>
+
+                            <div class="chat-section-heading">
+                                <span>Friend requests</span>
+                                <span class="chat-count" id="chatRequestCount">0</span>
+                            </div>
+                            <div class="chat-request-list" id="chatRequestList">
+                                <div class="chat-muted-row">No pending requests.</div>
+                            </div>
+
+                            <div class="chat-section-heading friends-heading">
+                                <span>Friends</span>
+                                <span class="chat-count" id="chatFriendCount">0</span>
+                            </div>
+                            <div class="chat-friend-list" id="chatFriendList">
+                                <div class="chat-muted-row">Your friends will appear here.</div>
+                            </div>
+                        </aside>
+
+                        <section class="chat-conversation" id="chatConversation">
+                            <div class="chat-empty-state" id="chatEmptyState">
+                                <div class="chat-empty-icon material-symbols-rounded" aria-hidden="true">forum</div>
+                                <h2>Start a conversation</h2>
+                                <p>Add another FlintFix user as a friend, then select them to chat.</p>
+                            </div>
+
+                            <div class="chat-conversation-active" id="chatConversationActive" hidden>
+                                <header class="chat-conversation-header">
+                                    <div class="chat-peer">
+                                        <span class="skin-face chat-peer-face" id="chatPeerAvatar"></span>
+                                        <span class="presence-dot offline" id="chatPeerDot"></span>
+                                        <div class="chat-peer-copy">
+                                            <strong id="chatPeerName">Friend</strong>
+                                            <span id="chatPeerStatus">Offline</span>
+                                        </div>
+                                    </div>
+                                    <button class="chat-peer-more" id="chatRemoveFriend" type="button" title="Remove friend">
+                                        <span class="material-symbols-rounded" aria-hidden="true">person_remove</span>
+                                    </button>
+                                </header>
+                                <div class="chat-messages" id="chatMessages"></div>
+                                <form class="chat-composer" id="chatComposer">
+                                    <textarea id="chatMessageInput" rows="1" maxlength="500" placeholder="Message your friend..."></textarea>
+                                    <button type="submit" id="chatSendButton" aria-label="Send message">
+                                        <span class="material-symbols-rounded" aria-hidden="true">send</span>
+                                    </button>
+                                </form>
+                            </div>
+                        </section>
+
+                        <aside class="chat-info" id="chatInfoPanel">
+                            <div class="chat-info-card">
+                                <span class="skin-face chat-info-face" id="chatInfoAvatar"></span>
+                                <strong id="chatInfoName">FlintFix Social</strong>
+                                <span id="chatInfoDiscord">Verified Minecraft friends</span>
+                            </div>
+                            <div class="chat-presence-card">
+                                <div class="chat-presence-line"><span class="presence-dot offline" id="chatInfoDot"></span><strong id="chatInfoPresence">Offline</strong></div>
+                                <span id="chatInfoServer">Select a friend to see their status.</span>
+                            </div>
+                            <div class="chat-security-note">
+                                <span class="material-symbols-rounded" aria-hidden="true">verified_user</span>
+                                <span>Friend identities are verified from the Minecraft account signed into FlintFix. Discord is optional.</span>
+                            </div>
+                        </aside>
+                    </div>
+
+                    <div class="chat-settings-drawer" id="chatSettingsDrawer" hidden>
+                        <div class="chat-settings-header">
+                            <div>
+                                <span class="section-kicker">CHAT SETTINGS</span>
+                                <h2>Notifications & privacy</h2>
+                            </div>
+                            <button class="modal-close" id="chatSettingsClose" type="button" aria-label="Close chat settings">
+                                <span class="material-symbols-rounded" aria-hidden="true">close</span>
+                            </button>
+                        </div>
+                        <label class="setting-row clickable-setting">
+                            <div class="setting-row-copy"><strong>Launcher notifications</strong><span>Show a FlintFix popup when a friend messages you.</span></div>
+                            <span class="switch-control"><input id="chatLauncherNotifications" type="checkbox"><span></span></span>
+                        </label>
+                        <label class="setting-row clickable-setting">
+                            <div class="setting-row-copy"><strong>In-game message popups</strong><span>Show friend messages in Minecraft while FlintFix is running.</span></div>
+                            <span class="switch-control"><input id="chatInGameNotifications" type="checkbox"><span></span></span>
+                        </label>
+                        <label class="setting-row clickable-setting">
+                            <div class="setting-row-copy"><strong>Show server to friends</strong><span>Allow friends to see the server you are currently playing on.</span></div>
+                            <span class="switch-control"><input id="chatShowServer" type="checkbox"><span></span></span>
+                        </label>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="accountModalBackdrop" hidden>
+        <div class="account-modal" role="dialog" aria-modal="true" aria-labelledby="accountModalTitle">
+            <div class="account-modal-header">
+                <div>
+                    <span class="section-kicker">ACCOUNTS</span>
+                    <h2 id="accountModalTitle">Change account</h2>
+                    <p>Choose a connected Minecraft account or add another.</p>
+                </div>
+                <button class="modal-close" id="accountModalClose" type="button" aria-label="Close">
+                    <span class="material-symbols-rounded" aria-hidden="true">close</span>
+                </button>
+            </div>
+            <div class="account-list" id="accountList"></div>
+            <button class="add-account-button" id="addAccountButton" type="button">
+                <span class="material-symbols-rounded" aria-hidden="true">person_add</span>
+                <span>Add account</span>
+            </button>
+        </div>
+    </div>
+
+
+    <div class="settings-backdrop" id="settingsModalBackdrop" hidden>
+        <div class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle">
+            <aside class="settings-sidebar">
+                <div class="settings-search-wrap">
+                    <span class="material-symbols-rounded" aria-hidden="true">search</span>
+                    <input id="settingsSearch" type="text" placeholder="Search settings..." autocomplete="off" spellcheck="false">
+                </div>
+
+                <nav class="settings-tabs" aria-label="Settings sections">
+                    <button class="settings-tab active" type="button" data-settings-tab="game">
+                        <span class="settings-tab-icon material-symbols-rounded" aria-hidden="true">sports_esports</span>
+                        <span>Game</span>
+                    </button>
+                    <button class="settings-tab" type="button" data-settings-tab="account">
+                        <span class="settings-tab-icon material-symbols-rounded" aria-hidden="true">person</span>
+                        <span>Account</span>
+                    </button>
+                    <button class="settings-tab" type="button" data-settings-tab="discord">
+                        <span class="settings-tab-icon material-symbols-rounded" aria-hidden="true">forum</span>
+                        <span>Discord</span>
+                    </button>
+                </nav>
+            </aside>
+
+            <section class="settings-content">
+                <header class="settings-header">
+                    <div>
+                        <span class="section-kicker">SETTINGS</span>
+                        <h2 id="settingsModalTitle">Game settings</h2>
+                        <p id="settingsModalSubtitle">Configure how Minecraft opens from FlintFix.</p>
+                    </div>
+                    <button class="modal-close" id="settingsModalClose" type="button" aria-label="Close settings">
+                        <span class="material-symbols-rounded" aria-hidden="true">close</span>
+                    </button>
+                </header>
+
+                <div class="settings-pane active" data-settings-pane="game">
+                    <div class="settings-group">
+                        <div class="settings-group-heading">
+                            <h3>Window</h3>
+                            <p>Choose how the Minecraft instance opens.</p>
+                        </div>
+
+                        <div class="setting-row settings-searchable" data-search="resolution width height screen size aspect ratio">
+                            <div class="setting-row-copy">
+                                <strong>Resolution</strong>
+                                <span>Window size used when the instance opens.</span>
+                            </div>
+                            <div class="resolution-control">
+                                <input id="resolutionWidth" type="number" min="320" max="7680" step="1" inputmode="numeric" aria-label="Resolution width">
+                                <span>×</span>
+                                <input id="resolutionHeight" type="number" min="240" max="4320" step="1" inputmode="numeric" aria-label="Resolution height">
+                            </div>
+                        </div>
+
+                        <label class="setting-row settings-searchable clickable-setting" data-search="launch fullscreen full screen instance">
+                            <div class="setting-row-copy">
+                                <strong>Launch fullscreen</strong>
+                                <span>Start Minecraft in fullscreen mode.</span>
+                            </div>
+                            <span class="switch-control"><input id="launchFullscreen" type="checkbox"><span></span></span>
+                        </label>
+
+                        <label class="setting-row settings-searchable clickable-setting" data-search="lock aspect ratio resolution width height">
+                            <div class="setting-row-copy">
+                                <strong>Lock aspect ratio</strong>
+                                <span>Keep width and height proportional when one value changes.</span>
+                            </div>
+                            <span class="switch-control"><input id="lockAspectRatio" type="checkbox"><span></span></span>
+                        </label>
+                    </div>
+
+                    <div class="settings-group">
+                        <div class="settings-group-heading">
+                            <h3>Launcher visibility on Game Launch</h3>
+                            <p>FlintFix stays available in the taskbar while Minecraft is running.</p>
+                        </div>
+                        <div class="visibility-choices settings-searchable" data-search="launcher visibility game launch keep open hide background tab">
+                            <label class="choice-card">
+                                <input type="radio" name="launcherVisibility" value="keep" checked>
+                                <span class="choice-dot"></span>
+                                <span><strong>Keep open</strong><small>Keep the launcher visible in the background until Minecraft closes.</small></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-pane" data-settings-pane="account">
+                    <div class="settings-account-card">
+                        <span class="skin-face settings-account-face" id="settingsAccountAvatar"></span>
+                        <div>
+                            <strong id="settingsAccountName">Not signed in</strong>
+                            <span id="settingsAccountState">Connect a Minecraft account to manage it.</span>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <div class="setting-row settings-searchable" data-search="minecraft username profile name change">
+                            <div class="setting-row-copy">
+                                <strong>Minecraft username</strong>
+                                <span id="accountUsernameValue">Not connected</span>
+                            </div>
+                            <button class="settings-action" id="changeMinecraftUsername" type="button">Change</button>
+                        </div>
+                        <div class="setting-row settings-searchable" data-search="email microsoft account alias change">
+                            <div class="setting-row-copy">
+                                <strong>Email</strong>
+                                <span id="accountEmailValue">Not connected</span>
+                            </div>
+                            <button class="settings-action" id="changeAccountEmail" type="button">Change</button>
+                        </div>
+                        <div class="setting-row settings-searchable" data-search="password microsoft change security">
+                            <div class="setting-row-copy">
+                                <strong>Password</strong>
+                                <span>••••••••••••</span>
+                            </div>
+                            <button class="settings-action" id="changeAccountPassword" type="button">Change</button>
+                        </div>
+                        <div class="setting-row settings-searchable" data-search="two step verification 2fa mfa security authenticator">
+                            <div class="setting-row-copy">
+                                <strong>2-step verification</strong>
+                                <span>Managed securely through your Microsoft account.</span>
+                            </div>
+                            <button class="settings-action" id="manageTwoStep" type="button">Manage</button>
+                        </div>
+                    </div>
+
+                    <button class="settings-danger-button settings-searchable" id="settingsLogOut" data-search="logout log out sign out account" type="button">Log out</button>
+                </div>
+
+                <div class="settings-pane" data-settings-pane="discord">
+                    <div class="settings-group">
+                        <div class="setting-row settings-searchable clickable-setting" id="discordRichPresenceRow" data-search="discord rich presence rpc status activity enable disable">
+                            <div class="setting-row-copy">
+                                <strong>Discord Rich Presence</strong>
+                                <span>Show FlintFix and Minecraft activity in the Discord desktop client.</span>
+                                <small class="discord-presence-status" id="discordPresenceStatus">Checking configuration...</small>
+                            </div>
+                            <label class="switch-control" for="discordRichPresence" aria-label="Enable Discord Rich Presence"><input id="discordRichPresence" type="checkbox"><span></span></label>
+                        </div>
+                    </div>
+
+                    <div class="discord-connect-card settings-searchable" id="discordLinkCard" data-search="discord connect link account verify unlink flintfix community">
+                        <div class="discord-mark" id="discordLinkAvatar">D</div>
+                        <div class="discord-connect-copy">
+                            <strong id="discordLinkTitle">Link Discord account</strong>
+                            <span id="discordLinkDescription">Securely link this verified Minecraft account to your Discord account.</span>
+                            <small class="discord-link-verification" id="discordLinkVerification">Minecraft ownership is verified before linking.</small>
+                            <div class="discord-link-code-panel" id="discordLinkCodePanel" hidden>
+                                <div class="discord-link-code-copy">
+                                    <span>Run this command in the FlintFix Discord</span>
+                                    <strong id="discordLinkCommand">/link FF-XXXX-XXXX</strong>
+                                </div>
+                                <button class="discord-copy-button" id="copyDiscordLinkCode" type="button">Copy</button>
+                            </div>
+                        </div>
+                        <div class="discord-link-actions">
+                            <button class="discord-connect-button" id="connectDiscord" type="button">Link account</button>
+                            <button class="discord-unlink-button" id="unlinkDiscord" type="button" hidden>Unlink</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-search-empty" id="settingsSearchEmpty" hidden>No matching settings found.</div>
+            </section>
+        </div>
+    </div>
+
+
+    <div class="modal-backdrop" id="instanceModalBackdrop" hidden>
+        <div class="instance-modal" role="dialog" aria-modal="true" aria-labelledby="instanceModalTitle">
+            <div class="account-modal-header">
+                <div>
+                    <span class="section-kicker">INSTANCE</span>
+                    <h2 id="instanceModalTitle">Create instance</h2>
+                    <p id="instanceModalSubtitle">Save the current Home configuration as a reusable instance.</p>
+                </div>
+                <button class="modal-close" id="instanceModalClose" type="button" aria-label="Close">
+                    <span class="material-symbols-rounded" aria-hidden="true">close</span>
+                </button>
+            </div>
+            <label class="instance-field">
+                <span>Instance name</span>
+                <input id="instanceNameInput" type="text" maxlength="40" placeholder="My FlintFix instance" autocomplete="off">
+            </label>
+            <div class="instance-config-preview">
+                <div><span>Minecraft</span><strong id="instancePreviewVersion">—</strong></div>
+                <div><span>Loader</span><strong id="instancePreviewLoader">—</strong></div>
+            </div>
+            <div class="instance-color-setting">
+                <div>
+                    <span>Card color</span>
+                    <small>Choose an accent for this instance.</small>
+                </div>
+                <div class="instance-color-swatches" id="instanceColorSwatches">
+                    <button type="button" data-instance-color="#7d6cf2" aria-label="Violet"></button>
+                    <button type="button" data-instance-color="#4f8cff" aria-label="Blue"></button>
+                    <button type="button" data-instance-color="#34b88a" aria-label="Emerald"></button>
+                    <button type="button" data-instance-color="#e39b45" aria-label="Amber"></button>
+                    <button type="button" data-instance-color="#e16883" aria-label="Rose"></button>
+                    <button type="button" data-instance-color="#a86ce0" aria-label="Purple"></button>
+                </div>
+            </div>
+            <div class="instance-modal-note" id="instanceModalNote">To change version or loader, configure it on Home first.</div>
+            <div class="instance-modal-actions">
+                <button class="instance-secondary-button" id="instanceUseCurrentButton" type="button" hidden>Use current Home setup</button>
+                <button class="instance-primary-button" id="instanceSaveButton" type="button">Create instance</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="deleteInstanceBackdrop" hidden>
+        <div class="delete-instance-modal" role="dialog" aria-modal="true" aria-labelledby="deleteInstanceTitle">
+            <div class="delete-instance-icon material-symbols-rounded" aria-hidden="true">delete_forever</div>
+            <h2 id="deleteInstanceTitle">Delete instance?</h2>
+            <p id="deleteInstanceDescription">This removes the instance and its FlintFix-managed mods. This action cannot be undone.</p>
+            <div class="delete-instance-actions">
+                <button class="instance-secondary-button" id="deleteInstanceCancel" type="button">Cancel</button>
+                <button class="delete-instance-confirm" id="deleteInstanceConfirm" type="button">Delete instance</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+
+
+    <div class="modal-backdrop" id="modDetailsBackdrop" hidden>
+        <div class="mod-details-modal" role="dialog" aria-modal="true" aria-labelledby="modDetailsTitle">
+            <div class="mod-details-topbar">
+                <div class="mod-details-identity">
+                    <div class="mod-details-icon" id="modDetailsIcon">M</div>
+                    <div>
+                        <span class="section-kicker">MOD DETAILS</span>
+                        <h2 id="modDetailsTitle">Mod</h2>
+                        <p id="modDetailsSubtitle">Loading project details...</p>
+                    </div>
+                </div>
+                <button class="modal-close" id="modDetailsClose" type="button" aria-label="Close mod details">
+                    <span class="material-symbols-rounded" aria-hidden="true">close</span>
+                </button>
+            </div>
+            <div class="mod-details-content">
+                <div class="mod-details-body" id="modDetailsBody">Loading...</div>
+                <aside class="mod-details-side">
+                    <div class="mod-details-stat"><span>Downloads</span><strong id="modDetailsDownloads">—</strong></div>
+                    <div class="mod-details-stat"><span>Followers</span><strong id="modDetailsFollowers">—</strong></div>
+                    <div class="mod-details-stat"><span>License</span><strong id="modDetailsLicense">—</strong></div>
+                    <div class="mod-details-compatible" id="modDetailsCompatible"></div>
+                </aside>
+            </div>
+            <div class="mod-details-actions">
+                <button class="explore-open-button" id="modDetailsWeb" type="button">Open on Modrinth</button>
+                <button class="explore-install-button" id="modDetailsInstall" type="button">Install to instance</button>
+            </div>
+        </div>
+    </div>
+    <script src="renderer.js"></script>
+</body>
+</html>

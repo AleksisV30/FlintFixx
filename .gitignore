@@ -1,0 +1,14 @@
+# Build tools and caches (re-downloaded automatically)
+.gradle/
+.gradle-local/
+build/
+out/
+run/
+bin/
+dist/
+node_modules/
+*.log
+# Editor folders
+.qodo/
+.idea/
+.vscode/

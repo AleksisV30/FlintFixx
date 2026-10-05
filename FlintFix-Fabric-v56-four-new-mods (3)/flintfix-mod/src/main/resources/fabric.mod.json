@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "flintfix",
+  "version": "${version}",
+  "name": "FlintFix Client",
+  "description": "FlintFix in-game client HUD and settings.",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.flintfix.client.FlintFixClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.1",
+    "java": ">=21",
+    "fabric-api": "*"
+  },
+  "mixins": [
+    "flintfix.mixins.json"
+  ]
+}
