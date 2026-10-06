@@ -598,6 +598,10 @@ public final class FlintFixSettingsScreen extends Screen {
                 return true;
             }
         }
+        if (!searchFocused && !profileSearchFocused && FlintFixClient.isSettingsKey(keyCode, scanCode)) {
+            close();
+            return true;
+        }
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 

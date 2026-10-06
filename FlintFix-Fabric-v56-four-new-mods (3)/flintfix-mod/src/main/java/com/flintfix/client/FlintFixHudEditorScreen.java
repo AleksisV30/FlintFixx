@@ -560,6 +560,15 @@ public final class FlintFixHudEditorScreen extends Screen {
     }
 
     @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (FlintFixClient.isSettingsKey(keyCode, scanCode)) {
+            cancelToGame();
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
     public boolean shouldPause() { return false; }
 
     @Override

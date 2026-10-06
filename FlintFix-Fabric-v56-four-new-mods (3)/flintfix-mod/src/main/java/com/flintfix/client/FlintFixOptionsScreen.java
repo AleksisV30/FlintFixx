@@ -238,7 +238,7 @@ public final class FlintFixOptionsScreen extends Screen {
         for (Option option : options) {
             int rh = rowHeight(option);
             if (FlintFixUi.inside(mouseX, mouseY, rowX, rowY, rowW, rh)) {
-                click(option, mouseX, rowY);
+                click(option, mouseX, mouseY, rowY);
                 return true;
             }
             rowY += rh + ROW_GAP;
@@ -246,7 +246,7 @@ public final class FlintFixOptionsScreen extends Screen {
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
-    private void click(Option option, double mouseX, int rowY) {
+    private void click(Option option, double mouseX, double mouseY, int rowY) {
         switch (option) {
             case Toggle t -> t.set().accept(!t.get().getAsBoolean());
             case Slider s -> {
@@ -262,7 +262,7 @@ public final class FlintFixOptionsScreen extends Screen {
             case ColorPick cp -> {
                 for (int i = 0; i < SWATCHES.length; i++) {
                     int sx = swatchX(i);
-                    if (mouseX >= sx - 2 && mouseX <= sx + 11) {
+                    if (mouseX >= sx - 2 && mouseX <= sx + 11 && mouseY >= rowY + 15) {
                         cp.set().accept(SWATCHES[i]);
                         break;
                     }

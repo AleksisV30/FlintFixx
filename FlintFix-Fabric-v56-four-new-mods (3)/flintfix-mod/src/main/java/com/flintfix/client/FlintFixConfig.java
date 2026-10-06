@@ -356,6 +356,8 @@ public final class FlintFixConfig {
     }
 
     private static float clamp(float value, float min, float max) {
+        // A hand-edited "NaN" would slip through min/max and break HUD placement.
+        if (Float.isNaN(value)) return min;
         return Math.max(min, Math.min(max, value));
     }
 }

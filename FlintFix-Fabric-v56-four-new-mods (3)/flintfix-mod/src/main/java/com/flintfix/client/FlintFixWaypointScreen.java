@@ -40,8 +40,11 @@ public final class FlintFixWaypointScreen extends Screen {
     @Override
     protected void init() {
         layout();
+        // init() runs again on resize; keep what was typed.
+        String typed = nameField == null ? "" : nameField.getText();
         nameField = new TextFieldWidget(textRenderer, x + 14, y + 50, w - 28 - 72, 16, Text.literal("Waypoint name"));
         nameField.setMaxLength(32);
+        nameField.setText(typed);
         nameField.setPlaceholder(Text.literal("Name (optional)"));
         addDrawableChild(nameField);
     }
@@ -150,7 +153,7 @@ public final class FlintFixWaypointScreen extends Screen {
                 int rowW = w - 28 - 6;
                 int rowY = listTop - scroll;
                 for (FlintFixWaypoints.Waypoint waypoint : list) {
-                    if (mouseY >= rowY && mouseY < rowY + ROW_H - 3) {
+                    if (mouseY >= rowY && mouseY < rowY + ROW_H - 3 && mouseX >= rowX && mouseX <= rowX + rowW) {
                         if (mouseX >= rowX + rowW - 24) {
                             FlintFixWaypoints.remove(mc, waypoint);
                         } else if (mouseX >= rowX + rowW - 54) {

@@ -155,7 +155,7 @@ public final class FlintFixHomeScreen extends Screen {
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (closing) return true;
-        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+        if (keyCode == GLFW.GLFW_KEY_ESCAPE || FlintFixClient.isSettingsKey(keyCode, scanCode)) {
             close();
             return true;
         }

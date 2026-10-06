@@ -164,6 +164,8 @@ public final class FlintFixClient implements ClientModInitializer {
         HudRenderCallback.EVENT.register((context, tickCounter) -> {
             MinecraftClient client = MinecraftClient.getInstance();
             if (client.currentScreen instanceof FlintFixHudEditorScreen) return;
+            // The callback still fires with the HUD hidden (F1), so respect it here.
+            if (client.options.hudHidden) return;
             renderFpsHud(context, client, false, false);
             renderCpsHud(context, client, false, false);
             renderCoordinatesHud(context, client, false, false);
@@ -199,6 +201,11 @@ public final class FlintFixClient implements ClientModInitializer {
 
     public static String getSettingsKeyLabel() {
         return settingsKey == null ? "RSHIFT" : settingsKey.getBoundKeyLocalizedText().getString();
+    }
+
+    /** Key bindings don't fire while a screen is open, so FlintFix screens check the settings key themselves. */
+    public static boolean isSettingsKey(int keyCode, int scanCode) {
+        return settingsKey != null && settingsKey.matchesKey(keyCode, scanCode);
     }
 
     public static KeyBinding getFreecamKeyBinding() {

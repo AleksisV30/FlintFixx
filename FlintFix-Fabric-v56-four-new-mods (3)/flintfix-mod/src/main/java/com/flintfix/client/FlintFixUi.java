@@ -488,7 +488,7 @@ public final class FlintFixUi {
 
     public static void scrollbar(DrawContext c, int x, int top, int trackH, int scroll, int maxScroll) {
         if (maxScroll <= 0 || trackH <= 0) return;
-        int thumbH = Math.max(14, trackH * trackH / (trackH + maxScroll));
+        int thumbH = Math.min(trackH, Math.max(14, trackH * trackH / (trackH + maxScroll)));
         int thumbY = top + (trackH - thumbH) * scroll / maxScroll;
         roundedRaw(c, x, top, 2, trackH, 1, opacity(raised(), 0.7f));
         roundedRaw(c, x, thumbY, 2, thumbH, 1, muted());
