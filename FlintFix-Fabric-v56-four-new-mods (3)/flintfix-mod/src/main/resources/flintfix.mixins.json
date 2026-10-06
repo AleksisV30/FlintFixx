@@ -15,7 +15,12 @@
     "BackgroundRendererMixin",
     "HeldItemRendererMixin",
     "LightmapTextureManagerMixin",
-    "ScreenInvoker"
+    "ScreenInvoker",
+    "InGameHudMixin",
+    "InGameOverlayRendererMixin",
+    "GameRendererTotemMixin",
+    "WorldWeatherMixin",
+    "MinecraftClientMixin"
   ],
   "injectors": {
     "defaultRequire": 1

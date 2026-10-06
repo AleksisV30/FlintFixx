@@ -196,7 +196,7 @@ function buildUniqueModFileName(modsDir, originalName) {
 async function fetchJson(url) {
     const response = await fetch(url, {
         headers: {
-            "User-Agent": "FlintFix-Client/0.57",
+            "User-Agent": "FlintFix-Client/0.58",
             "Accept": "application/json"
         }
     });
@@ -299,7 +299,7 @@ async function postJson(url, body) {
     const response = await fetch(url, {
         method: "POST",
         headers: {
-            "User-Agent": "FlintFix-Client/0.57",
+            "User-Agent": "FlintFix-Client/0.58",
             "Accept": "application/json",
             "Content-Type": "application/json"
         },
@@ -360,7 +360,7 @@ async function applyInstanceModUpdate(instanceId, fileName, options = {}) {
     if (!mod) throw new Error("Mod file was not found.");
     const update = await getCompatibleModUpdate(mod, String(options.version || ""), String(options.loader || "fabric"));
     if (!update?.updateAvailable || !update.fileUrl) return { updated: false, reason: "Already up to date." };
-    const response = await fetch(update.fileUrl, { headers: { "User-Agent": "FlintFix-Client/0.57" } });
+    const response = await fetch(update.fileUrl, { headers: { "User-Agent": "FlintFix-Client/0.58" } });
     if (!response.ok) throw new Error(`Download failed (${response.status}).`);
     const bytes = Buffer.from(await response.arrayBuffer());
     const modsDir = getInstanceModsDir(instanceId);
@@ -399,7 +399,7 @@ async function installCatalogMod(instanceId, options = {}) {
         }
     }
     if (!chosenFile?.url) throw new Error("This mod does not expose a downloadable .jar file.");
-    const response = await fetch(chosenFile.url, { headers: { "User-Agent": "FlintFix-Client/0.57" } });
+    const response = await fetch(chosenFile.url, { headers: { "User-Agent": "FlintFix-Client/0.58" } });
     if (!response.ok) throw new Error(`Download failed (${response.status}).`);
     const arrayBuffer = await response.arrayBuffer();
     const finalName = buildUniqueModFileName(modsDir, chosenFile.filename || `${projectId}.jar`);
@@ -2345,14 +2345,36 @@ ipcMain.handle("discord:link:manage", async () => ({
 // FLINTFIX SOCIAL / CHAT
 // ========================================
 
+// The in-game Team Glow module reads friends' Minecraft UUIDs from this file.
+let lastSocialFriendsJson = "";
+async function writeSocialFriendsFile(friends) {
+    const list = (Array.isArray(friends) ? friends : [])
+        .map(friend => ({
+            uuid: String(friend?.minecraft?.uuid || "").replace(/[^0-9a-fA-F]/g, "").slice(0, 32),
+            name: String(friend?.minecraft?.username || friend?.minecraft?.name || "").slice(0, 32)
+        }))
+        .filter(friend => friend.uuid.length === 32);
+    const json = JSON.stringify({ friends: list, updatedAt: Date.now() }, null, 2);
+    const withoutTime = JSON.stringify(list);
+    if (withoutTime === lastSocialFriendsJson) return;
+    lastSocialFriendsJson = withoutTime;
+    const filePath = path.join(app.getPath("userData"), "minecraft", "game", "flintfix-social-friends.json");
+    await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.promises.writeFile(filePath, json, "utf8");
+}
+
 ipcMain.handle("social:sync", async (_event, options = {}) => {
     try {
         const game = getSocialGameState();
-        return await callSocialApi("/api/social/sync", "social_sync", {
+        const result = await callSocialApi("/api/social/sync", "social_sync", {
             state: game.state,
             server: options?.showServer === false ? null : game.server,
             lastMessageId: Number(options?.lastMessageId || 0)
         });
+        if (result?.success && Array.isArray(result.friends)) {
+            writeSocialFriendsFile(result.friends).catch(() => {});
+        }
+        return result;
     } catch (error) {
         return { success: false, error: error.message };
     }

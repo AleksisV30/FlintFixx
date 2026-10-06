@@ -1,4 +1,21 @@
-# FlintFix Client v57
+# FlintFix Client v58
+
+Ten new modules. Each has a card in the module dashboard (click to toggle, gear or right-click for options).
+
+- **Potion Effects HUD:** active effects with their icon, level and time left; the time blinks red during the last ten seconds.
+- **Speed Meter:** your speed in blocks per second or km/h; counts height too while gliding with an elytra.
+- **Compass Bar:** a heading strip (N, NE, E...) at the top of the screen, with a red marker pointing at your last death.
+- **Block Outline:** any color or rainbow, adjustable thickness, optional translucent fill.
+- **Crosshair:** cross, dot, circle, cross with dot or X; size, gap, thickness, color, dark outline, hit marker, and the attack cooldown bar.
+- **Low Overlays:** lowers the fire overlay and the shield, and shrinks the totem pop animation, each adjustable.
+- **Damage Numbers:** red numbers float up from mobs and players when they take damage (bigger hits are larger and deeper red), green for healing.
+- **No Weather:** hides rain, snow and thunder for you only.
+- **Motion Blur:** cinematic frame blending with adjustable strength; the hand and HUD stay sharp.
+- **Team Glow:** outlines your FlintFix friends (from the launcher's Chat) and scoreboard teammates in a color you pick.
+
+Potion Effects, Speed Meter and Compass Bar can be moved and resized in the HUD editor.
+
+## v57
 
 Release-polish pass: fixes, a cinematic sky, a resource pack browser, and redesigned HUD widgets.
 

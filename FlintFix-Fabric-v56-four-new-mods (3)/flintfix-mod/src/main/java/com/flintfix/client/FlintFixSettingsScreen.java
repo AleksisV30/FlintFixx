@@ -61,7 +61,17 @@ public final class FlintFixSettingsScreen extends Screen {
         {"sky", "Custom Sky", "Sky presets"},
         {"inspect", "Item Inspect", "Spin held item"},
         {"showhand", "Show Hand", "Arm behind items"},
-        {"fullbright", "Fullbright", "See in the dark"}
+        {"fullbright", "Fullbright", "See in the dark"},
+        {"potions", "Potion Effects", "Effect timers"},
+        {"speed", "Speed Meter", "Blocks per second"},
+        {"compass", "Compass Bar", "Heading strip"},
+        {"outline", "Block Outline", "Custom outline"},
+        {"crosshair", "Crosshair", "Custom crosshair"},
+        {"lowoverlays", "Low Overlays", "Fire, shield, totem"},
+        {"damage", "Damage Numbers", "Hit popups"},
+        {"weather", "No Weather", "Hide rain and snow"},
+        {"motionblur", "Motion Blur", "Smooth turning"},
+        {"teamglow", "Team Glow", "Outline friends"}
     };
     private static final int MODULE_COUNT = MODULES.length;
     private final long[] rippleStartedAt = new long[MODULE_COUNT];
@@ -372,6 +382,16 @@ public final class FlintFixSettingsScreen extends Screen {
             case 14 -> FlintFixClient.CONFIG.itemInspectEnabled;
             case 15 -> FlintFixClient.CONFIG.showHandEnabled;
             case 16 -> FlintFixClient.CONFIG.fullbrightEnabled;
+            case 17 -> FlintFixClient.CONFIG.potionsEnabled;
+            case 18 -> FlintFixClient.CONFIG.speedEnabled;
+            case 19 -> FlintFixClient.CONFIG.compassEnabled;
+            case 20 -> FlintFixClient.CONFIG.blockOutlineEnabled;
+            case 21 -> FlintFixClient.CONFIG.crosshairEnabled;
+            case 22 -> FlintFixClient.CONFIG.lowOverlaysEnabled;
+            case 23 -> FlintFixClient.CONFIG.damageNumbersEnabled;
+            case 24 -> FlintFixClient.CONFIG.hideWeatherEnabled;
+            case 25 -> FlintFixClient.CONFIG.motionBlurEnabled;
+            case 26 -> FlintFixClient.CONFIG.teammateGlowEnabled;
             default -> false;
         };
     }
@@ -399,6 +419,16 @@ public final class FlintFixSettingsScreen extends Screen {
             case 14 -> FlintFixClient.CONFIG.itemInspectEnabled = !FlintFixClient.CONFIG.itemInspectEnabled;
             case 15 -> FlintFixClient.CONFIG.showHandEnabled = !FlintFixClient.CONFIG.showHandEnabled;
             case 16 -> FlintFixClient.CONFIG.fullbrightEnabled = !FlintFixClient.CONFIG.fullbrightEnabled;
+            case 17 -> FlintFixClient.CONFIG.potionsEnabled = !FlintFixClient.CONFIG.potionsEnabled;
+            case 18 -> FlintFixClient.CONFIG.speedEnabled = !FlintFixClient.CONFIG.speedEnabled;
+            case 19 -> FlintFixClient.CONFIG.compassEnabled = !FlintFixClient.CONFIG.compassEnabled;
+            case 20 -> FlintFixClient.CONFIG.blockOutlineEnabled = !FlintFixClient.CONFIG.blockOutlineEnabled;
+            case 21 -> FlintFixClient.CONFIG.crosshairEnabled = !FlintFixClient.CONFIG.crosshairEnabled;
+            case 22 -> FlintFixClient.CONFIG.lowOverlaysEnabled = !FlintFixClient.CONFIG.lowOverlaysEnabled;
+            case 23 -> FlintFixClient.CONFIG.damageNumbersEnabled = !FlintFixClient.CONFIG.damageNumbersEnabled;
+            case 24 -> FlintFixClient.CONFIG.hideWeatherEnabled = !FlintFixClient.CONFIG.hideWeatherEnabled;
+            case 25 -> FlintFixClient.CONFIG.motionBlurEnabled = !FlintFixClient.CONFIG.motionBlurEnabled;
+            case 26 -> FlintFixClient.CONFIG.teammateGlowEnabled = !FlintFixClient.CONFIG.teammateGlowEnabled;
             default -> { return; }
         }
         FlintFixClient.CONFIG.save();
@@ -424,7 +454,10 @@ public final class FlintFixSettingsScreen extends Screen {
             case 14 -> client.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.INSPECT));
             case 15 -> client.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.SHOW_HAND));
             case 16 -> client.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.FULLBRIGHT));
-            default -> { }
+            default -> {
+                Screen options = FlintFixModuleOptions.screenFor(MODULES[moduleIndex][0], this);
+                if (options != null) client.setScreen(options);
+            }
         }
     }
 

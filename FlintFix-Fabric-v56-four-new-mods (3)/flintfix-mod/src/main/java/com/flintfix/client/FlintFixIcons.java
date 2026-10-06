@@ -43,7 +43,17 @@ public final class FlintFixIcons {
         Map.entry("inspect", "rotate-cw"),
         Map.entry("video", "monitor"),
         Map.entry("showhand", "hand"),
-        Map.entry("fullbright", "lightbulb")
+        Map.entry("fullbright", "lightbulb"),
+        Map.entry("potions", "flask-conical"),
+        Map.entry("speed", "gauge"),
+        Map.entry("compass", "compass"),
+        Map.entry("outline", "square-dashed"),
+        Map.entry("crosshair", "crosshair"),
+        Map.entry("lowoverlays", "flame"),
+        Map.entry("damage", "swords"),
+        Map.entry("weather", "cloud-off"),
+        Map.entry("motionblur", "wind"),
+        Map.entry("teamglow", "users")
     );
     private static final Set<Identifier> FILTERED = ConcurrentHashMap.newKeySet();
 

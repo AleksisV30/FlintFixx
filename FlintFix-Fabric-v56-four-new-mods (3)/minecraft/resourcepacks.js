@@ -9,7 +9,7 @@ const { Readable } = require("stream");
 const { pipeline } = require("stream/promises");
 
 const API = "https://api.modrinth.com/v2";
-const USER_AGENT = "FlintFix-Client/0.57 (resource packs)";
+const USER_AGENT = "FlintFix-Client/0.58 (resource packs)";
 const MANIFEST_NAME = ".flintfix-packs.json";
 const SORTS = ["relevance", "downloads", "follows", "newest", "updated"];
 

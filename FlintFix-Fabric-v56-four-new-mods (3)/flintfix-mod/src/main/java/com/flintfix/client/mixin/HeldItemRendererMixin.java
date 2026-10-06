@@ -21,6 +21,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class HeldItemRendererMixin {
     @Unique private boolean flintfix$pushed;
     @Unique private boolean flintfix$inspecting;
+    @Unique private boolean flintfix$drawArm;
 
     /**
      * Show Hand lifts the view model slightly so the hand around the grip is on
@@ -33,13 +34,19 @@ public abstract class HeldItemRendererMixin {
                                     CallbackInfo ci) {
         flintfix$pushed = false;
         flintfix$inspecting = false;
+        flintfix$drawArm = false;
         if (item.isEmpty() || item.isOf(Items.FILLED_MAP)) return;
         boolean inspecting = hand == Hand.MAIN_HAND && FlintFixInspect.isActive();
         boolean showHand = FlintFixClient.CONFIG.showHandEnabled;
-        if (!inspecting && !showHand) return;
+        boolean lowShield = item.isOf(Items.SHIELD) && FlintFixClient.CONFIG.lowOverlaysEnabled
+            && FlintFixClient.CONFIG.lowShield;
+        if (!inspecting && !showHand && !lowShield) return;
 
         matrices.push();
         flintfix$pushed = true;
+        flintfix$drawArm = inspecting || showHand;
+        // Low Shield: lower the shield so it blocks less of the view.
+        if (lowShield) matrices.translate(0.0f, -FlintFixClient.CONFIG.lowShieldAmount, 0.0f);
         if (showHand) FlintFixHand.applyViewLift(matrices);
         if (inspecting) {
             flintfix$inspecting = true;
@@ -58,7 +65,7 @@ public abstract class HeldItemRendererMixin {
                                    float swingProgress, ItemStack item, float equipProgress,
                                    MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light,
                                    CallbackInfo ci) {
-        if (!flintfix$pushed || player.isInvisible()) {
+        if (!flintfix$drawArm || player.isInvisible()) {
             if (flintfix$inspecting) FlintFixInspect.applyItem(matrices, player, item, player.getMainArm() == Arm.RIGHT);
             return;
         }
@@ -81,6 +88,7 @@ public abstract class HeldItemRendererMixin {
             matrices.pop();
             flintfix$pushed = false;
             flintfix$inspecting = false;
+            flintfix$drawArm = false;
         }
     }
 }

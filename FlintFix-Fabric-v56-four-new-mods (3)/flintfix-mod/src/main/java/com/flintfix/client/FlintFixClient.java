@@ -7,6 +7,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
+import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.option.VideoOptionsScreen;
@@ -14,13 +15,18 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.client.network.ServerInfo;
 import net.minecraft.client.render.debug.ChunkBorderDebugRenderer;
+import net.minecraft.client.texture.Sprite;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Item;
 import net.minecraft.item.Items;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.math.MathHelper;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayDeque;
@@ -129,6 +135,9 @@ public final class FlintFixClient implements ClientModInitializer {
             FlintFixInspect.tick(client);
             pruneClicks(System.currentTimeMillis());
             FlintFixSocialBridge.tick(client);
+            tickSpeed(client);
+            FlintFixDamageNumbers.tick(client);
+            FlintFixTeammates.tick(client);
         });
 
         HudRenderCallback.EVENT.register((context, tickCounter) -> {
@@ -140,6 +149,9 @@ public final class FlintFixClient implements ClientModInitializer {
             renderPingHud(context, client, false, false);
             renderKeystrokesHud(context, client, false, false);
             renderArmorHud(context, client, false, false);
+            renderPotionsHud(context, client, false, false);
+            renderSpeedHud(context, client, false, false);
+            renderCompassHud(context, client, false, false);
             FlintFixSocialBridge.render(context, client);
         });
 
@@ -152,6 +164,14 @@ public final class FlintFixClient implements ClientModInitializer {
             }
             if (CONFIG.trajectoryEnabled) FlintFixTrajectory.render(context);
             if (CONFIG.hitboxesEnabled) FlintFixHitboxes.render(context);
+            if (CONFIG.damageNumbersEnabled) FlintFixDamageNumbers.render(context);
+        });
+        WorldRenderEvents.BEFORE_BLOCK_OUTLINE.register(FlintFixBlockOutline::render);
+        WorldRenderEvents.END.register(context -> FlintFixMotionBlur.render(context.tickCounter().getTickDelta(false)));
+        // Client-side hits drive the crosshair hit marker.
+        AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
+            if (world.isClient()) FlintFixCrosshair.onHit();
+            return ActionResult.PASS;
         });
     }
 
@@ -422,6 +442,204 @@ public final class FlintFixClient implements ClientModInitializer {
                     FlintFixFont.centeredY(rowY, rowH, VALUE), VALUE, color, true, shadow);
             }
         }
+        endWidget(context);
+        return new HudBounds(p.x, p.y, p.width, p.height);
+    }
+
+    // ------------------------------------------------------------------
+    // Potion effects, speed and compass
+    // ------------------------------------------------------------------
+
+    private static double smoothedSpeed;
+
+    /** Called every client tick: smooths the player's speed in blocks per second. */
+    static void tickSpeed(MinecraftClient client) {
+        if (client.player == null) {
+            smoothedSpeed = 0.0;
+            return;
+        }
+        double dx = client.player.getX() - client.player.prevX;
+        double dy = client.player.getY() - client.player.prevY;
+        double dz = client.player.getZ() - client.player.prevZ;
+        // Count vertical motion only while gliding, so jumping doesn't spike the meter.
+        double perTick = client.player.isFallFlying() ? Math.sqrt(dx * dx + dy * dy + dz * dz) : Math.sqrt(dx * dx + dz * dz);
+        smoothedSpeed += (perTick * 20.0 - smoothedSpeed) * 0.35;
+        if (smoothedSpeed < 0.01) smoothedSpeed = 0.0;
+    }
+
+    public static HudBounds renderSpeedHud(DrawContext context, MinecraftClient client, boolean editor, boolean selected) {
+        return renderSpeedHud(context, client, editor, selected, false);
+    }
+
+    static HudBounds renderSpeedHud(DrawContext context, MinecraftClient client, boolean editor, boolean selected, boolean preview) {
+        if (!CONFIG.speedEnabled && !editor && !preview) return emptyBounds();
+        if (!editor && !preview && client.player == null) return emptyBounds();
+        double speed = client.player == null ? 5.61 : smoothedSpeed;
+        String value = CONFIG.speedUnit == 1
+            ? String.format(Locale.ROOT, "%.1f km/h", speed * 3.6)
+            : String.format(Locale.ROOT, "%.2f b/s", speed);
+        return lineTile(context, client, editor, CONFIG.speedX, CONFIG.speedY, CONFIG.speedScale,
+            CONFIG.speedBackground, CONFIG.speedBackgroundOpacity, true, "SPEED", value, FlintFixUi.text());
+    }
+
+    public static HudBounds renderPotionsHud(DrawContext context, MinecraftClient client, boolean editor, boolean selected) {
+        return renderPotionsHud(context, client, editor, selected, false);
+    }
+
+    /**
+     * Active effects with their icon, name and time left. The time blinks during
+     * the last ten seconds so an expiring effect is easy to notice.
+     */
+    static HudBounds renderPotionsHud(DrawContext context, MinecraftClient client, boolean editor, boolean selected, boolean preview) {
+        if (!CONFIG.potionsEnabled && !editor && !preview) return emptyBounds();
+        List<StatusEffectInstance> effects = new ArrayList<>();
+        if (client.player != null) effects.addAll(client.player.getStatusEffects());
+        if (effects.isEmpty() && (editor || preview)) {
+            effects.add(new StatusEffectInstance(StatusEffects.SPEED, 1680, 1));
+            effects.add(new StatusEffectInstance(StatusEffects.STRENGTH, 160, 0));
+            effects.add(new StatusEffectInstance(StatusEffects.FIRE_RESISTANCE, 3600, 0));
+        }
+        if (effects.isEmpty()) return emptyBounds();
+        effects.sort((a, b) -> Integer.compare(b.getDuration(), a.getDuration()));
+
+        int rowH = Math.max(20, FlintFixFont.lineHeight(7) + FlintFixFont.lineHeight(LABEL) + 3);
+        int textX = 4 + 18 + 4;
+        int textW = 0;
+        String[] names = new String[effects.size()];
+        String[] times = new String[effects.size()];
+        for (int i = 0; i < effects.size(); i++) {
+            StatusEffectInstance effect = effects.get(i);
+            String name = effect.getEffectType().value().getName().getString();
+            if (effect.getAmplifier() > 0) name += " " + roman(effect.getAmplifier() + 1);
+            names[i] = name;
+            times[i] = effectTime(effect);
+            textW = Math.max(textW, Math.max(FlintFixFont.width(name, 7, true), FlintFixFont.width(times[i], LABEL, true)));
+        }
+        textW = Math.min(textW, 110);
+        int rawWidth = textX + textW + PAD_X;
+        int rawHeight = 2 + effects.size() * rowH + 1;
+        float scale = CONFIG.potionsScale;
+        HudPlacement p = placement(client, CONFIG.potionsX, CONFIG.potionsY, rawWidth, rawHeight, scale);
+
+        beginWidget(context, p, scale);
+        int opacity = panelOpacity(CONFIG.potionsBackground, CONFIG.potionsBackgroundOpacity, editor);
+        boolean shadow = opacity < 110;
+        drawHudPanel(context, rawWidth, rawHeight, opacity);
+        boolean blinkOn = (System.currentTimeMillis() / 400L) % 2L == 0L;
+        for (int i = 0; i < effects.size(); i++) {
+            StatusEffectInstance effect = effects.get(i);
+            int rowY = 2 + i * rowH;
+            Sprite sprite = client.getStatusEffectSpriteManager().getSprite(effect.getEffectType());
+            context.drawSprite(4, rowY + (rowH - 18) / 2, 0, 18, 18, sprite);
+            int nameY = rowY + Math.max(0, (rowH - FlintFixFont.lineHeight(7) - FlintFixFont.lineHeight(LABEL)) / 2);
+            FlintFixFont.drawExact(context, FlintFixFont.trim(names[i], textW, 7, true), textX, nameY, 7,
+                FlintFixUi.text(), true, shadow);
+            boolean expiring = !effect.isInfinite() && effect.getDuration() <= 200;
+            int timeColor = expiring ? (blinkOn ? statusColor(BAD) : FlintFixUi.opacity(statusColor(BAD), 0.35f)) : FlintFixUi.muted();
+            FlintFixFont.drawExact(context, times[i], textX, nameY + FlintFixFont.lineHeight(7) - 1, LABEL,
+                timeColor, true, shadow);
+        }
+        endWidget(context);
+        return new HudBounds(p.x, p.y, p.width, p.height);
+    }
+
+    private static String effectTime(StatusEffectInstance effect) {
+        if (effect.isInfinite()) return "--:--";
+        int seconds = Math.max(0, effect.getDuration() / 20);
+        return String.format(Locale.ROOT, "%d:%02d", seconds / 60, seconds % 60);
+    }
+
+    private static String roman(int value) {
+        return switch (value) {
+            case 1 -> "I";
+            case 2 -> "II";
+            case 3 -> "III";
+            case 4 -> "IV";
+            case 5 -> "V";
+            case 6 -> "VI";
+            case 7 -> "VII";
+            case 8 -> "VIII";
+            case 9 -> "IX";
+            case 10 -> "X";
+            default -> Integer.toString(value);
+        };
+    }
+
+    public static HudBounds renderCompassHud(DrawContext context, MinecraftClient client, boolean editor, boolean selected) {
+        return renderCompassHud(context, client, editor, selected, false);
+    }
+
+    /**
+     * Heading strip: letters at the cardinal directions, smaller labels between
+     * them and ticks every 15 degrees, fading toward the edges. A red marker
+     * points at your last death in this dimension.
+     */
+    static HudBounds renderCompassHud(DrawContext context, MinecraftClient client, boolean editor, boolean selected, boolean preview) {
+        if (!CONFIG.compassEnabled && !editor && !preview) return emptyBounds();
+        if (!editor && !preview && client.player == null) return emptyBounds();
+
+        int rawWidth = 180;
+        int valueLine = FlintFixFont.lineHeight(VALUE);
+        int rawHeight = valueLine + PAD_Y * 2 + 3;
+        float scale = CONFIG.compassScale;
+        HudPlacement p = placement(client, CONFIG.compassX, CONFIG.compassY, rawWidth, rawHeight, scale);
+        float yaw = client.gameRenderer == null || client.player == null ? 180.0f : client.gameRenderer.getCamera().getYaw();
+        // Minecraft yaw is 0 toward +Z (south); a compass bearing is 0 toward north.
+        float bearing = MathHelper.wrapDegrees(yaw + 180.0f);
+        float range = 75.0f;
+        float center = rawWidth / 2.0f;
+        float pxPerDegree = (rawWidth - 16) / (range * 2.0f);
+
+        beginWidget(context, p, scale);
+        int opacity = panelOpacity(CONFIG.compassBackground, CONFIG.compassBackgroundOpacity, editor);
+        boolean shadow = opacity < 110;
+        drawHudPanel(context, rawWidth, rawHeight, opacity);
+        int textY = PAD_Y + 2;
+        for (int degrees = 0; degrees < 360; degrees += 15) {
+            float delta = MathHelper.wrapDegrees(degrees - bearing);
+            if (Math.abs(delta) > range) continue;
+            int x = Math.round(center + delta * pxPerDegree);
+            float fade = 1.0f - Math.max(0.0f, (Math.abs(delta) - range * 0.55f) / (range * 0.45f));
+            if (degrees % 90 == 0) {
+                String letter = switch (degrees) {
+                    case 0 -> "N";
+                    case 90 -> "E";
+                    case 180 -> "S";
+                    default -> "W";
+                };
+                int color = degrees == 0 ? statusColor(BAD) : FlintFixUi.text();
+                FlintFixFont.drawCenteredExact(context, letter, x, textY, VALUE, FlintFixUi.opacity(color, fade), true);
+            } else if (degrees % 45 == 0) {
+                String label = switch (degrees) {
+                    case 45 -> "NE";
+                    case 135 -> "SE";
+                    case 225 -> "SW";
+                    default -> "NW";
+                };
+                FlintFixFont.drawCenteredExact(context, label, x, textY + capBottom(VALUE) - capBottom(LABEL), LABEL,
+                    FlintFixUi.opacity(FlintFixUi.muted(), fade), true);
+            } else {
+                context.fill(x, textY + 2, x + 1, textY + capBottom(VALUE), FlintFixUi.opacity(FlintFixUi.muted(), 0.6f * fade));
+            }
+        }
+        if (CONFIG.compassDeathMarker && client.player != null && client.world != null) {
+            client.player.getLastDeathPos().ifPresent(death -> {
+                if (!death.dimension().equals(client.world.getRegistryKey())) return;
+                double dx = death.pos().getX() + 0.5 - client.player.getX();
+                double dz = death.pos().getZ() + 0.5 - client.player.getZ();
+                float target = (float) Math.toDegrees(Math.atan2(dx, -dz));
+                float delta = MathHelper.wrapDegrees(target - bearing);
+                if (Math.abs(delta) > range) return;
+                int x = Math.round(center + delta * pxPerDegree);
+                int y = rawHeight - 4;
+                FlintFixUi.roundedRaw(context, x - 2, y - 2, 4, 4, 1, statusColor(BAD));
+            });
+        }
+        // Center caret.
+        int caret = FlintFixUi.accent();
+        context.fill(Math.round(center) - 2, 0, Math.round(center) + 3, 1, caret);
+        context.fill(Math.round(center) - 1, 1, Math.round(center) + 2, 2, caret);
+        context.fill(Math.round(center), 2, Math.round(center) + 1, 3, caret);
         endWidget(context);
         return new HudBounds(p.x, p.y, p.width, p.height);
     }

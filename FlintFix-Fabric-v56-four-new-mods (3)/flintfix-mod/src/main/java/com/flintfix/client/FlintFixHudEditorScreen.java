@@ -6,7 +6,7 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
 
 public final class FlintFixHudEditorScreen extends Screen {
-    private enum Module { FPS, CPS, COORDINATES, PING, KEYSTROKES, ARMOR }
+    private enum Module { FPS, CPS, COORDINATES, PING, KEYSTROKES, ARMOR, POTIONS, SPEED, COMPASS }
     private enum ResizeCorner { NONE, TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT }
     private static final int GRID_SIZE = 8;
     private static final int SNAP_RANGE = 10;
@@ -31,6 +31,9 @@ public final class FlintFixHudEditorScreen extends Screen {
     private FlintFixClient.HudBounds pingBounds = new FlintFixClient.HudBounds(0,0,0,0);
     private FlintFixClient.HudBounds keysBounds = new FlintFixClient.HudBounds(0,0,0,0);
     private FlintFixClient.HudBounds armorBounds = new FlintFixClient.HudBounds(0,0,0,0);
+    private FlintFixClient.HudBounds potionsBounds = new FlintFixClient.HudBounds(0,0,0,0);
+    private FlintFixClient.HudBounds speedBounds = new FlintFixClient.HudBounds(0,0,0,0);
+    private FlintFixClient.HudBounds compassBounds = new FlintFixClient.HudBounds(0,0,0,0);
 
     private boolean snapshotTaken;
     private final long transitionStartedAt = System.currentTimeMillis();
@@ -38,6 +41,8 @@ public final class FlintFixHudEditorScreen extends Screen {
     private float oldFpsX, oldFpsY, oldCpsX, oldCpsY, oldCoordinatesX, oldCoordinatesY;
     private float oldPingX, oldPingY, oldKeysX, oldKeysY, oldArmorX, oldArmorY;
     private float oldFpsScale, oldCpsScale, oldCoordinatesScale, oldPingScale, oldKeysScale, oldArmorScale;
+    private float oldPotionsX, oldPotionsY, oldPotionsScale, oldSpeedX, oldSpeedY, oldSpeedScale;
+    private float oldCompassX, oldCompassY, oldCompassScale;
 
     public FlintFixHudEditorScreen(Screen parent) {
         super(Text.literal("FlintFix HUD Editor"));
@@ -81,6 +86,13 @@ public final class FlintFixHudEditorScreen extends Screen {
         pingBounds = FlintFixClient.renderPingHud(c, mc, true, selected == Module.PING);
         keysBounds = FlintFixClient.renderKeystrokesHud(c, mc, true, selected == Module.KEYSTROKES);
         armorBounds = FlintFixClient.renderArmorHud(c, mc, true, selected == Module.ARMOR);
+        // The newer widgets only appear in the editor when they are turned on.
+        potionsBounds = FlintFixClient.CONFIG.potionsEnabled
+            ? FlintFixClient.renderPotionsHud(c, mc, true, selected == Module.POTIONS) : new FlintFixClient.HudBounds(0, 0, 0, 0);
+        speedBounds = FlintFixClient.CONFIG.speedEnabled
+            ? FlintFixClient.renderSpeedHud(c, mc, true, selected == Module.SPEED) : new FlintFixClient.HudBounds(0, 0, 0, 0);
+        compassBounds = FlintFixClient.CONFIG.compassEnabled
+            ? FlintFixClient.renderCompassHud(c, mc, true, selected == Module.COMPASS) : new FlintFixClient.HudBounds(0, 0, 0, 0);
         drawConnectedBorders(c);
         drawSnapGuides(c);
         drawResizeHandles(c);
@@ -204,6 +216,9 @@ public final class FlintFixHudEditorScreen extends Screen {
     }
 
     private Module hitModule(double mx, double my) {
+        if (compassBounds.contains(mx, my)) return Module.COMPASS;
+        if (speedBounds.contains(mx, my)) return Module.SPEED;
+        if (potionsBounds.contains(mx, my)) return Module.POTIONS;
         if (armorBounds.contains(mx, my)) return Module.ARMOR;
         if (keysBounds.contains(mx, my)) return Module.KEYSTROKES;
         if (pingBounds.contains(mx, my)) return Module.PING;
@@ -288,6 +303,9 @@ public final class FlintFixHudEditorScreen extends Screen {
             case PING -> FlintFixClient.CONFIG.pingScale;
             case KEYSTROKES -> FlintFixClient.CONFIG.keystrokesScale;
             case ARMOR -> FlintFixClient.CONFIG.armorScale;
+            case POTIONS -> FlintFixClient.CONFIG.potionsScale;
+            case SPEED -> FlintFixClient.CONFIG.speedScale;
+            case COMPASS -> FlintFixClient.CONFIG.compassScale;
         };
     }
 
@@ -299,6 +317,9 @@ public final class FlintFixHudEditorScreen extends Screen {
             case PING -> FlintFixClient.CONFIG.pingScale = scale;
             case KEYSTROKES -> FlintFixClient.CONFIG.keystrokesScale = scale;
             case ARMOR -> FlintFixClient.CONFIG.armorScale = scale;
+            case POTIONS -> FlintFixClient.CONFIG.potionsScale = scale;
+            case SPEED -> FlintFixClient.CONFIG.speedScale = scale;
+            case COMPASS -> FlintFixClient.CONFIG.compassScale = scale;
         }
     }
 
@@ -310,6 +331,9 @@ public final class FlintFixHudEditorScreen extends Screen {
             case PING -> pingBounds;
             case KEYSTROKES -> keysBounds;
             case ARMOR -> armorBounds;
+            case POTIONS -> potionsBounds;
+            case SPEED -> speedBounds;
+            case COMPASS -> compassBounds;
         };
     }
 
@@ -477,6 +501,9 @@ public final class FlintFixHudEditorScreen extends Screen {
             case PING -> { FlintFixClient.CONFIG.pingX = nx; FlintFixClient.CONFIG.pingY = ny; }
             case KEYSTROKES -> { FlintFixClient.CONFIG.keystrokesX = nx; FlintFixClient.CONFIG.keystrokesY = ny; }
             case ARMOR -> { FlintFixClient.CONFIG.armorX = nx; FlintFixClient.CONFIG.armorY = ny; }
+            case POTIONS -> { FlintFixClient.CONFIG.potionsX = nx; FlintFixClient.CONFIG.potionsY = ny; }
+            case SPEED -> { FlintFixClient.CONFIG.speedX = nx; FlintFixClient.CONFIG.speedY = ny; }
+            case COMPASS -> { FlintFixClient.CONFIG.compassX = nx; FlintFixClient.CONFIG.compassY = ny; }
         }
     }
 
@@ -490,6 +517,12 @@ public final class FlintFixHudEditorScreen extends Screen {
         oldFpsScale = FlintFixClient.CONFIG.fpsScale; oldCpsScale = FlintFixClient.CONFIG.cpsScale;
         oldCoordinatesScale = FlintFixClient.CONFIG.coordinatesScale; oldPingScale = FlintFixClient.CONFIG.pingScale;
         oldKeysScale = FlintFixClient.CONFIG.keystrokesScale; oldArmorScale = FlintFixClient.CONFIG.armorScale;
+        oldPotionsX = FlintFixClient.CONFIG.potionsX; oldPotionsY = FlintFixClient.CONFIG.potionsY;
+        oldPotionsScale = FlintFixClient.CONFIG.potionsScale;
+        oldSpeedX = FlintFixClient.CONFIG.speedX; oldSpeedY = FlintFixClient.CONFIG.speedY;
+        oldSpeedScale = FlintFixClient.CONFIG.speedScale;
+        oldCompassX = FlintFixClient.CONFIG.compassX; oldCompassY = FlintFixClient.CONFIG.compassY;
+        oldCompassScale = FlintFixClient.CONFIG.compassScale;
     }
 
     private void restoreSnapshot() {
@@ -502,6 +535,12 @@ public final class FlintFixHudEditorScreen extends Screen {
         FlintFixClient.CONFIG.fpsScale = oldFpsScale; FlintFixClient.CONFIG.cpsScale = oldCpsScale;
         FlintFixClient.CONFIG.coordinatesScale = oldCoordinatesScale; FlintFixClient.CONFIG.pingScale = oldPingScale;
         FlintFixClient.CONFIG.keystrokesScale = oldKeysScale; FlintFixClient.CONFIG.armorScale = oldArmorScale;
+        FlintFixClient.CONFIG.potionsX = oldPotionsX; FlintFixClient.CONFIG.potionsY = oldPotionsY;
+        FlintFixClient.CONFIG.potionsScale = oldPotionsScale;
+        FlintFixClient.CONFIG.speedX = oldSpeedX; FlintFixClient.CONFIG.speedY = oldSpeedY;
+        FlintFixClient.CONFIG.speedScale = oldSpeedScale;
+        FlintFixClient.CONFIG.compassX = oldCompassX; FlintFixClient.CONFIG.compassY = oldCompassY;
+        FlintFixClient.CONFIG.compassScale = oldCompassScale;
     }
 
     private void saveAndClose() {
