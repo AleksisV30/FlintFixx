@@ -6,7 +6,7 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
 
 /** Compact live-rendered FPS settings screen in the same FlintFix visual style. */
-public final class FlintFixFpsSettingsScreen extends Screen {
+public final class FlintFixFpsSettingsScreen extends FlintFixScreen {
     private final Screen parent;
 
     private int x, y, w, h;
@@ -56,7 +56,7 @@ public final class FlintFixFpsSettingsScreen extends Screen {
     public void render(DrawContext c, int mouseX, int mouseY, float delta) {
         layout();
         float intro = FlintFixUi.openProgress(openedAt);
-        applyBlur(delta);
+        blurBehind(delta);
         FlintFixUi.backdrop(c, width, height, intro);
         FlintFixUi.pushPanelIntro(c, x, y, w, h, intro);
         FlintFixUi.panelFrame(c, x, y, w, h);

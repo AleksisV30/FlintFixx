@@ -148,7 +148,7 @@ public final class FlintFixFont {
         // Use a real bold face instead of Minecraft synthesizing bold from
         // the regular TTF. Synthetic bold made small UI labels look doubled
         // and fuzzy in the atlas.
-        text.setStyle(Style.EMPTY.withFont(Identifier.of("flintfix", bold ? "ui_bold" : "ui")));
+        text.setStyle(Style.EMPTY.withFont(FlintFixCompat.id("flintfix", bold ? "ui_bold" : "ui")));
         return text;
     }
 

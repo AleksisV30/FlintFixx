@@ -5,17 +5,23 @@ Goal: ship the FlintFix in-game client (Fabric mod in
 versions as Lunar Client, and have the launcher use a prebuilt jar per version.
 
 ## Current state (branch `claude/clever-johnson-wumk7u`)
-- Mod targets Fabric 1.21.1 only (yarn 1.21.1+build.3, loader 0.16.14,
-  Fabric API 0.116.16+1.21.1, Loom 1.10.1, Gradle 8.14.3, Java 21).
-  ~59 Java files, ~10k lines, 18 mixins (see `flintfix.mixins.json`).
-- The mod has never been compiled outside the user's PC. First step: build it
-  as-is and fix any compile errors.
-- Launcher (`minecraft/fabric.js`) installs Fabric + matching Fabric API on any
-  version; it copies the FlintFix jar only for 1.21.1 (`MC_VERSION`). The jar is
-  built locally via `build-mod.ps1` on first launch.
-- GitHub Actions workflow `.github/workflows/build-mod.yml` exists but the
-  user's GitHub account is billing-locked for Actions, so builds must run in
-  the Claude session (network allow-list now includes Fabric/Mojang/Gradle hosts).
+- Stonecutter 0.7.11 multi-version build (Gradle 8.14.3 wrapper, Loom 1.10.1,
+  Kotlin DSL). One shared `src/`, per-version settings in
+  `flintfix-mod/versions/<mc>/gradle.properties`. Active (editable) version: 1.21.1.
+- Group 1 done except 1.21.5+: **1.20.1, 1.20.4, 1.20.6, 1.21.1, 1.21.4** all
+  compile and pass a runtime mixin audit (`./gradlew :<mc>:runAudit` starts the
+  game, force-applies every mixin, logs `FLINTFIX_AUDIT_OK`/`FAILED`, quits).
+  1.20.1/1.20.4 build for Java 17, the rest for Java 21.
+- Version differences live in `FlintFixCompat` (rendering/API shims),
+  `FlintFixScreen` (Screen API: blur, scroll) and `//? if` blocks in the mixins.
+  Not yet checked by hand in-game on every version: custom sky look on 1.21.4
+  (new frame-graph sky pass), title glow on 1.21.4, motion blur on 1.21.4.
+- Build: `./gradlew buildAll` -> `build/libs/all/flintfix-client-mod-<ver>+<mc>.jar`;
+  one version: `./gradlew :1.20.1:build` or `build-mod.ps1 -MinecraftVersion 1.20.1`.
+- Launcher (`minecraft/fabric.js`, `renderer.js`) now enables FlintFix for every
+  version in its supported list and builds the matching jar locally.
+- GitHub Actions workflow builds all versions (`buildAll`), but the user's GitHub
+  account is billing-locked for Actions, so builds run in the Claude session.
 
 ## Target versions (Lunar's list)
 1. Group 1 (first): 1.20.1, 1.20.4, 1.20.6, 1.21.1, 1.21.4, then 1.21.5+

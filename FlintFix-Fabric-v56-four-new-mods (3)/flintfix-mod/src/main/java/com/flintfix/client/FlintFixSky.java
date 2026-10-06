@@ -2,17 +2,16 @@ package com.flintfix.client;
 
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
+//? if >=1.21 {
 import net.minecraft.block.enums.CameraSubmersionType;
+//?} else {
+/*import net.minecraft.client.render.CameraSubmersionType;
+*///?}
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BufferRenderer;
-import net.minecraft.client.render.BuiltBuffer;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.DimensionEffects;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
-import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.LivingEntity;
@@ -192,7 +191,7 @@ public final class FlintFixSky {
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
-        RenderSystem.setShader(GameRenderer::getPositionColorProgram);
+        FlintFixCompat.usePositionColorShader();
 
         // Sun direction in world space; matches the celestial rotation below.
         float theta = skyAngle * (float) (Math.PI * 2.0);
@@ -272,12 +271,11 @@ public final class FlintFixSky {
     }
 
     private static BufferBuilder begin() {
-        return Tessellator.getInstance().begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
+        return FlintFixCompat.beginPositionColor(VertexFormat.DrawMode.TRIANGLES);
     }
 
     private static void draw(BufferBuilder buffer) {
-        BuiltBuffer built = buffer.endNullable();
-        if (built != null) BufferRenderer.drawWithGlobalProgram(built);
+        FlintFixCompat.drawBuffer(buffer);
     }
 
     // ------------------------------------------------------------------
@@ -689,7 +687,7 @@ public final class FlintFixSky {
     }
 
     private static void vertex(BufferBuilder b, Matrix4f m, float[] p, int argb) {
-        b.vertex(m, p[0], p[1], p[2]).color(argb);
+        FlintFixCompat.colorVertex(b, m, p[0], p[1], p[2], argb);
     }
 
     /** Random stars; galaxy stars cluster tightly around the Milky Way's great circle. */

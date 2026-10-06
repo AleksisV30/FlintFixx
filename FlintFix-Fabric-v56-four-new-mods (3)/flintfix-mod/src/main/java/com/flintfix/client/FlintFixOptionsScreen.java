@@ -17,7 +17,7 @@ import java.util.function.IntSupplier;
  * color swatches and info notes), so each module only describes its settings.
  * Changes save immediately.
  */
-public final class FlintFixOptionsScreen extends Screen {
+public final class FlintFixOptionsScreen extends FlintFixScreen {
     public sealed interface Option permits Toggle, Slider, Choice, ColorPick, Info, Action {}
 
     public record Toggle(String label, BooleanSupplier get, Consumer<Boolean> set) implements Option {}
@@ -84,14 +84,10 @@ public final class FlintFixOptionsScreen extends Screen {
     }
 
     private static int rowHeight(Option option) {
-        return switch (option) {
-            case Toggle t -> 22;
-            case Slider s -> 30;
-            case Choice c -> 22;
-            case ColorPick c -> 32;
-            case Info i -> 30;
-            case Action a -> 22;
-        };
+        // instanceof chains instead of a pattern switch so the code also compiles for Java 17 (Minecraft 1.20.1-1.20.4).
+        if (option instanceof Slider || option instanceof Info) return 30;
+        if (option instanceof ColorPick) return 32;
+        return 22;
     }
 
     @Override
@@ -103,7 +99,7 @@ public final class FlintFixOptionsScreen extends Screen {
     public void render(DrawContext c, int mouseX, int mouseY, float delta) {
         layout();
         float intro = FlintFixUi.openProgress(openedAt);
-        if (client != null && client.world != null) applyBlur(delta);
+        if (client != null && client.world != null) blurBehind(delta);
         FlintFixUi.backdrop(c, width, height, intro);
         FlintFixUi.pushPanelIntro(c, x, y, w, h, intro);
         FlintFixUi.panelFrame(c, x, y, w, h);
@@ -141,16 +137,15 @@ public final class FlintFixOptionsScreen extends Screen {
     private void renderRow(DrawContext c, Option option, int rowY, int mouseX, int mouseY) {
         boolean hover = mouseY >= listTop && mouseY <= listBottom
             && FlintFixUi.inside(mouseX, mouseY, rowX, rowY, rowW, rowHeight(option));
-        switch (option) {
-            case Toggle t -> {
+        {
+            if (option instanceof Toggle t) {
                 float ht = FlintFixUi.hoverProgress("opt-row:" + heading + t.label(), hover);
                 FlintFixUi.surface(c, rowX, rowY, rowW, 22,
                     FlintFixUi.blendColors(FlintFixUi.card(), FlintFixUi.raised(), ht * 0.6f), FlintFixUi.border());
                 FlintFixUi.drawTrimmedExact(c, t.label(), rowX + 8, FlintFixFont.centeredY(rowY, 22, 7), rowW - 42, 7,
                     FlintFixUi.text(), true);
                 FlintFixUi.switchToggle(c, "opt:" + heading + t.label(), rowX + rowW - 28, rowY + 6, t.get().getAsBoolean());
-            }
-            case Slider s -> {
+            } else if (option instanceof Slider s) {
                 FlintFixUi.surface(c, rowX, rowY, rowW, 30, FlintFixUi.card(), FlintFixUi.border());
                 float value = (float) s.get().getAsDouble();
                 String text = s.format().apply(value);
@@ -159,8 +154,7 @@ public final class FlintFixOptionsScreen extends Screen {
                     FlintFixUi.accentBright(), true);
                 FlintFixUi.slider(c, rowX + 8, rowY + 20, rowW - 16, (value - s.min()) / (s.max() - s.min()),
                     dragging == s || hover);
-            }
-            case Choice ch -> {
+            } else if (option instanceof Choice ch) {
                 float ht = FlintFixUi.hoverProgress("opt-row:" + heading + ch.label(), hover);
                 FlintFixUi.surface(c, rowX, rowY, rowW, 22,
                     FlintFixUi.blendColors(FlintFixUi.card(), FlintFixUi.raised(), ht * 0.6f), FlintFixUi.border());
@@ -174,8 +168,7 @@ public final class FlintFixOptionsScreen extends Screen {
                 String value = ch.values()[Math.max(0, Math.min(ch.values().length - 1, ch.get().getAsInt()))];
                 FlintFixFont.drawCenteredExact(c, FlintFixFont.trim(value, pillW - 24, 6, true), pillX + pillW / 2,
                     FlintFixFont.centeredY(rowY + 4, 14, 6), 6, FlintFixUi.accentBright(), true);
-            }
-            case ColorPick cp -> {
+            } else if (option instanceof ColorPick cp) {
                 FlintFixUi.surface(c, rowX, rowY, rowW, 32, FlintFixUi.card(), FlintFixUi.border());
                 FlintFixUi.drawTrimmedExact(c, cp.label(), rowX + 8, rowY + 5, rowW - 16, 7, FlintFixUi.text(), true);
                 int current = cp.get().getAsInt() | 0xFF000000;
@@ -187,8 +180,7 @@ public final class FlintFixOptionsScreen extends Screen {
                     FlintFixUi.roundedRaw(c, sx - 1, sy - 1, 11, 11, 2, FlintFixUi.border());
                     FlintFixUi.roundedRaw(c, sx, sy, 9, 9, 2, SWATCHES[i]);
                 }
-            }
-            case Action action -> {
+            } else if (option instanceof Action action) {
                 FlintFixUi.surface(c, rowX, rowY, rowW, 22, FlintFixUi.card(), FlintFixUi.border());
                 int buttonW = Math.max(54, FlintFixFont.width(action.button(), 6, true) + 16);
                 int buttonX = rowX + rowW - 4 - buttonW;
@@ -196,8 +188,7 @@ public final class FlintFixOptionsScreen extends Screen {
                     buttonX - rowX - 14, 7, FlintFixUi.text(), true);
                 FlintFixUi.actionButton(c, buttonX, rowY + 3, buttonW, 16, action.button(), hover,
                     FlintFixUi.ButtonStyle.PRIMARY);
-            }
-            case Info info -> {
+            } else if (option instanceof Info info) {
                 FlintFixUi.surface(c, rowX, rowY, rowW, 30, FlintFixUi.panel(), FlintFixUi.border());
                 FlintFixUi.drawTrimmedExact(c, info.title(), rowX + 8, rowY + 6, rowW - 16, 7, FlintFixUi.text(), true);
                 FlintFixUi.drawTrimmedExact(c, info.text(), rowX + 8, rowY + 17, rowW - 16, 6, FlintFixUi.muted(), false);
@@ -247,19 +238,18 @@ public final class FlintFixOptionsScreen extends Screen {
     }
 
     private void click(Option option, double mouseX, double mouseY, int rowY) {
-        switch (option) {
-            case Toggle t -> t.set().accept(!t.get().getAsBoolean());
-            case Slider s -> {
-                dragging = s;
-                setSlider(s, mouseX);
-            }
-            case Choice ch -> {
+        if (option instanceof Toggle t) {
+            t.set().accept(!t.get().getAsBoolean());
+        } else if (option instanceof Slider s) {
+            dragging = s;
+            setSlider(s, mouseX);
+        } else {
+            if (option instanceof Choice ch) {
                 int pillX = rowX + rowW - 8 - 78;
                 boolean back = mouseX < pillX + 39;
                 int count = ch.values().length;
                 ch.set().accept(Math.floorMod(ch.get().getAsInt() + (back ? -1 : 1), count));
-            }
-            case ColorPick cp -> {
+            } else if (option instanceof ColorPick cp) {
                 for (int i = 0; i < SWATCHES.length; i++) {
                     int sx = swatchX(i);
                     if (mouseX >= sx - 2 && mouseX <= sx + 11 && mouseY >= rowY + 15) {
@@ -267,9 +257,9 @@ public final class FlintFixOptionsScreen extends Screen {
                         break;
                     }
                 }
+            } else if (option instanceof Action action) {
+                action.run().run();
             }
-            case Action action -> action.run().run();
-            case Info info -> { }
         }
         save();
     }

@@ -6,7 +6,7 @@ import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
 /** Displays a one-time risk notice before the first Freecam activation. */
-final class FlintFixFreecamWarningScreen extends Screen {
+final class FlintFixFreecamWarningScreen extends FlintFixScreen {
     private final Screen parent;
     private int panelX, panelY, panelW, panelH;
 

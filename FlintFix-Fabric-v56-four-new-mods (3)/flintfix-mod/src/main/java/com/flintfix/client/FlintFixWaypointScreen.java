@@ -9,7 +9,7 @@ import net.minecraft.text.Text;
 import java.util.List;
 
 /** Lists the waypoints of the current world: add, show or hide, recolor and delete. */
-public final class FlintFixWaypointScreen extends Screen {
+public final class FlintFixWaypointScreen extends FlintFixScreen {
     private static final int MAX_W = 340;
     private static final int MAX_H = 236;
     private static final int ROW_H = 24;
@@ -53,7 +53,7 @@ public final class FlintFixWaypointScreen extends Screen {
     public void render(DrawContext c, int mouseX, int mouseY, float delta) {
         layout();
         float intro = FlintFixUi.openProgress(openedAt);
-        applyBlur(delta);
+        blurBehind(delta);
         FlintFixUi.backdrop(c, width, height, intro);
         FlintFixUi.panelFrame(c, x, y, w, h);
         MinecraftClient mc = MinecraftClient.getInstance();

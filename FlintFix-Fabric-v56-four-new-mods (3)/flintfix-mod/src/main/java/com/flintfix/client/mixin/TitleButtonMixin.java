@@ -19,7 +19,11 @@ public abstract class TitleButtonMixin extends ClickableWidget {
         super(x, y, width, height, message);
     }
 
+    //? if >=1.20.3 {
     @Inject(method = "renderWidget", at = @At("HEAD"), cancellable = true)
+    //?} else {
+    /*@Inject(method = "renderButton", at = @At("HEAD"), cancellable = true)
+    *///?}
     private void flintfix$renderTitleButton(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         if (!(MinecraftClient.getInstance().currentScreen instanceof TitleScreen)) return;
         if (this.getWidth() < 90 || this.getHeight() < 18) return;

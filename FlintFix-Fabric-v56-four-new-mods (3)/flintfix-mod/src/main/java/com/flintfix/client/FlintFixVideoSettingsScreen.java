@@ -7,7 +7,11 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.option.CloudRenderMode;
 import net.minecraft.client.option.GameOptions;
 import net.minecraft.client.option.GraphicsMode;
+//? if >=1.21.2 {
+/*import net.minecraft.particle.ParticlesMode;
+*///?} else {
 import net.minecraft.client.option.ParticlesMode;
+//?}
 import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
@@ -17,7 +21,7 @@ import java.util.function.DoubleConsumer;
 import java.util.function.DoubleSupplier;
 
 /** FlintFix-styled video controls with transparent hardware-based recommendations. */
-public final class FlintFixVideoSettingsScreen extends Screen {
+public final class FlintFixVideoSettingsScreen extends FlintFixScreen {
     private static final int PERFORMANCE_TAB = 0;
     private static final int VISUAL_TAB = 1;
     private static final long TAB_ANIMATION_MS = 220L;
@@ -81,7 +85,7 @@ public final class FlintFixVideoSettingsScreen extends Screen {
         layout();
         float intro = FlintFixUi.openProgress(openedAt);
         if (client != null && client.world != null) {
-            applyBlur(delta);
+            blurBehind(delta);
             FlintFixUi.backdrop(c, width, height, intro);
         } else {
             FlintFixTitleBackground.render(c, width, height);

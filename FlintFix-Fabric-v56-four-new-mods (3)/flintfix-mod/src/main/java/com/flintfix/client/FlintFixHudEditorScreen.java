@@ -5,7 +5,7 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
 
-public final class FlintFixHudEditorScreen extends Screen {
+public final class FlintFixHudEditorScreen extends FlintFixScreen {
     private enum Module { FPS, CPS, COORDINATES, PING, KEYSTROKES, ARMOR, POTIONS, SPEED, COMPASS }
     private enum ResizeCorner { NONE, TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT }
     private static final int GRID_SIZE = 8;

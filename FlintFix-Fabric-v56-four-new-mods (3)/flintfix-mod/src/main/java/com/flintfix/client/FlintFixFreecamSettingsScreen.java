@@ -8,7 +8,7 @@ import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
 /** FlintFix card options for changing Freecam's on/off toggle key. */
-public final class FlintFixFreecamSettingsScreen extends Screen {
+public final class FlintFixFreecamSettingsScreen extends FlintFixScreen {
     private final Screen parent;
     private int x, y, w, h;
     private int keyX, keyY, keyW;
@@ -47,7 +47,7 @@ public final class FlintFixFreecamSettingsScreen extends Screen {
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         layout();
         float intro = FlintFixUi.openProgress(openedAt);
-        applyBlur(delta);
+        blurBehind(delta);
         FlintFixUi.backdrop(context, width, height, intro);
         FlintFixUi.pushPanelIntro(context, x, y, w, h, intro);
         FlintFixUi.panelFrame(context, x, y, w, h);

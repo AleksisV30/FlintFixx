@@ -29,7 +29,7 @@ public final class FlintFixCrosshair {
         FlintFixConfig config = FlintFixClient.CONFIG;
         if (config == null || !config.crosshairEnabled || client.player == null) return false;
         // Leave the debug-screen axes and spectator handling to vanilla.
-        if (client.getDebugHud().shouldShowDebugHud() || client.player.isSpectator()) return false;
+        if (FlintFixCompat.debugHudVisible(client) || client.player.isSpectator()) return false;
         if (!client.options.getPerspective().isFirstPerson()) return true;
 
         int cx = context.getScaledWindowWidth() / 2;

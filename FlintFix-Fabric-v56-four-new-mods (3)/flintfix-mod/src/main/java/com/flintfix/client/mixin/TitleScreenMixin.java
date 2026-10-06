@@ -9,6 +9,10 @@ import net.minecraft.client.gui.screen.SplashTextRenderer;
 import net.minecraft.client.gui.screen.TitleScreen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
+//? if <1.20.5 {
+/*import net.minecraft.client.gui.RotatingCubeMapRenderer;
+import net.minecraft.util.Identifier;
+*///?}
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -123,11 +127,31 @@ public abstract class TitleScreenMixin extends Screen {
         }
     }
 
+    //? if >=1.20.5 {
     @Inject(method = "renderPanoramaBackground", at = @At("HEAD"), cancellable = true)
     private void flintfix$replacePanorama(DrawContext context, float delta, CallbackInfo ci) {
         FlintFixTitleBackground.render(context, this.width, this.height);
         ci.cancel();
     }
+    //?} else {
+    /*/^* Before 1.20.5 the title screen draws the panorama cube map itself... ^/
+    @Redirect(method = "render", at = @At(value = "INVOKE",
+        target = "Lnet/minecraft/client/gui/RotatingCubeMapRenderer;render(FF)V"))
+    private void flintfix$replacePanorama(RotatingCubeMapRenderer panorama, float delta, float alpha,
+                                          DrawContext context, int mouseX, int mouseY, float tickDelta) {
+        FlintFixTitleBackground.render(context, this.width, this.height);
+    }
+
+    /^* ...followed by its vignette overlay, which the FlintFix background replaces too. ^/
+    @Redirect(method = "render", at = @At(value = "INVOKE",
+        target = "Lnet/minecraft/client/gui/DrawContext;drawTexture(Lnet/minecraft/util/Identifier;IIIIFFIIII)V"))
+    private void flintfix$hidePanoramaOverlay(DrawContext context, Identifier texture, int x, int y, int width,
+                                              int height, float u, float v, int regionWidth, int regionHeight,
+                                              int textureWidth, int textureHeight) {
+        if (texture.getPath().contains("panorama_overlay")) return;
+        context.drawTexture(texture, x, y, width, height, u, v, regionWidth, regionHeight, textureWidth, textureHeight);
+    }
+    *///?}
 
     /** FlintFix branding replaces the vanilla Minecraft logo. */
     @Redirect(method = "render", at = @At(value = "INVOKE",

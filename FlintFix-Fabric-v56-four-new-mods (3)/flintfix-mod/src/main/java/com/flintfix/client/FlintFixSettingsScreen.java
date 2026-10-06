@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Locale;
 
 /** Live-rendered FlintFix module dashboard. */
-public final class FlintFixSettingsScreen extends Screen {
+public final class FlintFixSettingsScreen extends FlintFixScreen {
     private final Screen parent;
 
     private int x, y, w, h;
@@ -131,7 +131,7 @@ public final class FlintFixSettingsScreen extends Screen {
     public void render(DrawContext c, int mouseX, int mouseY, float delta) {
         layout();
         float visibility = visibility();
-        applyBlur(delta);
+        blurBehind(delta);
         FlintFixUi.backdrop(c, width, height, visibility);
 
         float scale = 0.965f + 0.035f * visibility;

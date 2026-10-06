@@ -3,10 +3,17 @@ package com.flintfix.client;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.entity.EntityRenderer;
 import net.minecraft.client.render.entity.PlayerEntityRenderer;
+//? if >=1.21.4 {
+/*import net.minecraft.client.render.item.ItemRenderState;
+*///?} else {
 import net.minecraft.client.render.model.BakedModel;
+//?}
+//? if >=1.21.2 {
+/*import net.minecraft.item.ModelTransformationMode;
+*///?} else {
 import net.minecraft.client.render.model.json.ModelTransformationMode;
+//?}
 import net.minecraft.client.render.model.json.Transformation;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.item.ItemStack;
@@ -44,7 +51,7 @@ public final class FlintFixHand {
     public static void renderGrippingArm(AbstractClientPlayerEntity player, ItemStack stack, Arm arm, float visible,
                                          MatrixStack matrices, VertexConsumerProvider consumers, int light) {
         MinecraftClient client = MinecraftClient.getInstance();
-        EntityRenderer<?> renderer = client.getEntityRenderDispatcher().getRenderer(player);
+        Object renderer = client.getEntityRenderDispatcher().getRenderer(player);
         if (!(renderer instanceof PlayerEntityRenderer playerRenderer)) return;
 
         boolean right = arm == Arm.RIGHT;
@@ -65,8 +72,16 @@ public final class FlintFixHand {
         matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(side * FlintFixClient.CONFIG.showHandTurn * 90.0f));
         // Put the fist center on the origin, which is now the grip.
         matrices.translate(-HAND_X * side, -HAND_Y, 0.0f);
+        //? if >=1.21.2 {
+        /*var skin = player.getSkinTextures().texture();
+        if (right) playerRenderer.renderRightArm(matrices, consumers, light, skin,
+            player.isPartVisible(net.minecraft.entity.player.PlayerModelPart.RIGHT_SLEEVE));
+        else playerRenderer.renderLeftArm(matrices, consumers, light, skin,
+            player.isPartVisible(net.minecraft.entity.player.PlayerModelPart.LEFT_SLEEVE));
+        *///?} else {
         if (right) playerRenderer.renderRightArm(matrices, consumers, light, player);
         else playerRenderer.renderLeftArm(matrices, consumers, light, player);
+        //?}
         matrices.pop();
     }
 
@@ -87,15 +102,22 @@ public final class FlintFixHand {
      */
     public static Vector3f[] handleAxis(AbstractClientPlayerEntity player, ItemStack stack, boolean right) {
         MinecraftClient client = MinecraftClient.getInstance();
-        BakedModel model = client.getItemRenderer().getModel(stack, player.getWorld(), player, player.getId());
         ModelTransformationMode mode = right
             ? ModelTransformationMode.FIRST_PERSON_RIGHT_HAND
             : ModelTransformationMode.FIRST_PERSON_LEFT_HAND;
+        //? if >=1.21.4 {
+        /*ItemRenderState state = new ItemRenderState();
+        client.getItemModelManager().update(state, stack, mode, !right, player.getWorld(), player, player.getId());
+        Transformation display = state.getTransformation();
+        boolean solid = state.hasDepth();
+        *///?} else {
+        BakedModel model = client.getItemRenderer().getModel(stack, player.getWorld(), player, player.getId());
         Transformation display = model.getTransformation().getTransformation(mode);
+        boolean solid = model.hasDepth();
+        //?}
         MatrixStack local = new MatrixStack();
         display.apply(!right, local);
         local.translate(-0.5f, -0.5f, -0.5f);
-        boolean solid = model.hasDepth();
         Vector3f grip = solid ? new Vector3f(0.5f, 0.12f, 0.5f) : new Vector3f(3.5f / 16.0f, 3.5f / 16.0f, 0.5f);
         Vector3f along = solid ? new Vector3f(0.5f, 1.0f, 0.5f) : new Vector3f(13.0f / 16.0f, 13.0f / 16.0f, 0.5f);
         local.peek().getPositionMatrix().transformPosition(grip);

@@ -211,7 +211,9 @@ let launchTelemetry = null;
 let lastProgressLogKey = "";
 
 // FlintFix's in-game client runs on Fabric; it is the default loader.
+// Default selection; FlintFix in-game features run on every version in FLINTFIX_GAME_VERSIONS.
 const FLINTFIX_GAME_VERSION = "1.21.1";
+const FLINTFIX_GAME_VERSIONS = ["1.20.1", "1.20.4", "1.20.6", "1.21.1", "1.21.4"];
 const loaderOptions = [
     { value: "fabric", label: "Fabric", subtitle: "FlintFix in-game client" },
     { value: "vanilla", label: "Vanilla", subtitle: "Unmodded Minecraft" },
@@ -1262,8 +1264,8 @@ function getReadiness() {
     if (selectedLoader.value !== "vanilla" && selectedLoader.value !== "fabric") {
         return { ready: false, reason: `${selectedLoader.label} support is not available yet.` };
     }
-    if (selectedLoader.value === "fabric" && selectedVersion !== FLINTFIX_GAME_VERSION) {
-        return { ready: true, reason: `Ready. FlintFix in-game features need ${FLINTFIX_GAME_VERSION}; Fabric ${selectedVersion} launches without them.` };
+    if (selectedLoader.value === "fabric" && !FLINTFIX_GAME_VERSIONS.includes(selectedVersion)) {
+        return { ready: true, reason: `Ready. FlintFix in-game features need ${FLINTFIX_GAME_VERSIONS.join(", ")}; Fabric ${selectedVersion} launches without them.` };
     }
     return { ready: true, reason: "Everything is ready to launch." };
 }
@@ -3259,7 +3261,7 @@ function renderVersions(search = "") {
             );
         }
 
-        if (version.id === FLINTFIX_GAME_VERSION) {
+        if (FLINTFIX_GAME_VERSIONS.includes(version.id)) {
             const badge = document.createElement("span");
             badge.className = "version-latest version-flintfix";
             badge.textContent = "FLINTFIX";

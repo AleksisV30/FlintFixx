@@ -5,7 +5,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
 
-public final class FlintFixModuleSettingsScreen extends Screen {
+public final class FlintFixModuleSettingsScreen extends FlintFixScreen {
     public enum Module {
         CPS("CPS Counter", "Counts your left and right clicks per second."),
         COORDINATES("Coordinates", "Shows your position and current biome."),
@@ -78,7 +78,7 @@ public final class FlintFixModuleSettingsScreen extends Screen {
     public void render(DrawContext c, int mouseX, int mouseY, float delta) {
         layout();
         float intro = FlintFixUi.openProgress(openedAt);
-        applyBlur(delta);
+        blurBehind(delta);
         FlintFixUi.backdrop(c, width, height, intro);
         FlintFixUi.pushPanelIntro(c, x, y, w, h, intro);
         FlintFixUi.panelFrame(c, x, y, w, h);

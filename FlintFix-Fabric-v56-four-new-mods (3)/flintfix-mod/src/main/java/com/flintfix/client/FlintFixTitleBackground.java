@@ -1,7 +1,5 @@
 package com.flintfix.client;
 
-import com.mojang.blaze3d.platform.GlStateManager;
-import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.util.Identifier;
@@ -10,7 +8,7 @@ import java.util.Random;
 
 /** Animated night backdrop for the title screen: drifting color glows and twinkling stars. */
 public final class FlintFixTitleBackground {
-    private static final Identifier GLOW = Identifier.of("flintfix", "textures/gui/glow.png");
+    private static final Identifier GLOW = FlintFixCompat.id("flintfix", "textures/gui/glow.png");
     private static final int STAR_COUNT = 150;
     private static final float[] STARS = buildStars();
     private static boolean glowFiltered;
@@ -53,16 +51,9 @@ public final class FlintFixTitleBackground {
             glowFiltered = true;
         }
         int s = Math.max(1, Math.round(size));
-        RenderSystem.enableBlend();
-        RenderSystem.blendFunc(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE);
-        RenderSystem.setShaderColor(((rgb >>> 16) & 0xFF) / 255.0f, ((rgb >>> 8) & 0xFF) / 255.0f,
-            (rgb & 0xFF) / 255.0f, alpha);
-        try {
-            c.drawTexture(GLOW, Math.round(cx - s / 2.0f), Math.round(cy - s / 2.0f), s, s, 0, 0, 128, 128, 128, 128);
-        } finally {
-            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
-            RenderSystem.defaultBlendFunc();
-        }
+        int a = Math.round(Math.max(0.0f, Math.min(1.0f, alpha)) * 255.0f);
+        FlintFixCompat.drawAdditiveTexture(c, GLOW, Math.round(cx - s / 2.0f), Math.round(cy - s / 2.0f), s, s,
+            (a << 24) | (rgb & 0x00FFFFFF));
     }
 
     private static float[] buildStars() {

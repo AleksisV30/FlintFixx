@@ -6,7 +6,7 @@ import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
 /** Small palette picker opened from the FlintFix sidebar. */
-public final class FlintFixThemeScreen extends Screen {
+public final class FlintFixThemeScreen extends FlintFixScreen {
     private final Screen parent;
     private final long openedAt = System.currentTimeMillis();
     private int x, y, w, h, listTop;
@@ -30,7 +30,7 @@ public final class FlintFixThemeScreen extends Screen {
     public void render(DrawContext c, int mouseX, int mouseY, float delta) {
         layout();
         float intro = FlintFixUi.openProgress(openedAt);
-        applyBlur(delta);
+        blurBehind(delta);
         FlintFixUi.backdrop(c, width, height, intro);
         FlintFixUi.pushPanelIntro(c, x, y, w, h, intro);
         FlintFixUi.panelFrame(c, x, y, w, h);

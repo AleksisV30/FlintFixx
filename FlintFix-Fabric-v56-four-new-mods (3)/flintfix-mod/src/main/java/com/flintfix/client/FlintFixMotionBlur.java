@@ -38,7 +38,11 @@ public final class FlintFixMotionBlur {
         try {
             if (history == null || history.textureWidth != width || history.textureHeight != height) {
                 release();
+                //? if >=1.21.2 {
+                /*history = new SimpleFramebuffer(width, height, false);
+                *///?} else {
                 history = new SimpleFramebuffer(width, height, false, MinecraftClient.IS_SYSTEM_MAC);
+                //?}
                 primed = false;
             }
             if (primed) {
@@ -48,7 +52,12 @@ public final class FlintFixMotionBlur {
                 GL14.glBlendColor(0.0f, 0.0f, 0.0f, config.motionBlurStrength);
                 GlStateManager._blendFuncSeparate(GL14.GL_CONSTANT_ALPHA, GL14.GL_ONE_MINUS_CONSTANT_ALPHA,
                     GL11.GL_ZERO, GL11.GL_ONE);
+                // A textured quad that keeps the blend state set above (1.21.2+ draw() is a raw blit).
+                //? if >=1.21.2 {
+                /*history.drawInternal(width, height);
+                *///?} else {
                 history.draw(width, height, false);
+                //?}
                 RenderSystem.defaultBlendFunc();
                 RenderSystem.disableBlend();
             }

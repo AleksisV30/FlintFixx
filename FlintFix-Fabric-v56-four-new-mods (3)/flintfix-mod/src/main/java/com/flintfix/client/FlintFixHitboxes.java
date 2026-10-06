@@ -59,9 +59,9 @@ public final class FlintFixHitboxes {
     private static void line(VertexConsumer consumer, MatrixStack.Entry matrix, Vec3d start, Vec3d end, int color) {
         Vec3d normal = end.subtract(start).normalize();
         int r = color >> 16 & 255, g = color >> 8 & 255, b = color & 255;
-        consumer.vertex(matrix.getPositionMatrix(), (float)start.x, (float)start.y, (float)start.z)
-            .color(r,g,b,230).normal(matrix,(float)normal.x,(float)normal.y,(float)normal.z);
-        consumer.vertex(matrix.getPositionMatrix(), (float)end.x, (float)end.y, (float)end.z)
-            .color(r,g,b,230).normal(matrix,(float)normal.x,(float)normal.y,(float)normal.z);
+        FlintFixCompat.lineVertex(consumer, matrix, (float) start.x, (float) start.y, (float) start.z,
+            r, g, b, 230, (float) normal.x, (float) normal.y, (float) normal.z);
+        FlintFixCompat.lineVertex(consumer, matrix, (float) end.x, (float) end.y, (float) end.z,
+            r, g, b, 230, (float) normal.x, (float) normal.y, (float) normal.z);
     }
 }

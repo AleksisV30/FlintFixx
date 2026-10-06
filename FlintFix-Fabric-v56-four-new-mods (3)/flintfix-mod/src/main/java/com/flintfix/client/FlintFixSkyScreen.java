@@ -6,7 +6,7 @@ import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
 /** Picks the custom sky preset and chooses which sky effects are drawn. */
-public final class FlintFixSkyScreen extends Screen {
+public final class FlintFixSkyScreen extends FlintFixScreen {
     private static final String[] EFFECTS = {
         "Stars", "Milky Way", "Shooting stars", "Aurora", "Nebula clouds",
         "Sun & moon glow", "Sun rays", "Moon phases", "Horizon glow", "Matching fog"
@@ -50,7 +50,7 @@ public final class FlintFixSkyScreen extends Screen {
     public void render(DrawContext c, int mouseX, int mouseY, float delta) {
         layout();
         float intro = FlintFixUi.openProgress(openedAt);
-        if (client != null && client.world != null) applyBlur(delta);
+        if (client != null && client.world != null) blurBehind(delta);
         FlintFixUi.backdrop(c, width, height, intro);
         FlintFixUi.pushPanelIntro(c, x, y, w, h, intro);
         FlintFixUi.panelFrame(c, x, y, w, h);

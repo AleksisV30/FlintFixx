@@ -4,6 +4,7 @@ import com.flintfix.client.FlintFixClient;
 import com.llamalad7.mixinextras.sugar.Local;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.GameRenderer;
+import net.minecraft.client.util.math.MatrixStack;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -13,6 +14,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /** Low Totem: shrinks the totem-of-undying pop animation around the center of the screen. */
 @Mixin(GameRenderer.class)
 public abstract class GameRendererTotemMixin {
+    //? if >=1.21 {
     @Unique private boolean flintfix$totemScaled;
 
     @Inject(method = "renderFloatingItem", at = @At("HEAD"), require = 0)
@@ -35,4 +37,19 @@ public abstract class GameRendererTotemMixin {
         context.getMatrices().pop();
         flintfix$totemScaled = false;
     }
+    //?} else {
+    /*/^* Before 1.21 the item is drawn on a fresh MatrixStack; vanilla pops it at the end, which also undoes this. ^/
+    @Inject(method = "renderFloatingItem", require = 0, at = @At(value = "INVOKE",
+        target = "Lnet/minecraft/client/util/math/MatrixStack;push()V", shift = At.Shift.AFTER, ordinal = 0))
+    private void flintfix$shrinkTotem(int scaledWidth, int scaledHeight, float tickDelta, CallbackInfo ci,
+                                      @Local MatrixStack matrices) {
+        if (FlintFixClient.CONFIG == null || !FlintFixClient.CONFIG.lowOverlaysEnabled || !FlintFixClient.CONFIG.lowTotem) return;
+        float scale = FlintFixClient.CONFIG.totemSize;
+        float cx = scaledWidth / 2.0f;
+        float cy = scaledHeight / 2.0f;
+        matrices.translate(cx, cy, 0.0f);
+        matrices.scale(scale, scale, 1.0f);
+        matrices.translate(-cx, -cy, 0.0f);
+    }
+    *///?}
 }

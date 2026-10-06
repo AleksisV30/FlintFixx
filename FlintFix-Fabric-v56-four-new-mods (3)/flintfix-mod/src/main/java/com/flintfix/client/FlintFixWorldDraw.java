@@ -42,8 +42,8 @@ final class FlintFixWorldDraw {
 
     static void vertex(VertexConsumer consumer, Matrix4f matrix, Vec3d p, int color, float alpha) {
         int a = Math.round(Math.max(0.0f, Math.min(1.0f, alpha)) * ((color >>> 24) & 0xFF));
-        consumer.vertex(matrix, (float) p.x, (float) p.y, (float) p.z)
-            .color((color >>> 16) & 0xFF, (color >>> 8) & 0xFF, color & 0xFF, a);
+        FlintFixCompat.colorVertex(consumer, matrix, (float) p.x, (float) p.y, (float) p.z,
+            (color >>> 16) & 0xFF, (color >>> 8) & 0xFF, color & 0xFF, a);
     }
 
     /** Fully saturated hue that cycles slowly over time, for rainbow effects. */

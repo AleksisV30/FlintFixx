@@ -60,6 +60,8 @@ public final class FlintFixClient implements ClientModInitializer {
         FlintFixUi.applyTheme();
         chunkBorderRenderer = new ChunkBorderDebugRenderer(MinecraftClient.getInstance());
 
+        if (Boolean.getBoolean("flintfix.auditMixins")) registerMixinAudit();
+
         // Add a small, native entry point to the standard Minecraft video page.
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
             if (screen instanceof VideoOptionsScreen) {
@@ -196,6 +198,27 @@ public final class FlintFixClient implements ClientModInitializer {
         AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (world.isClient()) FlintFixCrosshair.onHit();
             return ActionResult.PASS;
+        });
+    }
+
+    /**
+     * Build check, enabled with -Dflintfix.auditMixins=true: once the first screen
+     * is up (title, or the first-launch accessibility screen), force every mixin
+     * onto its target (a wrong target fails here instead of mid-game), log the
+     * result and quit.
+     */
+    private static void registerMixinAudit() {
+        java.util.concurrent.atomic.AtomicBoolean done = new java.util.concurrent.atomic.AtomicBoolean();
+        ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
+            if (done.getAndSet(true)) return;
+            org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger("FlintFix");
+            try {
+                org.spongepowered.asm.mixin.MixinEnvironment.getCurrentEnvironment().audit();
+                log.info("FLINTFIX_AUDIT_OK");
+            } catch (Throwable error) {
+                log.error("FLINTFIX_AUDIT_FAILED", error);
+            }
+            client.scheduleStop();
         });
     }
 
@@ -492,7 +515,7 @@ public final class FlintFixClient implements ClientModInitializer {
         double dy = client.player.getY() - client.player.prevY;
         double dz = client.player.getZ() - client.player.prevZ;
         // Count vertical motion only while gliding, so jumping doesn't spike the meter.
-        double perTick = client.player.isFallFlying() ? Math.sqrt(dx * dx + dy * dy + dz * dz) : Math.sqrt(dx * dx + dz * dz);
+        double perTick = FlintFixCompat.isGliding(client.player) ? Math.sqrt(dx * dx + dy * dy + dz * dz) : Math.sqrt(dx * dx + dz * dz);
         smoothedSpeed += (perTick * 20.0 - smoothedSpeed) * 0.35;
         if (smoothedSpeed < 0.01) smoothedSpeed = 0.0;
     }
@@ -539,7 +562,7 @@ public final class FlintFixClient implements ClientModInitializer {
         String[] times = new String[effects.size()];
         for (int i = 0; i < effects.size(); i++) {
             StatusEffectInstance effect = effects.get(i);
-            String name = effect.getEffectType().value().getName().getString();
+            String name = FlintFixCompat.effectName(effect);
             if (effect.getAmplifier() > 0) name += " " + roman(effect.getAmplifier() + 1);
             names[i] = name;
             times[i] = effectTime(effect);
@@ -560,7 +583,7 @@ public final class FlintFixClient implements ClientModInitializer {
             StatusEffectInstance effect = effects.get(i);
             int rowY = 2 + i * rowH;
             Sprite sprite = client.getStatusEffectSpriteManager().getSprite(effect.getEffectType());
-            context.drawSprite(4, rowY + (rowH - 18) / 2, 0, 18, 18, sprite);
+            FlintFixCompat.drawSprite(context, 4, rowY + (rowH - 18) / 2, 18, 18, sprite);
             int nameY = rowY + Math.max(0, (rowH - FlintFixFont.lineHeight(7) - FlintFixFont.lineHeight(LABEL)) / 2);
             FlintFixFont.drawExact(context, FlintFixFont.trim(names[i], textW, 7, true), textX, nameY, 7,
                 FlintFixUi.text(), true, shadow);
@@ -654,9 +677,9 @@ public final class FlintFixClient implements ClientModInitializer {
         }
         if (CONFIG.compassDeathMarker && client.player != null && client.world != null) {
             client.player.getLastDeathPos().ifPresent(death -> {
-                if (!death.dimension().equals(client.world.getRegistryKey())) return;
-                double dx = death.pos().getX() + 0.5 - client.player.getX();
-                double dz = death.pos().getZ() + 0.5 - client.player.getZ();
+                if (!FlintFixCompat.dimension(death).equals(client.world.getRegistryKey())) return;
+                double dx = FlintFixCompat.blockPos(death).getX() + 0.5 - client.player.getX();
+                double dz = FlintFixCompat.blockPos(death).getZ() + 0.5 - client.player.getZ();
                 float target = (float) Math.toDegrees(Math.atan2(dx, -dz));
                 float delta = MathHelper.wrapDegrees(target - bearing);
                 if (Math.abs(delta) > range) return;

@@ -5,7 +5,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -50,7 +49,7 @@ public final class FlintFixTrajectory {
         }
         if (shot == null) return;
 
-        float tickDelta = context.tickCounter().getTickDelta(true);
+        float tickDelta = FlintFixCompat.tickDelta(context);
         Vec3d eye = player.getCameraPosVec(tickDelta);
         float pitch = player.getPitch(tickDelta);
         float yaw = player.getYaw(tickDelta);
@@ -82,7 +81,7 @@ public final class FlintFixTrajectory {
         if (path.entity != null) {
             VertexConsumer lines = consumers.getBuffer(RenderLayer.getLines());
             Box box = path.entity.getBoundingBox().expand(0.05);
-            WorldRenderer.drawBox(matrices, lines, box, 1.0f, 0.42f, 0.42f, 0.9f);
+            FlintFixCompat.drawBoxOutline(matrices, lines, box, 1.0f, 0.42f, 0.42f, 0.9f);
         }
         matrices.pop();
     }
@@ -241,8 +240,8 @@ public final class FlintFixTrajectory {
 
     private static void vertex(VertexConsumer consumer, Matrix4f matrix, Vec3d p, int color, float alpha) {
         int a = Math.round(Math.max(0.0f, Math.min(1.0f, alpha)) * 255.0f);
-        consumer.vertex(matrix, (float) p.x, (float) p.y, (float) p.z)
-            .color((color >>> 16) & 0xFF, (color >>> 8) & 0xFF, color & 0xFF, a);
+        FlintFixCompat.colorVertex(consumer, matrix, (float) p.x, (float) p.y, (float) p.z,
+            (color >>> 16) & 0xFF, (color >>> 8) & 0xFF, color & 0xFF, a);
     }
 
     private static Shot shotFor(ItemStack stack, PlayerEntity player) {

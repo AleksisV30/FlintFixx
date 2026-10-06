@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Locale;
 
 /** In-game profile manager opened from the FlintFix sidebar. */
-public final class FlintFixProfileScreen extends Screen {
+public final class FlintFixProfileScreen extends FlintFixScreen {
     private enum EditMode { CREATE, RENAME }
 
     private final Screen parent;
@@ -63,7 +63,7 @@ public final class FlintFixProfileScreen extends Screen {
     public void render(DrawContext c, int mouseX, int mouseY, float delta) {
         layout();
         float intro = FlintFixUi.openProgress(openedAt);
-        applyBlur(delta);
+        blurBehind(delta);
         FlintFixUi.backdrop(c, width, height, intro);
         FlintFixUi.pushPanelIntro(c, x, y, w, h, intro);
         FlintFixUi.panelFrame(c, x, y, w, h);

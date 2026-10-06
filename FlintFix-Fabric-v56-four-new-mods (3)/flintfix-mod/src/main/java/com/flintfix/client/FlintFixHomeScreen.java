@@ -10,7 +10,7 @@ import org.lwjgl.glfw.GLFW;
 import java.util.Locale;
 
 /** Shift-opened FlintFix landing menu. */
-public final class FlintFixHomeScreen extends Screen {
+public final class FlintFixHomeScreen extends FlintFixScreen {
     private static final ItemStack FLINT = new ItemStack(Items.FLINT);
     private static final long TRANSITION_MS = 180L;
     private static final String[][] TILES = {
@@ -57,7 +57,7 @@ public final class FlintFixHomeScreen extends Screen {
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         layout();
         float visible = visibility();
-        applyBlur(delta);
+        blurBehind(delta);
         FlintFixUi.backdrop(context, width, height, visible);
 
         float scale = 0.96f + 0.04f * visible;

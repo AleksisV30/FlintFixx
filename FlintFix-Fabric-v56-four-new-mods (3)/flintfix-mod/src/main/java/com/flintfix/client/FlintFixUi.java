@@ -1,6 +1,5 @@
 package com.flintfix.client;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.util.Identifier;
@@ -27,10 +26,10 @@ public final class FlintFixUi {
     private static final int THEME_TRANSITION_MS = 300;
     private static final Map<String, HoverMotion> HOVER_MOTIONS = new HashMap<>();
 
-    private static final Identifier CORNER_TL = Identifier.of("flintfix", "textures/gui/corner_tl.png");
-    private static final Identifier CORNER_TR = Identifier.of("flintfix", "textures/gui/corner_tr.png");
-    private static final Identifier CORNER_BL = Identifier.of("flintfix", "textures/gui/corner_bl.png");
-    private static final Identifier CORNER_BR = Identifier.of("flintfix", "textures/gui/corner_br.png");
+    private static final Identifier CORNER_TL = FlintFixCompat.id("flintfix", "textures/gui/corner_tl.png");
+    private static final Identifier CORNER_TR = FlintFixCompat.id("flintfix", "textures/gui/corner_tr.png");
+    private static final Identifier CORNER_BL = FlintFixCompat.id("flintfix", "textures/gui/corner_bl.png");
+    private static final Identifier CORNER_BR = FlintFixCompat.id("flintfix", "textures/gui/corner_br.png");
     private static final int CORNER_TEX = 64;
     private static boolean cornerFilteringApplied;
 
@@ -200,15 +199,14 @@ public final class FlintFixUi {
         c.fill(x, y + r, x + w, y + h - r, color);
         c.fill(x + r, y + h - r, x + w - r, y + h, color);
 
-        tint(color);
-        try {
-            c.drawTexture(CORNER_TL, x, y, r, r, 0, 0, CORNER_TEX, CORNER_TEX, CORNER_TEX, CORNER_TEX);
-            c.drawTexture(CORNER_TR, x + w - r, y, r, r, 0, 0, CORNER_TEX, CORNER_TEX, CORNER_TEX, CORNER_TEX);
-            c.drawTexture(CORNER_BL, x, y + h - r, r, r, 0, 0, CORNER_TEX, CORNER_TEX, CORNER_TEX, CORNER_TEX);
-            c.drawTexture(CORNER_BR, x + w - r, y + h - r, r, r, 0, 0, CORNER_TEX, CORNER_TEX, CORNER_TEX, CORNER_TEX);
-        } finally {
-            RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-        }
+        corner(c, CORNER_TL, x, y, r, color);
+        corner(c, CORNER_TR, x + w - r, y, r, color);
+        corner(c, CORNER_BL, x, y + h - r, r, color);
+        corner(c, CORNER_BR, x + w - r, y + h - r, r, color);
+    }
+
+    private static void corner(DrawContext c, Identifier texture, int x, int y, int r, int color) {
+        FlintFixCompat.drawTexture(c, texture, x, y, r, r, 0, 0, CORNER_TEX, CORNER_TEX, CORNER_TEX, CORNER_TEX, color);
     }
 
     public static void glass(DrawContext c, int x, int y, int w, int h, int r, int fill) {
@@ -518,15 +516,6 @@ public final class FlintFixUi {
         textures.getTexture(CORNER_BL).setFilter(true, false);
         textures.getTexture(CORNER_BR).setFilter(true, false);
         cornerFilteringApplied = true;
-    }
-
-    private static void tint(int color) {
-        float a = ((color >>> 24) & 0xFF) / 255.0f;
-        float r = ((color >>> 16) & 0xFF) / 255.0f;
-        float g = ((color >>> 8) & 0xFF) / 255.0f;
-        float b = (color & 0xFF) / 255.0f;
-        RenderSystem.enableBlend();
-        RenderSystem.setShaderColor(r, g, b, a);
     }
 
     private static final class HoverMotion {
