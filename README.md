@@ -1,4 +1,12 @@
-# FlintFix Client v59
+# FlintFix Client 1.0
+
+- **Loading screen:** the launcher opens with an animated FlintFix splash that shows what it is loading, then fades into Home. The window only appears once the splash has painted, so there is no white flash.
+- **Fabric first:** Fabric is the default loader and Minecraft 1.21.1 the default version. Fabric now installs on every Minecraft version Fabric supports, with the matching Fabric API. The FlintFix in-game client is built for 1.21.1, so other versions launch with Fabric only (the launcher says so). The FlintFix and Fabric API files of other versions are removed from the shared mods folder automatically.
+- **Forge and NeoForge** are listed as "Coming soon" and can't be selected yet.
+- **Launcher polish:** one accent color everywhere (buttons, toggles, radios, labels), a FLINTFIX tag on 1.21.1 in the version list, page fade-ins, and the loader card shows what each loader does.
+
+## v59
+
 
 - **Servers tab:** save favorite servers, see their message, players online and ping, and join with one click using the instance you pick. A few popular servers are listed too.
 - **Skins tab:** a 3D preview (idle, walk, run), a skin library (import PNGs or save the skin you're wearing), Classic or Slim arms, and one click to put a skin on your Minecraft account or go back to a default skin.

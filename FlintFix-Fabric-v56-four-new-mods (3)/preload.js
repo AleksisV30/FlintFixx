@@ -71,6 +71,7 @@ contextBridge.exposeInMainWorld("flintfix", {
     deleteSkin: id => ipcRenderer.invoke("skins:delete", id),
     resetSkin: () => ipcRenderer.invoke("skins:reset"),
     getNews: () => ipcRenderer.invoke("news:get"),
+    getAppVersion: () => ipcRenderer.invoke("app:version"),
     checkForUpdates: () => ipcRenderer.invoke("update:check"),
     installUpdate: () => ipcRenderer.invoke("update:install"),
     onUpdateStatus: callback => {

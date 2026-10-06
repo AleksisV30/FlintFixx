@@ -3,6 +3,9 @@ const path = require("path");
 const https = require("https");
 const { execFile } = require("child_process");
 
+// The FlintFix in-game client is built for this Minecraft version. Fabric
+// itself (with Fabric API) installs on any version Fabric supports; other
+// versions simply launch without the FlintFix mod.
 const MC_VERSION = "1.21.1";
 const FABRIC_API_VERSION = "0.116.16+1.21.1";
 const FABRIC_DOWNLOAD_CONCURRENCY = 8;
@@ -10,7 +13,7 @@ const FABRIC_AGENT = new https.Agent({ keepAlive: true, maxSockets: 16, maxFreeS
 
 function getJson(url) {
     return new Promise((resolve, reject) => {
-        https.get(url, { agent: FABRIC_AGENT, headers: { "User-Agent": "FlintFix-Client/0.59" } }, response => {
+        https.get(url, { agent: FABRIC_AGENT, headers: { "User-Agent": "FlintFix-Client/1.0" } }, response => {
             if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
                 response.resume();
                 return getJson(new URL(response.headers.location, url).toString()).then(resolve, reject);
@@ -35,7 +38,7 @@ function download(url, destination) {
         if (fs.existsSync(destination) && fs.statSync(destination).size > 0) return resolve(destination);
         const temp = `${destination}.part`;
         const request = currentUrl => {
-            https.get(currentUrl, { agent: FABRIC_AGENT, headers: { "User-Agent": "FlintFix-Client/0.59" } }, response => {
+            https.get(currentUrl, { agent: FABRIC_AGENT, headers: { "User-Agent": "FlintFix-Client/1.0" } }, response => {
                 if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
                     response.resume();
                     request(new URL(response.headers.location, currentUrl).toString());
@@ -152,28 +155,50 @@ async function ensureModJar(projectRoot, javaExecutable, emit) {
     return candidate;
 }
 
-async function installFabric({ rootDir, projectRoot, minecraftVersion, javaExecutable, emit }) {
-    if (minecraftVersion !== MC_VERSION) {
-        throw new Error(`FlintFix Fabric DEV currently supports Minecraft ${MC_VERSION}. Select ${MC_VERSION}.`);
+/** Download URL and file name of the newest Fabric API release for a Minecraft version. */
+async function resolveFabricApi(minecraftVersion) {
+    if (minecraftVersion === MC_VERSION) {
+        const name = `fabric-api-${FABRIC_API_VERSION}.jar`;
+        return { name, url: `https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/${encodeURIComponent(FABRIC_API_VERSION)}/${name}` };
     }
+    const query = `game_versions=${encodeURIComponent(JSON.stringify([minecraftVersion]))}&loaders=${encodeURIComponent(JSON.stringify(["fabric"]))}`;
+    const versions = await getJson(`https://api.modrinth.com/v2/project/fabric-api/version?${query}`);
+    const release = (versions || []).find(item => item.version_type === "release") || (versions || [])[0];
+    const file = release?.files?.find(item => item.primary) || release?.files?.[0];
+    if (!file?.url || !/^fabric-api-[\w.+-]+\.jar$/i.test(file.filename || "")) return null;
+    return { name: file.filename, url: file.url };
+}
+
+async function installFabric({ rootDir, projectRoot, minecraftVersion, javaExecutable, emit }) {
+    const gameVersion = String(minecraftVersion || "");
+    if (!/^[\w.-]+$/.test(gameVersion)) throw new Error("Choose a Minecraft version first.");
+    const withFlintFix = gameVersion === MC_VERSION;
 
     emit?.({ stage: "fabric", message: "Finding Fabric Loader..." });
-    const loaders = await getJson(`https://meta.fabricmc.net/v2/versions/loader/${encodeURIComponent(MC_VERSION)}`);
+    let loaders;
+    try {
+        loaders = await getJson(`https://meta.fabricmc.net/v2/versions/loader/${encodeURIComponent(gameVersion)}`);
+    } catch {
+        loaders = [];
+    }
+    if (!Array.isArray(loaders) || !loaders.length) {
+        throw new Error(`Fabric is not available for Minecraft ${gameVersion}. Pick another version or use Vanilla.`);
+    }
     const stable = loaders.find(item => item.loader?.stable) || loaders[0];
     const loaderVersion = stable?.loader?.version;
     if (!loaderVersion) throw new Error("Fabric Meta did not return a loader version.");
 
-    const profile = await getJson(`https://meta.fabricmc.net/v2/versions/loader/${encodeURIComponent(MC_VERSION)}/${encodeURIComponent(loaderVersion)}/profile/json`);
-    const fabricVersionId = `fabric-loader-${loaderVersion}-${MC_VERSION}`;
-    const baseDir = path.join(rootDir, "versions", MC_VERSION);
+    const profile = await getJson(`https://meta.fabricmc.net/v2/versions/loader/${encodeURIComponent(gameVersion)}/${encodeURIComponent(loaderVersion)}/profile/json`);
+    const fabricVersionId = `fabric-loader-${loaderVersion}-${gameVersion}`;
+    const baseDir = path.join(rootDir, "versions", gameVersion);
     const fabricDir = path.join(rootDir, "versions", fabricVersionId);
     const librariesDir = path.join(rootDir, "libraries");
     const modsDir = path.join(rootDir, "game", "mods");
 
-    const baseJsonPath = path.join(baseDir, `${MC_VERSION}.json`);
-    const baseJarPath = path.join(baseDir, `${MC_VERSION}.jar`);
+    const baseJsonPath = path.join(baseDir, `${gameVersion}.json`);
+    const baseJarPath = path.join(baseDir, `${gameVersion}.jar`);
     if (!fs.existsSync(baseJsonPath) || !fs.existsSync(baseJarPath)) {
-        throw new Error(`Minecraft ${MC_VERSION} must be installed before Fabric.`);
+        throw new Error(`Minecraft ${gameVersion} must be installed before Fabric.`);
     }
 
     const base = JSON.parse(fs.readFileSync(baseJsonPath, "utf8"));
@@ -193,13 +218,14 @@ async function installFabric({ rootDir, projectRoot, minecraftVersion, javaExecu
     // Fabric libraries and Fabric API are downloading instead of waiting for
     // each step serially.
     emit?.({ stage: "fabric", phase: "parallel", message: "Preparing Fabric components in parallel..." });
-    const modJarPromise = ensureModJar(projectRoot, javaExecutable, emit);
+    const modJarPromise = withFlintFix ? ensureModJar(projectRoot, javaExecutable, emit) : Promise.resolve(null);
     // Attach handlers immediately so a fast failure is still reported through
     // the awaited launch path instead of becoming an unhandled rejection.
     modJarPromise.catch(() => {});
-    const apiName = `fabric-api-${FABRIC_API_VERSION}.jar`;
-    const apiUrl = `https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/${encodeURIComponent(FABRIC_API_VERSION)}/${apiName}`;
-    const apiPromise = download(apiUrl, path.join(modsDir, apiName));
+    const apiPromise = resolveFabricApi(gameVersion).then(api => {
+        if (!api) return null;
+        return download(api.url, path.join(modsDir, api.name)).then(() => api.name);
+    });
     apiPromise.catch(() => {});
 
     let completedFabricLibraries = 0;
@@ -241,32 +267,42 @@ async function installFabric({ rootDir, projectRoot, minecraftVersion, javaExecu
         id: fabricVersionId,
         mainClass: profile.mainClass,
         type: "release",
-        libraries: [...(base.libraries || []), ...normalizedFabricLibraries],
-        arguments: {
+        libraries: [...(base.libraries || []), ...normalizedFabricLibraries]
+    };
+    // Versions before 1.13 use the legacy `minecraftArguments` string; only
+    // modern versions get a merged `arguments` object.
+    if (base.arguments) {
+        merged.arguments = {
             ...baseArguments,
             ...fabricArguments,
-            game: [
-                ...(baseArguments.game || []),
-                ...(fabricArguments.game || [])
-            ],
-            jvm: [
-                ...(baseArguments.jvm || []),
-                ...(fabricArguments.jvm || [])
-            ]
-        }
-    };
+            game: [...(baseArguments.game || []), ...(fabricArguments.game || [])],
+            jvm: [...(baseArguments.jvm || []), ...(fabricArguments.jvm || [])]
+        };
+    }
     fs.writeFileSync(path.join(fabricDir, `${fabricVersionId}.json`), JSON.stringify(merged, null, 2));
 
     fs.mkdirSync(modsDir, { recursive: true });
-    emit?.({ stage: "fabric", phase: "api", message: `Installing Fabric API ${FABRIC_API_VERSION}...` });
-    await apiPromise;
+    emit?.({ stage: "fabric", phase: "api", message: "Installing Fabric API..." });
+    const apiName = await apiPromise;
 
-    const modJar = await modJarPromise;
+    // The game folder is shared between versions: keep only the Fabric API and
+    // FlintFix builds that belong to this version, or the game refuses to start.
+    for (const file of fs.readdirSync(modsDir)) {
+        if (/^fabric-api-.*\.jar$/i.test(file) && file !== apiName) fs.rmSync(path.join(modsDir, file), { force: true });
+    }
     const targetMod = path.join(modsDir, "flintfix-client-mod.jar");
-    fs.copyFileSync(modJar, targetMod);
-
-    emit?.({ stage: "fabric", message: `FlintFix Client ready with Fabric Loader ${loaderVersion}.` });
-    return { versionId: fabricVersionId, loaderVersion, modsDir, modJar: targetMod };
+    const modJar = await modJarPromise;
+    if (modJar) {
+        fs.copyFileSync(modJar, targetMod);
+        emit?.({ stage: "fabric", message: `FlintFix Client ready with Fabric Loader ${loaderVersion}.` });
+    } else {
+        fs.rmSync(targetMod, { force: true });
+        emit?.({
+            stage: "fabric",
+            message: `Fabric ${loaderVersion} ready. FlintFix in-game features need Minecraft ${MC_VERSION}; this version launches without them.`
+        });
+    }
+    return { versionId: fabricVersionId, loaderVersion, modsDir, modJar: modJar ? targetMod : null, flintfix: Boolean(modJar) };
 }
 
-module.exports = { installFabric };
+module.exports = { installFabric, FLINTFIX_MC_VERSION: MC_VERSION };

@@ -227,7 +227,7 @@ function buildUniqueModFileName(modsDir, originalName) {
 async function fetchJson(url) {
     const response = await fetch(url, {
         headers: {
-            "User-Agent": "FlintFix-Client/0.59",
+            "User-Agent": "FlintFix-Client/1.0",
             "Accept": "application/json"
         }
     });
@@ -330,7 +330,7 @@ async function postJson(url, body) {
     const response = await fetch(url, {
         method: "POST",
         headers: {
-            "User-Agent": "FlintFix-Client/0.59",
+            "User-Agent": "FlintFix-Client/1.0",
             "Accept": "application/json",
             "Content-Type": "application/json"
         },
@@ -391,7 +391,7 @@ async function applyInstanceModUpdate(instanceId, fileName, options = {}) {
     if (!mod) throw new Error("Mod file was not found.");
     const update = await getCompatibleModUpdate(mod, String(options.version || ""), String(options.loader || "fabric"));
     if (!update?.updateAvailable || !update.fileUrl) return { updated: false, reason: "Already up to date." };
-    const response = await fetch(update.fileUrl, { headers: { "User-Agent": "FlintFix-Client/0.59" } });
+    const response = await fetch(update.fileUrl, { headers: { "User-Agent": "FlintFix-Client/1.0" } });
     if (!response.ok) throw new Error(`Download failed (${response.status}).`);
     const bytes = Buffer.from(await response.arrayBuffer());
     const modsDir = getInstanceModsDir(instanceId);
@@ -432,7 +432,7 @@ async function installCatalogMod(instanceId, options = {}) {
         }
     }
     if (!chosenFile?.url) throw new Error("This mod does not expose a downloadable .jar file.");
-    const response = await fetch(chosenFile.url, { headers: { "User-Agent": "FlintFix-Client/0.59" } });
+    const response = await fetch(chosenFile.url, { headers: { "User-Agent": "FlintFix-Client/1.0" } });
     if (!response.ok) throw new Error(`Download failed (${response.status}).`);
     const arrayBuffer = await response.arrayBuffer();
     const finalName = buildUniqueModFileName(modsDir, chosenFile.filename || `${projectId}.jar`);
@@ -499,8 +499,10 @@ function createWindow() {
         height: 760,
         minWidth: 900,
         minHeight: 600,
-        backgroundColor: "#0d0d10",
+        backgroundColor: "#07080b",
         frame: false,
+        // Shown once the splash screen has painted, so the window never flashes white.
+        show: false,
         autoHideMenuBar: true,
         icon: cachedFlintIcon || fallbackIcon,
         webPreferences: {
@@ -532,6 +534,15 @@ function createWindow() {
     win.on("show", () => {
         try { win.setOpacity(1); } catch {}
     });
+
+    let shown = false;
+    const showWindow = () => {
+        if (shown || win.isDestroyed()) return;
+        shown = true;
+        win.show();
+    };
+    win.once("ready-to-show", showWindow);
+    setTimeout(showWindow, 4000);
 
     win.loadFile("index.html");
 }
@@ -2835,6 +2846,8 @@ ipcMain.handle("news:get", async () => {
         return { success: true, source: "bundled", posts: (local().posts || []).slice(0, 20) };
     }
 });
+
+ipcMain.handle("app:version", () => app.getVersion());
 
 ipcMain.handle("update:check", async () => {
     try {

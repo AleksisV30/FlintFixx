@@ -1,6 +1,18 @@
 {
     "posts": [
         {
+            "version": "1.0.0",
+            "date": "2026-10-06",
+            "title": "FlintFix 1.0 is here",
+            "items": [
+                "A new animated loading screen when the launcher opens.",
+                "Fabric is now the default loader, and works on every Minecraft version. FlintFix's in-game features run on 1.21.1; other versions launch with Fabric and Fabric API only.",
+                "One accent color across the whole launcher, smoother page changes and cleaner menus.",
+                "In-game menus and HUD polished and checked for glitches.",
+                "Forge and NeoForge are marked as coming soon."
+            ]
+        },
+        {
             "version": "0.59.0",
             "date": "2026-10-06",
             "title": "Servers, skins and waypoints",

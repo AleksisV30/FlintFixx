@@ -12,7 +12,23 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..700,0..1,-50..200&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="is-booting">
+    <div class="ff-splash" id="ffSplash" role="status" aria-live="polite" aria-label="FlintFix is starting">
+        <div class="ff-splash-glow" aria-hidden="true"></div>
+        <div class="ff-splash-grid" aria-hidden="true"></div>
+        <div class="ff-splash-center">
+            <div class="ff-splash-mark">
+                <span class="ff-splash-ring" aria-hidden="true"></span>
+                <span class="ff-splash-ring ff-splash-ring-2" aria-hidden="true"></span>
+                <img src="assets/flintfix-client-icon.png" alt="">
+            </div>
+            <h1 class="ff-splash-title" aria-label="FlintFix"><span>F</span><span>l</span><span>i</span><span>n</span><span>t</span><span>F</span><span>i</span><span>x</span></h1>
+            <p class="ff-splash-tagline">Minecraft, sharpened.</p>
+            <div class="ff-splash-progress" aria-hidden="true"><span id="ffSplashBar"></span></div>
+            <p class="ff-splash-status" id="ffSplashStatus">Starting up</p>
+        </div>
+        <span class="ff-splash-version" id="ffSplashVersion"></span>
+    </div>
     <div class="app-frame">
         <header class="topbar">
             <button class="brand-home" id="brandHomeButton" type="button" aria-label="Go to Home">
@@ -186,8 +202,8 @@
                                     <div class="selection-trigger-left">
                                         <div class="selection-icon loader-icon material-symbols-rounded" aria-hidden="true">extension</div>
                                         <div class="selection-copy">
-                                            <span class="selection-value" id="loaderTriggerValue">Vanilla</span>
-                                            <span class="selection-subtitle">Select your mod loader</span>
+                                            <span class="selection-value" id="loaderTriggerValue">Fabric</span>
+                                            <span class="selection-subtitle" id="loaderTriggerSubtitle">FlintFix in-game client</span>
                                         </div>
                                     </div>
                                     <span class="selection-chevron material-symbols-rounded" aria-hidden="true">expand_more</span>
@@ -326,10 +342,10 @@
                         <label class="mods-config-field">
                             <span>Mod loader</span>
                             <select id="modsLoaderSelect">
-                                <option value="vanilla">Vanilla</option>
                                 <option value="fabric">Fabric</option>
-                                <option value="forge">Forge</option>
-                                <option value="neoforge">NeoForge</option>
+                                <option value="vanilla">Vanilla</option>
+                                <option value="forge" disabled>Forge (coming soon)</option>
+                                <option value="neoforge" disabled>NeoForge (coming soon)</option>
                             </select>
                         </label>
                         <button class="mods-config-save" id="modsConfigSave" type="button">Save instance setup</button>

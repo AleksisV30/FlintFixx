@@ -210,11 +210,13 @@ let consoleLoggingEnabled = false;
 let launchTelemetry = null;
 let lastProgressLogKey = "";
 
+// FlintFix's in-game client runs on Fabric; it is the default loader.
+const FLINTFIX_GAME_VERSION = "1.21.1";
 const loaderOptions = [
-    { value: "vanilla", label: "Vanilla", subtitle: "Default Minecraft" },
-    { value: "fabric", label: "Fabric", subtitle: "FlintFix recommended" },
-    { value: "forge", label: "Forge", subtitle: "Coming later" },
-    { value: "neoforge", label: "NeoForge", subtitle: "Coming later" }
+    { value: "fabric", label: "Fabric", subtitle: "FlintFix in-game client" },
+    { value: "vanilla", label: "Vanilla", subtitle: "Unmodded Minecraft" },
+    { value: "forge", label: "Forge", subtitle: "Coming soon", unavailable: true },
+    { value: "neoforge", label: "NeoForge", subtitle: "Coming soon", unavailable: true }
 ];
 let selectedLoader = loaderOptions[0];
 let activeSettingsTab = "game";
@@ -1260,6 +1262,9 @@ function getReadiness() {
     if (selectedLoader.value !== "vanilla" && selectedLoader.value !== "fabric") {
         return { ready: false, reason: `${selectedLoader.label} support is not available yet.` };
     }
+    if (selectedLoader.value === "fabric" && selectedVersion !== FLINTFIX_GAME_VERSION) {
+        return { ready: true, reason: `Ready. FlintFix in-game features need ${FLINTFIX_GAME_VERSION}; Fabric ${selectedVersion} launches without them.` };
+    }
     return { ready: true, reason: "Everything is ready to launch." };
 }
 
@@ -1328,6 +1333,11 @@ function renderLoaderOptions() {
         button.type = "button";
         button.className = "version-option";
         if (option.value === selectedLoader.value) button.classList.add("selected");
+        if (option.unavailable) {
+            button.classList.add("unavailable");
+            button.disabled = true;
+            button.setAttribute("aria-disabled", "true");
+        }
 
         const copy = document.createElement("span");
         copy.className = "loader-option-copy";
@@ -1340,8 +1350,11 @@ function renderLoaderOptions() {
 
         button.addEventListener("click", event => {
             event.stopPropagation();
+            if (option.unavailable) return;
             selectedLoader = option;
             if (loaderTriggerValue) loaderTriggerValue.textContent = option.label;
+            const loaderSubtitle = document.getElementById("loaderTriggerSubtitle");
+            if (loaderSubtitle) loaderSubtitle.textContent = option.subtitle;
             renderLoaderOptions();
             closeLoaderDropdown();
             addConsoleLog("Loader", `${option.label} selected`);
@@ -1643,7 +1656,7 @@ function populateModsConfigControls(instance) {
         refreshFlintSelect(modsVersionSelect);
     }
     if (modsLoaderSelect) {
-        modsLoaderSelect.value = instance?.loader || "vanilla";
+        modsLoaderSelect.value = instance?.loader || "fabric";
         enhanceFlintSelect(modsLoaderSelect);
         refreshFlintSelect(modsLoaderSelect);
     }
@@ -2541,6 +2554,8 @@ async function launchInstance(instance) {
     const loader = loaderOptions.find(option => option.value === instance.loader) || loaderOptions[0];
     selectedLoader = loader;
     if (loaderTriggerValue) loaderTriggerValue.textContent = loader.label;
+    const loaderSubtitle = document.getElementById("loaderTriggerSubtitle");
+    if (loaderSubtitle) loaderSubtitle.textContent = loader.subtitle;
     renderLoaderOptions();
     await selectVersion(instance.version);
     updateReadiness();
@@ -2564,8 +2579,14 @@ function setActiveNavigation(name) {
     navItems.forEach(item => item.classList.toggle("active", item.dataset.nav === name));
     appPages.forEach(element => {
         const active = element.dataset.page === page;
+        const wasActive = !element.hidden && element.classList.contains("active");
         element.classList.toggle("active", active);
         element.hidden = !active;
+        if (active && !wasActive) {
+            element.classList.remove("page-enter");
+            void element.offsetWidth;
+            element.classList.add("page-enter");
+        }
     });
     updatePageHeader(name);
     if (page === "instances") renderInstances();
@@ -2854,7 +2875,7 @@ if (modsConfigSave) modsConfigSave.addEventListener("click", async () => {
         return;
     }
     const nextVersion = String(modsVersionSelect?.value || instance.version || "").trim();
-    const nextLoader = String(modsLoaderSelect?.value || instance.loader || "vanilla").trim();
+    const nextLoader = String(modsLoaderSelect?.value || instance.loader || "fabric").trim();
     instance.version = nextVersion || instance.version;
     instance.loader = nextLoader || instance.loader;
     saveInstances();
@@ -3236,6 +3257,14 @@ function renderVersions(search = "") {
             button.appendChild(
                 badge
             );
+        }
+
+        if (version.id === FLINTFIX_GAME_VERSION) {
+            const badge = document.createElement("span");
+            badge.className = "version-latest version-flintfix";
+            badge.textContent = "FLINTFIX";
+            badge.title = "FlintFix in-game features run on this version";
+            button.appendChild(badge);
         }
 
         button.addEventListener(
@@ -3794,7 +3823,7 @@ async function loadMinecraftVersions() {
                     version.id === saved
             )
                 ? saved
-                : latestRelease;
+                : (minecraftVersions.some(version => version.id === FLINTFIX_GAME_VERSION) ? FLINTFIX_GAME_VERSION : latestRelease);
 
         await selectVersion(
             chosen
@@ -4110,37 +4139,83 @@ playButton.addEventListener(
     }
 );
 
+// Launch splash: shown until the first data has loaded, at least long enough
+// for its intro animation, and never longer than SPLASH_MAX_MS.
+const SPLASH_MIN_MS = 1400;
+const SPLASH_MAX_MS = 9000;
+const splashStartedAt = performance.now();
+const splash = {
+    root: document.getElementById("ffSplash"),
+    bar: document.getElementById("ffSplashBar"),
+    status: document.getElementById("ffSplashStatus"),
+    progress: 0,
+    done: false,
+    step(text, progress) {
+        if (this.done) return;
+        if (text && this.status) this.status.textContent = text;
+        this.progress = Math.max(this.progress, progress);
+        if (this.bar) this.bar.style.width = `${Math.round(this.progress * 100)}%`;
+    },
+    async finish() {
+        if (this.done) return;
+        this.step("Ready", 1);
+        const wait = Math.max(0, SPLASH_MIN_MS - (performance.now() - splashStartedAt));
+        await new Promise(resolve => setTimeout(resolve, wait + 220));
+        this.done = true;
+        document.body.classList.remove("is-booting");
+        this.root?.classList.add("is-done");
+        setTimeout(() => this.root?.remove(), 700);
+    }
+};
+setTimeout(() => void splash.finish(), SPLASH_MAX_MS);
+window.flintfix.getAppVersion?.().then(version => {
+    const label = document.getElementById("ffSplashVersion");
+    if (label && version) label.textContent = `V${version}`;
+}).catch(() => {});
+
 async function initializeFlintFix() {
     addConsoleLog(
         "FlintFix",
         "Starting launcher..."
     );
+    splash.step("Starting up", 0.12);
 
     if (loaderTriggerValue) {
         loaderTriggerValue.textContent = selectedLoader.label;
     }
     syncSettingsControls();
 
-    await Promise.all([
-        detectJava(),
-        loadMinecraftVersions(),
-        loadAuthStatus()
-    ]);
+    try {
+        let finished = 0;
+        const track = (promise, label) => Promise.resolve(promise).finally(() => {
+            finished++;
+            splash.step(label, 0.2 + finished * 0.22);
+        });
+        splash.step("Checking Java, versions and account", 0.2);
+        await Promise.all([
+            track(detectJava(), "Java checked"),
+            track(loadMinecraftVersions(), "Minecraft versions loaded"),
+            track(loadAuthStatus(), "Account loaded")
+        ]);
 
-    if (minecraftProfile) await refreshDiscordLinkStatus({ silent: true });
-    else renderDiscordLinkUi({ linked: false });
+        splash.step("Connecting services", 0.9);
+        if (minecraftProfile) await refreshDiscordLinkStatus({ silent: true });
+        else renderDiscordLinkUi({ linked: false });
 
-    await syncDiscordPresencePreference();
+        await syncDiscordPresencePreference();
 
-    setPlayText(minecraftProfile ? "PLAY" : "SIGN IN & PLAY");
+        setPlayText(minecraftProfile ? "PLAY" : "SIGN IN & PLAY");
 
-    updateProfileUi();
-    updateReadiness();
+        updateProfileUi();
+        updateReadiness();
 
-    addConsoleLog(
-        "FlintFix",
-        "Launcher ready"
-    );
+        addConsoleLog(
+            "FlintFix",
+            "Launcher ready"
+        );
+    } finally {
+        void splash.finish();
+    }
 }
 
 // ---------------------------------------------------------------------------
