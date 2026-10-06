@@ -15,6 +15,9 @@ const { launchMinecraft } = require("./minecraft/launcher");
 const { installFabric } = require("./minecraft/fabric");
 const { FlintFixDiscordPresence } = require("./discord/presence");
 const { createResourcePackManager } = require("./minecraft/resourcepacks");
+const serverPing = require("./minecraft/serverping");
+const { createSkinManager } = require("./minecraft/skins");
+const { createUpdater, REPO: UPDATE_REPO } = require("./minecraft/updates");
 
 function loadDiscordPresenceConfig() {
     const configPath = path.join(__dirname, "discord", "config.json");
@@ -118,6 +121,34 @@ function getGameDir() {
 }
 
 const resourcePacks = createResourcePackManager({ getGameDir });
+
+const skins = createSkinManager({
+    getUserDataDir: () => app.getPath("userData"),
+    getAccessToken: async () => {
+        const session = await getMinecraftSessionForLaunch();
+        return session?.minecraft?.offline ? null : session?.minecraft?.accessToken || null;
+    }
+});
+
+const updater = createUpdater({
+    app,
+    send: state => {
+        for (const window of BrowserWindow.getAllWindows()) {
+            if (!window.isDestroyed()) window.webContents.send("update:status", state);
+        }
+    }
+});
+
+// Mods installed by Performance mode, by Modrinth slug. "match" finds an
+// already installed copy by file name.
+const PERFORMANCE_MODS = [
+    { slug: "sodium", title: "Sodium", match: /sodium/i },
+    { slug: "lithium", title: "Lithium", match: /lithium/i },
+    { slug: "ferrite-core", title: "FerriteCore", match: /ferrite/i },
+    { slug: "immediatelyfast", title: "ImmediatelyFast", match: /immediatelyfast/i },
+    { slug: "entityculling", title: "Entity Culling", match: /entityculling/i },
+    { slug: "modernfix", title: "ModernFix", match: /modernfix/i }
+];
 
 function getInstanceModsDir(instanceId) {
     return path.join(getInstanceRoot(instanceId), "mods");
@@ -384,6 +415,8 @@ async function installCatalogMod(instanceId, options = {}) {
     if (version) versionsUrl.searchParams.set("game_versions", JSON.stringify([version]));
     let versions = await fetchJson(versionsUrl.toString());
     if (!Array.isArray(versions) || !versions.length) {
+        // Strict installs (Performance mode) never fall back to a build for another version.
+        if (options.strict) throw new Error(`No ${loader} build for Minecraft ${version || "this version"} yet.`);
         versions = await fetchJson(`https://api.modrinth.com/v2/project/${encodeURIComponent(projectId)}/version`);
     }
     if (!Array.isArray(versions) || !versions.length) throw new Error("No downloadable versions were found for this mod.");
@@ -1989,7 +2022,16 @@ ipcMain.handle(
                 fullscreen: Boolean(launchOptions?.fullscreen),
                 launcherVisibility: "keep",
                 discordRichPresence: Boolean(launchOptions?.discordRichPresence),
-                instanceId: launchOptions?.instanceId ? normalizeInstanceId(launchOptions.instanceId) : null
+                instanceId: launchOptions?.instanceId ? normalizeInstanceId(launchOptions.instanceId) : null,
+                joinServer: (() => {
+                    if (!launchOptions?.joinServer) return null;
+                    try {
+                        serverPing.parseAddress(launchOptions.joinServer);
+                        return String(launchOptions.joinServer).trim();
+                    } catch {
+                        return null;
+                    }
+                })()
             };
             // Keep the launcher visible from the moment Play is pressed. On
             // Windows, Electron can receive a minimize event as Minecraft
@@ -2682,6 +2724,148 @@ ipcMain.handle("packs:openFolder", async () => {
         const result = await shell.openPath(dir);
         if (result) throw new Error(result);
         return { success: true, path: dir };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle("servers:ping", async (_event, address) => {
+    try {
+        return { success: true, ...(await serverPing.ping(address)) };
+    } catch (error) {
+        return { success: false, online: false, error: error.message };
+    }
+});
+
+ipcMain.handle("skins:list", async () => {
+    try {
+        return { success: true, skins: await skins.list() };
+    } catch (error) {
+        return { success: false, skins: [], error: error.message };
+    }
+});
+
+ipcMain.handle("skins:import", async (event, variant) => {
+    try {
+        const owner = BrowserWindow.fromWebContents(event.sender);
+        const picked = await dialog.showOpenDialog(owner || undefined, {
+            title: "Add Minecraft skins",
+            properties: ["openFile", "multiSelections"],
+            filters: [{ name: "Minecraft skins", extensions: ["png"] }]
+        });
+        if (picked.canceled || !picked.filePaths?.length) return { success: true, canceled: true, added: [] };
+        const added = [];
+        for (const filePath of picked.filePaths) added.push(await skins.importFile(filePath, variant));
+        return { success: true, canceled: false, added };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle("skins:current", async () => {
+    try {
+        return { success: true, ...(await skins.current()) };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle("skins:saveCurrent", async () => {
+    try {
+        const current = await skins.current();
+        if (!current.dataUrl) throw new Error("This account uses a default skin.");
+        const bytes = Buffer.from(current.dataUrl.split(",")[1], "base64");
+        return { success: true, skin: await skins.add(bytes, { name: `${current.name || "My"} skin`, variant: current.variant }) };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle("skins:apply", async (_event, id) => {
+    try {
+        return { success: true, skin: await skins.apply(id) };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle("skins:update", async (_event, id, changes) => {
+    try {
+        return { success: true, skin: await skins.update(id, changes || {}) };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle("skins:delete", async (_event, id) => {
+    try {
+        await skins.remove(id);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle("skins:reset", async () => {
+    try {
+        await skins.reset();
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle("news:get", async () => {
+    const local = () => {
+        try {
+            return JSON.parse(fs.readFileSync(path.join(__dirname, "news.json"), "utf8"));
+        } catch {
+            return { posts: [] };
+        }
+    };
+    try {
+        const url = `https://raw.githubusercontent.com/${UPDATE_REPO}/main/news.json`;
+        const response = await fetch(url, { headers: { "User-Agent": "FlintFix-Client" } });
+        if (!response.ok) throw new Error(String(response.status));
+        const remote = await response.json();
+        if (!Array.isArray(remote?.posts)) throw new Error("Invalid news file.");
+        return { success: true, source: "online", posts: remote.posts.slice(0, 20) };
+    } catch {
+        return { success: true, source: "bundled", posts: (local().posts || []).slice(0, 20) };
+    }
+});
+
+ipcMain.handle("update:check", async () => {
+    try {
+        return { success: true, ...(await updater.check()), canInstall: updater.canInstall() };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle("update:install", async () => {
+    updater.install();
+    return { success: true };
+});
+
+ipcMain.handle("mods:performance", async (event, instanceId, options = {}) => {
+    try {
+        const { mods } = await listInstanceMods(instanceId);
+        const results = [];
+        for (const mod of PERFORMANCE_MODS) {
+            if (mods.some(installed => mod.match.test(installed.fileName))) {
+                results.push({ title: mod.title, status: "already" });
+                continue;
+            }
+            if (!event.sender.isDestroyed()) event.sender.send("mods:performance:progress", { title: mod.title });
+            try {
+                await installCatalogMod(instanceId, { projectId: mod.slug, version: options.version, loader: "fabric", strict: true });
+                results.push({ title: mod.title, status: "installed" });
+            } catch (error) {
+                results.push({ title: mod.title, status: "failed", error: error.message });
+            }
+        }
+        return { success: true, results };
     } catch (error) {
         return { success: false, error: error.message };
     }

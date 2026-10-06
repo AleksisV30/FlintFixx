@@ -165,6 +165,21 @@ final class FlintFixModuleOptions {
                     c().teammateGlowTeam = true;
                     c().teammateGlowColor = 0xFF5CFFB0;
                 }, false);
+            case "showhand" -> new FlintFixOptionsScreen(parent, id, "Show Hand",
+                "Draws your arm holding the item in first person.", List.of(
+                    new Toggle("Show arm with items", () -> c().showHandEnabled, v -> c().showHandEnabled = v),
+                    new Choice("Arm turn", new String[] {"0°", "90°", "180°", "270°"},
+                        () -> c().showHandTurn, v -> c().showHandTurn = v),
+                    new Slider("Hand height", -0.10f, 0.30f, 0.01f, () -> c().showHandHeight,
+                        v -> c().showHandHeight = v, v -> String.format(Locale.ROOT, "%+.2f", v)),
+                    new Slider("Hand depth", -0.20f, 0.20f, 0.01f, () -> c().showHandDepth,
+                        v -> c().showHandDepth = v, v -> String.format(Locale.ROOT, "%+.2f", v)),
+                    new Info("If the hand looks turned the wrong way", "Change Arm turn; it updates right away.")),
+                () -> {
+                    c().showHandTurn = 2;
+                    c().showHandHeight = 0.10f;
+                    c().showHandDepth = 0.02f;
+                }, false);
             default -> null;
         };
     }

@@ -1,0 +1,37 @@
+{
+    "posts": [
+        {
+            "version": "0.59.0",
+            "date": "2026-10-06",
+            "title": "Servers, skins and waypoints",
+            "items": [
+                "Servers tab: save favorite servers, see who's online, and join in one click.",
+                "Skins tab: a 3D preview, a skin library, and one-click skin changes.",
+                "Waypoints in game: save places, see them in the world and on the compass.",
+                "Server profiles: FlintFix switches to your chosen module profile when you join a server.",
+                "Performance mode installs Sodium, Lithium and other speed-up mods in one click.",
+                "The launcher now tells you when a new FlintFix version is out."
+            ]
+        },
+        {
+            "version": "0.58.0",
+            "date": "2026-10-06",
+            "title": "Ten new modules",
+            "items": [
+                "Potion effects, speed meter and compass bar HUD widgets.",
+                "Custom block outline and crosshair.",
+                "Low fire, shield and totem, damage numbers, no weather, motion blur and team glow."
+            ]
+        },
+        {
+            "version": "0.57.0",
+            "date": "2026-10-05",
+            "title": "Resource packs and a cinematic sky",
+            "items": [
+                "Browse and preview resource packs in the new Packs tab.",
+                "Show Hand holds your item, with a new Inspect animation.",
+                "A more cinematic Custom Sky and a redesigned HUD."
+            ]
+        }
+    ]
+}

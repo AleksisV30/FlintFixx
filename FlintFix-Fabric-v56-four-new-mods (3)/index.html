@@ -6,6 +6,7 @@
     <title>FlintFix Client</title>
     <!-- Icons ship with the launcher so they also work offline. -->
     <link rel="stylesheet" href="node_modules/material-symbols/rounded.css">
+    <script src="node_modules/skinview3d/bundles/skinview3d.bundle.js" defer></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..700,0..1,-50..200&display=swap" rel="stylesheet">
@@ -100,6 +101,14 @@
                         <span class="nav-icon material-symbols-rounded" aria-hidden="true">palette</span>
                         <span class="nav-label sidebar-copy">Packs</span>
                     </button>
+                    <button class="nav-item" type="button" data-nav="servers" aria-label="Servers">
+                        <span class="nav-icon material-symbols-rounded" aria-hidden="true">dns</span>
+                        <span class="nav-label sidebar-copy">Servers</span>
+                    </button>
+                    <button class="nav-item" type="button" data-nav="skins" aria-label="Skins">
+                        <span class="nav-icon material-symbols-rounded" aria-hidden="true">checkroom</span>
+                        <span class="nav-label sidebar-copy">Skins</span>
+                    </button>
                     <button class="nav-item" type="button" data-nav="chat" aria-label="Chat">
                         <span class="nav-icon material-symbols-rounded" aria-hidden="true">chat_bubble</span>
                         <span class="nav-label sidebar-copy">Chat</span>
@@ -120,6 +129,18 @@
             </aside>
 
             <main class="main-shell">
+                <div class="update-banner" id="updateBanner" hidden>
+                    <span class="material-symbols-rounded" aria-hidden="true">system_update</span>
+                    <div class="update-banner-copy">
+                        <strong id="updateBannerTitle">A new FlintFix version is available</strong>
+                        <span id="updateBannerText">Update to get the latest features and fixes.</span>
+                    </div>
+                    <div class="update-banner-progress" id="updateBannerProgress" hidden><span></span></div>
+                    <button class="create-instance-button" id="updateBannerAction" type="button">Download</button>
+                    <button class="modal-close" id="updateBannerDismiss" type="button" aria-label="Dismiss">
+                        <span class="material-symbols-rounded" aria-hidden="true">close</span>
+                    </button>
+                </div>
                 <section class="app-page active" data-page="home" id="homePage">
                 <section class="launch-card">
                     <div class="launch-card-header">
@@ -206,6 +227,19 @@
                             <span id="playButtonText">SIGN IN & PLAY</span>
                         </button>
                     </div>
+                </section>
+
+                <section class="news-card" id="newsCard">
+                    <div class="news-card-header">
+                        <div>
+                            <span class="section-kicker">WHAT'S NEW</span>
+                            <h2 id="newsTitle">FlintFix updates</h2>
+                            <p id="newsMeta"></p>
+                        </div>
+                        <button class="mods-folder-button" id="newsToggle" type="button">Earlier updates</button>
+                    </div>
+                    <ul class="news-items" id="newsItems"></ul>
+                    <div class="news-older" id="newsOlder" hidden></div>
                 </section>
 
                 <section class="console-card">
@@ -308,6 +342,10 @@
                                 <input id="modsSearch" type="text" placeholder="Search installed mods..." autocomplete="off" spellcheck="false">
                             </div>
                             <div class="mods-toolbar-actions">
+                                <button class="mods-folder-button" id="performanceModeButton" type="button" title="Install Sodium, Lithium and other performance mods">
+                                    <span class="material-symbols-rounded" aria-hidden="true">bolt</span>
+                                    Performance mode
+                                </button>
                                 <button class="mods-folder-button mods-update-button" id="checkModUpdatesButton" type="button">
                                     <span class="material-symbols-rounded" aria-hidden="true">update</span>
                                     Check updates
@@ -472,6 +510,102 @@
                     <div class="packs-installed" id="packsInstalled" hidden>
                         <p class="packs-installed-hint">Active packs load the next time you launch. The pack at the top of the list wins when two packs change the same texture.</p>
                         <div class="packs-installed-list" id="packsInstalledList"></div>
+                    </div>
+                </section>
+
+                <section class="app-page servers-page" data-page="servers" id="serversPage" hidden>
+                    <div class="explore-hero">
+                        <div>
+                            <span class="section-kicker">SERVERS</span>
+                            <h1>Your servers</h1>
+                            <p>Save the servers you play on, see who's online, and join in one click.</p>
+                        </div>
+                    </div>
+
+                    <form class="explore-control-surface servers-add" id="serverAddForm">
+                        <div class="explore-search-large">
+                            <span class="material-symbols-rounded" aria-hidden="true">dns</span>
+                            <input id="serverAddressInput" type="text" placeholder="Server address, e.g. play.example.net" autocomplete="off" spellcheck="false">
+                        </div>
+                        <div class="explore-search-large servers-name">
+                            <span class="material-symbols-rounded" aria-hidden="true">label</span>
+                            <input id="serverNameInput" type="text" placeholder="Name (optional)" autocomplete="off" spellcheck="false" maxlength="40">
+                        </div>
+                        <button class="create-instance-button" id="serverAddButton" type="submit">
+                            <span class="material-symbols-rounded" aria-hidden="true">add</span>
+                            <span>Add</span>
+                        </button>
+                    </form>
+
+                    <div class="servers-toolbar">
+                        <label class="explore-sort">
+                            <span>Join with</span>
+                            <select id="serversInstanceSelect" aria-label="Instance used to join servers"></select>
+                        </label>
+                        <button class="mods-folder-button" id="serversRefresh" type="button">
+                            <span class="material-symbols-rounded" aria-hidden="true">refresh</span>
+                            Refresh
+                        </button>
+                    </div>
+
+                    <h3 class="servers-heading">Favorites</h3>
+                    <div class="servers-list" id="serversList"></div>
+                    <h3 class="servers-heading">Popular servers</h3>
+                    <div class="servers-list" id="serversPopular"></div>
+                </section>
+
+                <section class="app-page skins-page" data-page="skins" id="skinsPage" hidden>
+                    <div class="explore-hero">
+                        <div>
+                            <span class="section-kicker">SKINS</span>
+                            <h1>Your skins</h1>
+                            <p>Preview skins in 3D, keep a library, and change your Minecraft skin in one click.</p>
+                        </div>
+                    </div>
+                    <div class="skins-layout">
+                        <div class="skin-stage">
+                            <canvas id="skinCanvas" aria-label="3D skin preview"></canvas>
+                            <div class="skin-stage-empty" id="skinStageEmpty" hidden>Sign in to see your skin, or import one.</div>
+                            <div class="skin-stage-info">
+                                <strong id="skinStageName">Current skin</strong>
+                                <span id="skinStageMeta">Drag to rotate</span>
+                            </div>
+                            <div class="skin-stage-controls">
+                                <div class="packs-view-tabs" role="group" aria-label="Arm model">
+                                    <button class="packs-view-tab active" type="button" data-skin-model="classic">Classic</button>
+                                    <button class="packs-view-tab" type="button" data-skin-model="slim">Slim</button>
+                                </div>
+                                <div class="packs-view-tabs" role="group" aria-label="Animation">
+                                    <button class="packs-view-tab active" type="button" data-skin-anim="idle">Idle</button>
+                                    <button class="packs-view-tab" type="button" data-skin-anim="walk">Walk</button>
+                                    <button class="packs-view-tab" type="button" data-skin-anim="run">Run</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="skin-library">
+                            <div class="skin-library-header">
+                                <h3>Library</h3>
+                                <div class="skin-library-actions">
+                                    <button class="mods-folder-button" id="skinSaveCurrent" type="button" title="Save the skin you are wearing to the library">
+                                        <span class="material-symbols-rounded" aria-hidden="true">bookmark_add</span>
+                                        Save current
+                                    </button>
+                                    <button class="mods-folder-button" id="skinImport" type="button">
+                                        <span class="material-symbols-rounded" aria-hidden="true">upload</span>
+                                        Import
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="skin-grid" id="skinGrid"></div>
+                            <div class="skin-library-footer">
+                                <button class="mods-folder-button" id="skinReset" type="button">Default skin</button>
+                                <button class="mods-folder-button" id="skinDelete" type="button" disabled>Delete</button>
+                                <button class="create-instance-button" id="skinApply" type="button" disabled>
+                                    <span class="material-symbols-rounded" aria-hidden="true">check</span>
+                                    <span>Use this skin</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </section>
 

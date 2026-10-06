@@ -34,6 +34,11 @@ public final class FlintFixConfig {
     public String skyPreset = "AURORA";
     public boolean itemInspectEnabled = true;
     public boolean showHandEnabled = false;
+    /** Quarter turns of the arm around its own length (0-3); 2 shows the outside of the hand. */
+    public int showHandTurn = 2;
+    /** How far the view model is lifted / moved toward the camera while Show Hand is on. */
+    public float showHandHeight = 0.10f;
+    public float showHandDepth = 0.02f;
     public boolean fullbrightEnabled = false;
     /** 0 follow world, 1 day, 2 sunset, 3 night. Only changes how the custom sky looks. */
     public int skyTimeMode = 0;
@@ -281,6 +286,9 @@ public final class FlintFixConfig {
         theme = FlintFixTheme.fromId(theme).id();
         skyPreset = FlintFixSky.Preset.fromId(skyPreset).name();
         skyTimeMode = Math.max(0, Math.min(3, skyTimeMode));
+        showHandTurn = Math.floorMod(showHandTurn, 4);
+        showHandHeight = clamp(showHandHeight, -0.10f, 0.30f);
+        showHandDepth = clamp(showHandDepth, -0.20f, 0.20f);
         freecamSpeed = clamp(freecamSpeed, 0.10f, 2.00f);
         fpsBackgroundOpacity = clamp(fpsBackgroundOpacity, 0.0f, 1.0f);
         fpsScale = clamp(fpsScale, 0.25f, 2.0f);

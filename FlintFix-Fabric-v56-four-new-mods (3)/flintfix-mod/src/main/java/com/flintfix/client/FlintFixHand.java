@@ -20,9 +20,6 @@ import org.joml.Vector3f;
  * in, so it follows swings, equip motion, bow drawing and eating exactly.
  */
 public final class FlintFixHand {
-    /** How far the view model is lifted while Show Hand is on, so the fist sits on screen. */
-    private static final float VIEW_LIFT_Y = 0.10f;
-    private static final float VIEW_LIFT_Z = 0.02f;
 
     /**
      * Fist center in the arm model's own space (1/16 block units, divided out):
@@ -35,7 +32,8 @@ public final class FlintFixHand {
     private FlintFixHand() {}
 
     public static void applyViewLift(MatrixStack matrices) {
-        matrices.translate(0.0f, VIEW_LIFT_Y, VIEW_LIFT_Z);
+        FlintFixConfig config = FlintFixClient.CONFIG;
+        matrices.translate(0.0f, config.showHandHeight, config.showHandDepth);
     }
 
     /**
@@ -63,6 +61,8 @@ public final class FlintFixHand {
         matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(side * 120.0f));
         matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(200.0f));
         matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(side * -135.0f));
+        // Turn the arm around its own length so the right face of the hand shows.
+        matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(side * FlintFixClient.CONFIG.showHandTurn * 90.0f));
         // Put the fist center on the origin, which is now the grip.
         matrices.translate(-HAND_X * side, -HAND_Y, 0.0f);
         if (right) playerRenderer.renderRightArm(matrices, consumers, light, player);

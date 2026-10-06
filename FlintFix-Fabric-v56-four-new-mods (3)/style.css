@@ -4354,3 +4354,178 @@ body { color: var(--ff-text); }
 .app-frame .login-button:hover { background: var(--ff-accent-hover); }
 .app-frame .packs-controls { margin-bottom: 14px; }
 .app-frame .packs-view-tab { font-size: 13px; height: 32px; }
+
+/* ------------------------------------------------------------------ */
+/* Update banner, news, servers, skins (v59)                           */
+/* ------------------------------------------------------------------ */
+
+.update-banner {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 0 0 16px;
+    padding: 12px 14px 12px 16px;
+    border-radius: var(--ff-radius);
+    background: linear-gradient(90deg, rgba(148, 102, 255, .16), rgba(148, 102, 255, .05));
+    border: 1px solid rgba(148, 102, 255, .35);
+}
+.update-banner[hidden] { display: none; }
+.update-banner > .material-symbols-rounded { color: var(--ff-accent-hover); font-size: 26px; }
+.update-banner-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.update-banner-copy strong { font-size: 14px; }
+.update-banner-copy span { color: var(--ff-muted); font-size: 12.5px; }
+.update-banner-progress { width: 140px; height: 6px; border-radius: 999px; background: rgba(255,255,255,.08); overflow: hidden; }
+.update-banner-progress span { display: block; height: 100%; width: 0; background: var(--ff-accent); transition: width .3s ease; }
+.update-banner .modal-close { background: transparent; border-color: transparent; color: var(--ff-muted); }
+
+.app-frame .news-card {
+    margin-top: 16px;
+    padding: 18px 22px;
+    background: var(--ff-panel);
+    border: 1px solid var(--ff-line);
+    border-radius: var(--ff-radius);
+}
+.news-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.news-card-header h2 { display: flex; align-items: center; gap: 8px; margin: 6px 0 2px; font-size: 18px; }
+.news-card-header p { color: var(--ff-muted); font-size: 12px; }
+.news-new {
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: var(--ff-accent);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .06em;
+}
+.news-items, .news-older-post ul { margin: 12px 0 0 18px; color: #c7cfdc; font-size: 13px; line-height: 1.7; }
+.news-older { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--ff-line); display: flex; flex-direction: column; gap: 12px; }
+.news-older-post strong { font-size: 13px; }
+.news-older-post ul { margin-top: 4px; color: var(--ff-muted); }
+
+/* Servers */
+.servers-add { display: flex; gap: 10px; align-items: center; margin-top: 16px; }
+.servers-add .explore-search-large { flex: 2; }
+.servers-add .servers-name { flex: 1; }
+.servers-add .create-instance-button { flex: 0 0 auto; }
+.servers-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 14px 0 6px; }
+.servers-heading { margin: 16px 2px 10px; color: var(--ff-muted); font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.servers-list { display: flex; flex-direction: column; gap: 10px; }
+.server-card {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 14px;
+    border-radius: var(--ff-radius);
+    background: var(--ff-panel);
+    border: 1px solid var(--ff-line);
+    transition: border-color .18s ease;
+}
+.server-card:hover { border-color: var(--ff-line-2); }
+.server-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+    background: var(--ff-panel-3);
+    color: var(--ff-muted);
+}
+.server-icon img { width: 100%; height: 100%; image-rendering: pixelated; }
+.server-copy { min-width: 0; }
+.server-copy strong { display: block; font-size: 14px; }
+.server-copy small { color: var(--ff-subtle); font-size: 11.5px; }
+.server-copy p {
+    margin-top: 4px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    color: #b9c2d1;
+    font-size: 12.5px;
+    white-space: pre-line;
+}
+.server-card.offline .server-copy p { color: var(--red); }
+.server-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; font-size: 12px; }
+.server-players { display: inline-flex; align-items: center; gap: 4px; color: var(--ff-text); font-weight: 700; }
+.server-players .material-symbols-rounded { font-size: 16px; color: var(--ff-muted); }
+.server-ping { font-weight: 700; }
+.server-ping.good { color: #6fdc9a; }
+.server-ping.ok { color: #f0c25e; }
+.server-ping.bad { color: #f07373; }
+.server-version { color: var(--ff-subtle); font-size: 11px; max-width: 160px; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.server-actions { display: flex; gap: 8px; }
+.server-actions .create-instance-button { height: 36px; padding: 0 14px; }
+.server-actions .server-secondary { width: 36px; height: 36px; padding: 0; justify-content: center; }
+
+/* Skins */
+.skins-layout { display: grid; grid-template-columns: minmax(260px, 0.9fr) minmax(0, 1.4fr); gap: 16px; margin-top: 16px; }
+.skin-stage {
+    position: relative;
+    min-height: 460px;
+    border-radius: var(--ff-radius);
+    overflow: hidden;
+    background:
+        radial-gradient(ellipse at 50% 78%, rgba(148, 102, 255, .22), transparent 55%),
+        linear-gradient(180deg, var(--ff-panel-2), var(--ff-panel));
+    border: 1px solid var(--ff-line);
+}
+.skin-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; }
+.skin-stage canvas:active { cursor: grabbing; }
+.skin-stage-empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--ff-muted); font-size: 13px; padding: 20px; text-align: center; }
+.skin-stage-info { position: absolute; top: 14px; left: 16px; display: flex; flex-direction: column; gap: 2px; pointer-events: none; }
+.skin-stage-info strong { font-size: 15px; }
+.skin-stage-info span { color: var(--ff-muted); font-size: 12px; }
+.skin-stage-controls { position: absolute; left: 12px; right: 12px; bottom: 12px; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.skin-library {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    border-radius: var(--ff-radius);
+    background: var(--ff-panel);
+    border: 1px solid var(--ff-line);
+    min-height: 460px;
+}
+.skin-library-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.skin-library-header h3 { font-size: 15px; }
+.skin-library-actions { display: flex; gap: 8px; }
+.skin-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    align-content: start;
+    gap: 10px;
+    overflow-y: auto;
+    max-height: 360px;
+}
+.skin-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 6px 8px;
+    border-radius: var(--ff-radius-sm);
+    background: var(--ff-panel-2);
+    border: 1px solid transparent;
+    color: var(--ff-text);
+    cursor: pointer;
+    transition: border-color .16s ease, background .16s ease;
+}
+.skin-tile:hover { background: var(--ff-panel-3); }
+.skin-tile.selected { border-color: rgba(148, 102, 255, .6); background: var(--ff-accent-soft); }
+.skin-tile canvas { width: 40px; height: 80px; image-rendering: pixelated; }
+.skin-tile span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 700; }
+.skin-tile small { color: var(--ff-subtle); font-size: 10.5px; }
+.skin-library-footer { display: flex; justify-content: flex-end; gap: 8px; padding-top: 12px; border-top: 1px solid var(--ff-line); }
+.skin-library-footer .create-instance-button { height: 38px; }
+
+@media (max-width: 980px) {
+    .skins-layout { grid-template-columns: 1fr; }
+    .server-card { grid-template-columns: 44px minmax(0, 1fr) auto; }
+    .server-meta { display: none; }
+    .servers-add { flex-wrap: wrap; }
+}
+.app-frame .skin-stage-controls .packs-view-tabs { background: rgba(10, 12, 16, .75); backdrop-filter: blur(6px); }
+.app-frame .skin-stage-controls .packs-view-tab.active { background: var(--ff-accent); border-color: transparent; color: #fff; }

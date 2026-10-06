@@ -261,6 +261,8 @@ const pageHeaderIcons = {
     mods: "extension",
     explore: "travel_explore",
     packs: "palette",
+    servers: "dns",
+    skins: "checkroom",
     chat: "chat_bubble",
     settings: "settings"
 };
@@ -2556,7 +2558,7 @@ loadInstancesFromStorage();
 updatePageHeader("home");
 
 function setActiveNavigation(name) {
-    const allowed = new Set(["home", "instances", "mods", "explore", "packs", "chat"]);
+    const allowed = new Set(["home", "instances", "mods", "explore", "packs", "servers", "skins", "chat"]);
     const page = allowed.has(name) ? name : "home";
     activeContentPage = page;
     navItems.forEach(item => item.classList.toggle("active", item.dataset.nav === name));
@@ -2570,6 +2572,8 @@ function setActiveNavigation(name) {
     if (page === "mods") void renderModsPage();
     if (page === "explore") void renderExplorePage(true);
     if (page === "packs") void renderPacksPage();
+    if (page === "servers") void renderServersPage();
+    if (page === "skins") void renderSkinsPage();
     if (page === "chat") {
         renderChatPage();
         void refreshSocial({ force: true, suppressNotifications: true });
@@ -4020,9 +4024,13 @@ playButton.addEventListener(
                         fullscreen: launchPreferences.fullscreen,
                         launcherVisibility: launchPreferences.launcherVisibility,
                         discordRichPresence: launchPreferences.discordRichPresence,
-                        instanceId: activeInstanceId || null
+                        instanceId: activeInstanceId || null,
+                        // Only a join started in the last few seconds; a cancelled one must not stick.
+                        joinServer: pendingJoinServer && Date.now() - pendingJoinServer.at < 15000
+                            ? pendingJoinServer.address : null
                     }
                 );
+            pendingJoinServer = null;
 
             if (!launchResult.success) {
                 if (
@@ -4151,7 +4159,7 @@ const packsPagination = document.getElementById("packsPagination");
 const packsPrevPage = document.getElementById("packsPrevPage");
 const packsNextPage = document.getElementById("packsNextPage");
 const packsPageNumbers = document.getElementById("packsPageNumbers");
-const packsViewTabs = Array.from(document.querySelectorAll(".packs-view-tab"));
+const packsViewTabs = Array.from(document.querySelectorAll(".packs-view-tab[data-packs-view]"));
 const packsBrowse = document.getElementById("packsBrowse");
 const packsInstalled = document.getElementById("packsInstalled");
 const packsInstalledList = document.getElementById("packsInstalledList");
@@ -4739,6 +4747,607 @@ window.flintfix.onResourcePackProgress?.(progress => {
     packsState.installing.set(progress.projectId, progress);
     syncPackButtons(progress.projectId);
 });
+
+
+// ---------------------------------------------------------------------------
+// Servers: favorites with live status, popular servers, one-click join.
+// ---------------------------------------------------------------------------
+
+let pendingJoinServer = null;
+const SERVERS_KEY = "flintfix.servers.v1";
+const POPULAR_SERVERS = [
+    { name: "Hypixel", address: "mc.hypixel.net" },
+    { name: "CubeCraft", address: "play.cubecraft.net" },
+    { name: "Wynncraft", address: "play.wynncraft.com" },
+    { name: "MCC Island", address: "play.mccisland.net" }
+];
+const serversList = document.getElementById("serversList");
+const serversPopular = document.getElementById("serversPopular");
+const serverAddForm = document.getElementById("serverAddForm");
+const serverAddressInput = document.getElementById("serverAddressInput");
+const serverNameInput = document.getElementById("serverNameInput");
+const serversInstanceSelect = document.getElementById("serversInstanceSelect");
+const serversRefresh = document.getElementById("serversRefresh");
+const serverStatus = new Map();
+let serversRefreshTimer = null;
+
+function loadServers() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(SERVERS_KEY) || "[]");
+        return Array.isArray(parsed) ? parsed.filter(item => item && typeof item.address === "string") : [];
+    } catch {
+        return [];
+    }
+}
+
+function saveServers(list) {
+    localStorage.setItem(SERVERS_KEY, JSON.stringify(list));
+}
+
+function populateServersInstances() {
+    if (!serversInstanceSelect) return;
+    const previous = serversInstanceSelect.value || localStorage.getItem("flintfix.servers.instance") || "";
+    serversInstanceSelect.innerHTML = "";
+    if (!instances.length) {
+        const option = document.createElement("option");
+        option.value = "";
+        option.textContent = "Create an instance first";
+        serversInstanceSelect.appendChild(option);
+    }
+    for (const instance of instances) {
+        const option = document.createElement("option");
+        option.value = instance.id;
+        option.textContent = `${instance.name} — ${instance.version}`;
+        serversInstanceSelect.appendChild(option);
+    }
+    if (instances.some(item => item.id === previous)) serversInstanceSelect.value = previous;
+    enhanceFlintSelect(serversInstanceSelect);
+    refreshFlintSelect(serversInstanceSelect);
+}
+
+function serverCard(server, { favorite }) {
+    const status = serverStatus.get(server.address.toLowerCase());
+    const card = document.createElement("article");
+    card.className = `server-card${status?.online ? " online" : status ? " offline" : ""}`;
+
+    const icon = document.createElement("div");
+    icon.className = "server-icon";
+    if (status?.icon) {
+        const img = document.createElement("img");
+        img.src = status.icon;
+        img.alt = "";
+        icon.appendChild(img);
+    } else {
+        icon.innerHTML = '<span class="material-symbols-rounded" aria-hidden="true">dns</span>';
+    }
+
+    const copy = document.createElement("div");
+    copy.className = "server-copy";
+    const title = document.createElement("strong");
+    title.textContent = server.name || server.address;
+    const address = document.createElement("small");
+    address.textContent = server.address;
+    const motd = document.createElement("p");
+    motd.textContent = !status ? "Checking..." : status.online ? (status.motd || "No message") : (status.error || "Offline");
+    copy.append(title, address, motd);
+
+    const meta = document.createElement("div");
+    meta.className = "server-meta";
+    if (status?.online) {
+        const players = document.createElement("span");
+        players.className = "server-players";
+        players.innerHTML = '<span class="material-symbols-rounded" aria-hidden="true">group</span>';
+        players.append(`${formatDownloadCount(status.players)} / ${formatDownloadCount(status.maxPlayers)}`);
+        const ping = document.createElement("span");
+        const quality = status.latency <= 80 ? "good" : status.latency <= 160 ? "ok" : "bad";
+        ping.className = `server-ping ${quality}`;
+        ping.textContent = `${status.latency} ms`;
+        meta.append(players, ping);
+        if (status.version) {
+            const version = document.createElement("span");
+            version.className = "server-version";
+            version.textContent = status.version;
+            meta.appendChild(version);
+        }
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "server-actions";
+    const join = document.createElement("button");
+    join.type = "button";
+    join.className = "create-instance-button";
+    join.innerHTML = '<span class="material-symbols-rounded" aria-hidden="true">play_arrow</span><span>Join</span>';
+    join.addEventListener("click", () => joinServer(server));
+    actions.appendChild(join);
+    const second = document.createElement("button");
+    second.type = "button";
+    second.className = "mods-folder-button server-secondary";
+    if (favorite) {
+        second.setAttribute("aria-label", `Remove ${server.name || server.address}`);
+        second.innerHTML = '<span class="material-symbols-rounded" aria-hidden="true">delete</span>';
+        second.addEventListener("click", () => {
+            saveServers(loadServers().filter(item => item.address.toLowerCase() !== server.address.toLowerCase()));
+            renderServerLists();
+        });
+    } else {
+        const saved = loadServers().some(item => item.address.toLowerCase() === server.address.toLowerCase());
+        second.innerHTML = `<span class="material-symbols-rounded" aria-hidden="true">${saved ? "check" : "star"}</span>`;
+        second.disabled = saved;
+        second.setAttribute("aria-label", saved ? "Saved" : `Save ${server.name}`);
+        second.addEventListener("click", () => {
+            saveServers([...loadServers(), { name: server.name, address: server.address }]);
+            renderServerLists();
+        });
+    }
+    actions.appendChild(second);
+    card.append(icon, copy, meta, actions);
+    return card;
+}
+
+function renderServerLists() {
+    if (!serversList || !serversPopular) return;
+    const favorites = loadServers();
+    serversList.innerHTML = "";
+    if (!favorites.length) {
+        const empty = document.createElement("div");
+        empty.className = "mods-explore-empty";
+        empty.textContent = "No saved servers yet. Add one above, or star a popular server.";
+        serversList.appendChild(empty);
+    }
+    for (const server of favorites) serversList.appendChild(serverCard(server, { favorite: true }));
+    serversPopular.innerHTML = "";
+    for (const server of POPULAR_SERVERS) serversPopular.appendChild(serverCard(server, { favorite: false }));
+}
+
+async function refreshServerStatus() {
+    const all = [...loadServers(), ...POPULAR_SERVERS];
+    const unique = Array.from(new Map(all.map(server => [server.address.toLowerCase(), server])).values());
+    await Promise.all(unique.map(async server => {
+        const result = await window.flintfix.pingServer(server.address);
+        serverStatus.set(server.address.toLowerCase(), result?.success ? result : { online: false, error: result?.error });
+    }));
+    renderServerLists();
+}
+
+async function renderServersPage() {
+    populateServersInstances();
+    renderServerLists();
+    await refreshServerStatus();
+    clearInterval(serversRefreshTimer);
+    serversRefreshTimer = setInterval(() => {
+        if (activeContentPage !== "servers") {
+            clearInterval(serversRefreshTimer);
+            return;
+        }
+        void refreshServerStatus();
+    }, 30000);
+}
+
+function joinServer(server) {
+    const instance = instances.find(item => item.id === serversInstanceSelect?.value) || instances[0];
+    if (!instance) {
+        showToast("Create an instance first, then join servers with it.", "error");
+        setActiveNavigation("instances");
+        return;
+    }
+    pendingJoinServer = { address: server.address, at: Date.now() };
+    showToast(`Joining ${server.name || server.address} with ${instance.name}...`, "success");
+    void launchInstance(instance);
+}
+
+if (serverAddForm) serverAddForm.addEventListener("submit", event => {
+    event.preventDefault();
+    const address = String(serverAddressInput?.value || "").trim();
+    if (!/^[A-Za-z0-9.\-[\]:]{3,255}$/.test(address)) {
+        showToast("Enter a valid server address.", "error");
+        return;
+    }
+    const list = loadServers();
+    if (list.some(item => item.address.toLowerCase() === address.toLowerCase())) {
+        showToast("That server is already saved.", "error");
+        return;
+    }
+    list.push({ name: String(serverNameInput?.value || "").trim().slice(0, 40) || address, address });
+    saveServers(list);
+    if (serverAddressInput) serverAddressInput.value = "";
+    if (serverNameInput) serverNameInput.value = "";
+    renderServerLists();
+    void refreshServerStatus();
+});
+if (serversInstanceSelect) serversInstanceSelect.addEventListener("change", () => {
+    localStorage.setItem("flintfix.servers.instance", serversInstanceSelect.value);
+});
+if (serversRefresh) serversRefresh.addEventListener("click", () => void refreshServerStatus());
+
+// ---------------------------------------------------------------------------
+// Skins: 3D preview, library, apply to the Minecraft account.
+// ---------------------------------------------------------------------------
+
+const skinCanvas = document.getElementById("skinCanvas");
+const skinStageEmpty = document.getElementById("skinStageEmpty");
+const skinStageName = document.getElementById("skinStageName");
+const skinStageMeta = document.getElementById("skinStageMeta");
+const skinGrid = document.getElementById("skinGrid");
+const skinApply = document.getElementById("skinApply");
+const skinDelete = document.getElementById("skinDelete");
+const skinReset = document.getElementById("skinReset");
+const skinImport = document.getElementById("skinImport");
+const skinSaveCurrent = document.getElementById("skinSaveCurrent");
+const skinModelButtons = Array.from(document.querySelectorAll("[data-skin-model]"));
+const skinAnimButtons = Array.from(document.querySelectorAll("[data-skin-anim]"));
+const skinState = { viewer: null, skins: [], selectedId: null, current: null, model: "classic", anim: "idle" };
+
+function ensureSkinViewer() {
+    if (skinState.viewer || !skinCanvas || !window.skinview3d) return skinState.viewer;
+    const box = skinCanvas.parentElement.getBoundingClientRect();
+    skinState.viewer = new window.skinview3d.SkinViewer({
+        canvas: skinCanvas,
+        width: Math.max(200, Math.round(box.width)),
+        height: Math.max(260, Math.round(box.height)),
+        zoom: 0.62
+    });
+    skinState.viewer.autoRotate = true;
+    skinState.viewer.autoRotateSpeed = 0.6;
+    setSkinAnimation(skinState.anim);
+    new ResizeObserver(() => {
+        const rect = skinCanvas.parentElement.getBoundingClientRect();
+        skinState.viewer?.setSize(Math.max(200, Math.round(rect.width)), Math.max(260, Math.round(rect.height)));
+    }).observe(skinCanvas.parentElement);
+    return skinState.viewer;
+}
+
+function setSkinAnimation(name) {
+    skinState.anim = name;
+    skinAnimButtons.forEach(button => button.classList.toggle("active", button.dataset.skinAnim === name));
+    const lib = window.skinview3d;
+    if (!skinState.viewer || !lib) return;
+    skinState.viewer.animation = name === "walk" ? new lib.WalkingAnimation()
+        : name === "run" ? new lib.RunningAnimation() : new lib.IdleAnimation();
+}
+
+function showSkinInViewer(dataUrl, model, name, meta) {
+    const viewer = ensureSkinViewer();
+    skinState.model = model === "slim" ? "slim" : "classic";
+    skinModelButtons.forEach(button => button.classList.toggle("active", button.dataset.skinModel === skinState.model));
+    if (skinStageName) skinStageName.textContent = name || "Skin";
+    if (skinStageMeta) skinStageMeta.textContent = meta || "Drag to rotate";
+    if (skinStageEmpty) skinStageEmpty.hidden = Boolean(dataUrl);
+    if (viewer && dataUrl) viewer.loadSkin(dataUrl, { model: skinState.model === "slim" ? "slim" : "default" });
+}
+
+/** Front view of a skin (head, body, arms, legs) for library tiles. */
+function drawSkinFront(canvas, dataUrl) {
+    const image = new Image();
+    image.onload = () => {
+        const ctx = canvas.getContext("2d");
+        const s = canvas.width / 16;
+        ctx.imageSmoothingEnabled = false;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const part = (sx, sy, sw, sh, dx, dy) => ctx.drawImage(image, sx, sy, sw, sh, dx * s, dy * s, sw * s, sh * s);
+        const legacy = image.height === 32;
+        part(8, 8, 8, 8, 4, 0);
+        part(20, 20, 8, 12, 4, 8);
+        part(44, 20, 4, 12, 0, 8);
+        if (legacy) {
+            ctx.save();
+            ctx.translate(16 * s, 0);
+            ctx.scale(-1, 1);
+            part(44, 20, 4, 12, 0, 8);
+            part(4, 20, 4, 12, 4, 20);
+            ctx.restore();
+        } else {
+            part(36, 52, 4, 12, 12, 8);
+            part(20, 52, 4, 12, 8, 20);
+        }
+        part(4, 20, 4, 12, 4, 20);
+        part(40, 8, 8, 8, 4, 0);
+    };
+    image.src = dataUrl;
+}
+
+function renderSkinGrid() {
+    if (!skinGrid) return;
+    skinGrid.innerHTML = "";
+    if (!skinState.skins.length) {
+        const empty = document.createElement("div");
+        empty.className = "mods-explore-empty";
+        empty.textContent = "Import a .png skin or save the one you're wearing.";
+        skinGrid.appendChild(empty);
+    }
+    for (const skin of skinState.skins) {
+        const tile = document.createElement("button");
+        tile.type = "button";
+        tile.className = `skin-tile${skin.id === skinState.selectedId ? " selected" : ""}`;
+        tile.setAttribute("aria-label", skin.name);
+        const canvas = document.createElement("canvas");
+        canvas.width = 64;
+        canvas.height = 128;
+        drawSkinFront(canvas, skin.dataUrl);
+        const name = document.createElement("span");
+        name.textContent = skin.name;
+        const variant = document.createElement("small");
+        variant.textContent = skin.variant === "slim" ? "Slim" : "Classic";
+        tile.append(canvas, name, variant);
+        tile.addEventListener("click", () => {
+            skinState.selectedId = skin.id;
+            showSkinInViewer(skin.dataUrl, skin.variant, skin.name, "From your library");
+            renderSkinGrid();
+        });
+        skinGrid.appendChild(tile);
+    }
+    if (skinApply) skinApply.disabled = !skinState.selectedId;
+    if (skinDelete) skinDelete.disabled = !skinState.selectedId;
+}
+
+async function loadSkinLibrary() {
+    const result = await window.flintfix.listSkins();
+    skinState.skins = result?.success ? result.skins : [];
+    if (!skinState.skins.some(skin => skin.id === skinState.selectedId)) skinState.selectedId = null;
+    renderSkinGrid();
+}
+
+async function renderSkinsPage() {
+    ensureSkinViewer();
+    await loadSkinLibrary();
+    if (skinState.selectedId) return;
+    if (!minecraftProfile) {
+        showSkinInViewer("", "classic", "Not signed in", "Sign in to see your skin");
+        return;
+    }
+    const current = await window.flintfix.getCurrentSkin();
+    if (current?.success && current.dataUrl) {
+        skinState.current = current;
+        showSkinInViewer(current.dataUrl, current.variant, current.name || "Your skin", "Currently wearing");
+    } else {
+        showSkinInViewer("", "classic", "Default skin", current?.error || "Import a skin to change it");
+    }
+}
+
+skinModelButtons.forEach(button => button.addEventListener("click", async () => {
+    const model = button.dataset.skinModel;
+    const selected = skinState.skins.find(skin => skin.id === skinState.selectedId);
+    if (selected) {
+        await window.flintfix.updateSkin(selected.id, { variant: model });
+        selected.variant = model;
+        showSkinInViewer(selected.dataUrl, model, selected.name, "From your library");
+        renderSkinGrid();
+    } else if (skinState.current?.dataUrl) {
+        showSkinInViewer(skinState.current.dataUrl, model, skinStageName?.textContent, "Preview only");
+    }
+}));
+skinAnimButtons.forEach(button => button.addEventListener("click", () => setSkinAnimation(button.dataset.skinAnim)));
+if (skinImport) skinImport.addEventListener("click", async () => {
+    const result = await window.flintfix.importSkins(skinState.model);
+    if (!result?.success) showToast(result?.error || "Could not import that skin.", "error");
+    else if (result.added?.length) {
+        skinState.selectedId = result.added[0].id;
+        await loadSkinLibrary();
+        const skin = skinState.skins.find(item => item.id === skinState.selectedId);
+        if (skin) showSkinInViewer(skin.dataUrl, skin.variant, skin.name, "From your library");
+        showToast(`${result.added.length} skin${result.added.length > 1 ? "s" : ""} added to your library.`, "success");
+    }
+});
+if (skinSaveCurrent) skinSaveCurrent.addEventListener("click", async () => {
+    const result = await window.flintfix.saveCurrentSkin();
+    if (!result?.success) showToast(result?.error || "Could not save your current skin.", "error");
+    else {
+        await loadSkinLibrary();
+        showToast("Saved your current skin to the library.", "success");
+    }
+});
+if (skinApply) skinApply.addEventListener("click", async () => {
+    const skin = skinState.skins.find(item => item.id === skinState.selectedId);
+    if (!skin) return;
+    skinApply.disabled = true;
+    const result = await window.flintfix.applySkin(skin.id);
+    skinApply.disabled = false;
+    if (!result?.success) showToast(result?.error || "Could not change your skin.", "error");
+    else showToast(`You're now wearing ${skin.name}. It shows in game after rejoining.`, "success");
+});
+if (skinDelete) skinDelete.addEventListener("click", async () => {
+    if (!skinState.selectedId) return;
+    if (skinDelete.dataset.confirm !== "1") {
+        skinDelete.dataset.confirm = "1";
+        skinDelete.textContent = "Click to confirm";
+        setTimeout(() => {
+            skinDelete.dataset.confirm = "";
+            skinDelete.textContent = "Delete";
+        }, 2500);
+        return;
+    }
+    await window.flintfix.deleteSkin(skinState.selectedId);
+    skinDelete.dataset.confirm = "";
+    skinDelete.textContent = "Delete";
+    skinState.selectedId = null;
+    await loadSkinLibrary();
+});
+if (skinReset) skinReset.addEventListener("click", async () => {
+    const result = await window.flintfix.resetSkin();
+    if (!result?.success) showToast(result?.error || "Could not reset your skin.", "error");
+    else {
+        showToast("Your account is back on a default skin.", "success");
+        skinState.selectedId = null;
+        await renderSkinsPage();
+    }
+});
+
+// ---------------------------------------------------------------------------
+// What's new and FlintFix updates.
+// ---------------------------------------------------------------------------
+
+const newsTitle = document.getElementById("newsTitle");
+const newsMeta = document.getElementById("newsMeta");
+const newsItems = document.getElementById("newsItems");
+const newsOlder = document.getElementById("newsOlder");
+const newsToggle = document.getElementById("newsToggle");
+
+function formatNewsDate(value) {
+    try {
+        return new Intl.DateTimeFormat(undefined, { month: "long", day: "numeric", year: "numeric" }).format(new Date(value));
+    } catch {
+        return value || "";
+    }
+}
+
+async function loadNews() {
+    const result = await window.flintfix.getNews();
+    const posts = Array.isArray(result?.posts) ? result.posts : [];
+    if (!posts.length || !newsItems) {
+        document.getElementById("newsCard")?.setAttribute("hidden", "");
+        return;
+    }
+    const [latest, ...older] = posts;
+    const seen = localStorage.getItem("flintfix.news.seen");
+    if (newsTitle) {
+        newsTitle.textContent = latest.title || `Version ${latest.version}`;
+        if (seen !== latest.version) {
+            const badge = document.createElement("span");
+            badge.className = "news-new";
+            badge.textContent = "NEW";
+            newsTitle.appendChild(badge);
+        }
+    }
+    if (newsMeta) newsMeta.textContent = [latest.version ? `Version ${latest.version}` : "", formatNewsDate(latest.date)].filter(Boolean).join(" • ");
+    newsItems.innerHTML = "";
+    for (const item of latest.items || []) {
+        const li = document.createElement("li");
+        li.textContent = item;
+        newsItems.appendChild(li);
+    }
+    if (newsOlder) {
+        newsOlder.innerHTML = "";
+        for (const post of older) {
+            const block = document.createElement("div");
+            block.className = "news-older-post";
+            const heading = document.createElement("strong");
+            heading.textContent = `${post.title || ""}${post.version ? ` — ${post.version}` : ""}`;
+            const list = document.createElement("ul");
+            for (const item of post.items || []) {
+                const li = document.createElement("li");
+                li.textContent = item;
+                list.appendChild(li);
+            }
+            block.append(heading, list);
+            newsOlder.appendChild(block);
+        }
+    }
+    if (newsToggle) newsToggle.hidden = !older.length;
+    localStorage.setItem("flintfix.news.seen", latest.version || "");
+}
+
+if (newsToggle) newsToggle.addEventListener("click", () => {
+    if (!newsOlder) return;
+    newsOlder.hidden = !newsOlder.hidden;
+    newsToggle.textContent = newsOlder.hidden ? "Earlier updates" : "Hide earlier updates";
+});
+
+const updateBanner = document.getElementById("updateBanner");
+const updateBannerTitle = document.getElementById("updateBannerTitle");
+const updateBannerText = document.getElementById("updateBannerText");
+const updateBannerAction = document.getElementById("updateBannerAction");
+const updateBannerDismiss = document.getElementById("updateBannerDismiss");
+const updateBannerProgress = document.getElementById("updateBannerProgress");
+let updateInfo = null;
+
+function renderUpdateBanner(state) {
+    if (!updateBanner || !state) return;
+    updateInfo = state;
+    const dismissed = localStorage.getItem("flintfix.update.dismissed");
+    const show = ["available", "downloading", "ready"].includes(state.status) && dismissed !== `${state.version}:${state.status}`;
+    updateBanner.hidden = !show;
+    if (!show) return;
+    if (updateBannerProgress) {
+        updateBannerProgress.hidden = state.status !== "downloading";
+        const bar = updateBannerProgress.querySelector("span");
+        if (bar) bar.style.width = `${state.percent || 0}%`;
+    }
+    if (state.status === "ready") {
+        updateBannerTitle.textContent = `FlintFix ${state.version} is ready`;
+        updateBannerText.textContent = "Restart the launcher to finish updating.";
+        updateBannerAction.hidden = false;
+        updateBannerAction.textContent = "Restart now";
+    } else if (state.status === "downloading") {
+        updateBannerTitle.textContent = `Downloading FlintFix ${state.version || "update"}`;
+        updateBannerText.textContent = `${state.percent || 0}% — you can keep using the launcher.`;
+        updateBannerAction.hidden = true;
+    } else {
+        updateBannerTitle.textContent = `FlintFix ${state.version} is available`;
+        updateBannerText.textContent = `You have ${state.currentVersion}. Get the new version for the latest features and fixes.`;
+        updateBannerAction.hidden = false;
+        updateBannerAction.textContent = "Download";
+    }
+}
+
+if (updateBannerAction) updateBannerAction.addEventListener("click", () => {
+    if (updateInfo?.status === "ready") void window.flintfix.installUpdate();
+    else if (updateInfo?.url) window.flintfix.openExternal(updateInfo.url);
+});
+if (updateBannerDismiss) updateBannerDismiss.addEventListener("click", () => {
+    if (updateInfo) localStorage.setItem("flintfix.update.dismissed", `${updateInfo.version}:${updateInfo.status}`);
+    if (updateBanner) updateBanner.hidden = true;
+});
+window.flintfix.onUpdateStatus?.(renderUpdateBanner);
+
+async function checkForFlintFixUpdates() {
+    const result = await window.flintfix.checkForUpdates();
+    if (result?.success) renderUpdateBanner(result);
+}
+
+// ---------------------------------------------------------------------------
+// Performance mode: install proven performance mods into the instance.
+// ---------------------------------------------------------------------------
+
+const performanceModeButton = document.getElementById("performanceModeButton");
+if (performanceModeButton) performanceModeButton.addEventListener("click", async () => {
+    const instance = getSelectedModsInstance();
+    if (!instance) {
+        showToast("Choose an instance first.", "error");
+        return;
+    }
+    if (instance.loader !== "fabric") {
+        showToast("Performance mode needs a Fabric instance.", "error");
+        return;
+    }
+    if (performanceModeButton.dataset.confirm !== "1") {
+        performanceModeButton.dataset.confirm = "1";
+        const label = performanceModeButton.lastChild;
+        const original = label.textContent;
+        label.textContent = " Click again: install Sodium, Lithium + 4 more";
+        setTimeout(() => {
+            performanceModeButton.dataset.confirm = "";
+            label.textContent = original;
+        }, 3500);
+        return;
+    }
+    performanceModeButton.dataset.confirm = "";
+    performanceModeButton.disabled = true;
+    const label = performanceModeButton.lastChild;
+    label.textContent = " Installing...";
+    const stop = window.flintfix.onPerformanceProgress?.(progress => {
+        label.textContent = ` Installing ${progress.title}...`;
+    });
+    const result = await window.flintfix.installPerformanceMods(instance.id, { version: instance.version });
+    stop?.();
+    performanceModeButton.disabled = false;
+    label.textContent = " Performance mode";
+    if (!result?.success) {
+        showToast(result?.error || "Performance mode failed.", "error");
+        return;
+    }
+    const installed = result.results.filter(item => item.status === "installed").map(item => item.title);
+    const failed = result.results.filter(item => item.status === "failed");
+    if (installed.length) showToast(`Installed ${installed.join(", ")}.`, "success");
+    else if (!failed.length) showToast("All performance mods are already installed.", "success");
+    if (failed.length) showToast(`Not available for ${instance.version}: ${failed.map(item => item.title).join(", ")}.`, "error");
+    modUpdateMap.clear();
+    await renderModsPage();
+});
+
+setTimeout(() => {
+    void loadNews();
+    void checkForFlintFixUpdates();
+}, 1500);
+setInterval(() => void checkForFlintFixUpdates(), 6 * 60 * 60 * 1000);
 
 
 initializeFlintFix();

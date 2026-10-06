@@ -452,7 +452,7 @@ public final class FlintFixSettingsScreen extends Screen {
             case 12 -> client.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.SHULKERS));
             case 13 -> client.setScreen(new FlintFixSkyScreen(this));
             case 14 -> client.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.INSPECT));
-            case 15 -> client.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.SHOW_HAND));
+            case 15 -> client.setScreen(FlintFixModuleOptions.screenFor("showhand", this));
             case 16 -> client.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.FULLBRIGHT));
             default -> {
                 Screen options = FlintFixModuleOptions.screenFor(MODULES[moduleIndex][0], this);

@@ -167,7 +167,7 @@ public final class FlintFixClient implements ClientModInitializer {
             if (CONFIG.damageNumbersEnabled) FlintFixDamageNumbers.render(context);
         });
         WorldRenderEvents.BEFORE_BLOCK_OUTLINE.register(FlintFixBlockOutline::render);
-        WorldRenderEvents.END.register(context -> FlintFixMotionBlur.render(context.tickCounter().getTickDelta(false)));
+        WorldRenderEvents.END.register(context -> FlintFixMotionBlur.render());
         // Client-side hits drive the crosshair hit marker.
         AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (world.isClient()) FlintFixCrosshair.onHit();
