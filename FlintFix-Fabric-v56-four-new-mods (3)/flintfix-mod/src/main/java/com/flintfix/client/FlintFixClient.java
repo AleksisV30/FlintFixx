@@ -3,6 +3,7 @@ package com.flintfix.client;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
@@ -47,6 +48,7 @@ public final class FlintFixClient implements ClientModInitializer {
     private static KeyBinding zoomKey;
     private static KeyBinding lookAroundKey;
     private static KeyBinding inspectKey;
+    private static KeyBinding waypointKey;
     private static ChunkBorderDebugRenderer chunkBorderRenderer;
     private static final Deque<Long> LEFT_CLICKS = new ArrayDeque<>();
     private static final Deque<Long> RIGHT_CLICKS = new ArrayDeque<>();
@@ -100,7 +102,15 @@ public final class FlintFixClient implements ClientModInitializer {
             GLFW.GLFW_KEY_I,
             "category.flintfix"
         ));
+        waypointKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.flintfix.waypoint",
+            InputUtil.Type.KEYSYM,
+            GLFW.GLFW_KEY_B,
+            "category.flintfix"
+        ));
         FlintFixShulkerPreview.register();
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> FlintFixProfileStore.onJoinServer(client));
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> client.execute(FlintFixProfileStore::onLeaveServer));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.currentScreen instanceof FlintFixFreecamSettingsScreen) {
@@ -133,6 +143,17 @@ public final class FlintFixClient implements ClientModInitializer {
                 if (client.currentScreen == null) FlintFixInspect.start(client);
             }
             FlintFixInspect.tick(client);
+            while (waypointKey.wasPressed()) {
+                if (client.currentScreen != null || client.player == null) continue;
+                if (!CONFIG.waypointsEnabled) {
+                    client.player.sendMessage(Text.literal("Waypoints are turned off in FlintFix"), true);
+                    continue;
+                }
+                FlintFixWaypoints.Waypoint added = FlintFixWaypoints.addHere(client, null);
+                client.player.sendMessage(Text.literal(added == null ? "This world already has 100 waypoints"
+                    : "Waypoint \"" + added.name + "\" added at " + added.x + ", " + added.y + ", " + added.z), true);
+            }
+            FlintFixWaypoints.tick(client);
             pruneClicks(System.currentTimeMillis());
             FlintFixSocialBridge.tick(client);
             tickSpeed(client);
@@ -165,6 +186,7 @@ public final class FlintFixClient implements ClientModInitializer {
             if (CONFIG.trajectoryEnabled) FlintFixTrajectory.render(context);
             if (CONFIG.hitboxesEnabled) FlintFixHitboxes.render(context);
             if (CONFIG.damageNumbersEnabled) FlintFixDamageNumbers.render(context);
+            if (CONFIG.waypointsEnabled) FlintFixWaypoints.render(context);
         });
         WorldRenderEvents.BEFORE_BLOCK_OUTLINE.register(FlintFixBlockOutline::render);
         WorldRenderEvents.END.register(context -> FlintFixMotionBlur.render());
@@ -186,6 +208,7 @@ public final class FlintFixClient implements ClientModInitializer {
     public static KeyBinding getZoomKeyBinding() { return zoomKey; }
     public static KeyBinding getLookAroundKeyBinding() { return lookAroundKey; }
     public static KeyBinding getInspectKeyBinding() { return inspectKey; }
+    public static KeyBinding getWaypointKeyBinding() { return waypointKey; }
 
     public static synchronized void recordClick(int button) {
         long now = System.currentTimeMillis();
@@ -634,6 +657,17 @@ public final class FlintFixClient implements ClientModInitializer {
                 int y = rawHeight - 4;
                 FlintFixUi.roundedRaw(context, x - 2, y - 2, 4, 4, 1, statusColor(BAD));
             });
+        }
+        if (CONFIG.waypointsEnabled && CONFIG.waypointsCompass && client.player != null && client.world != null) {
+            for (FlintFixWaypoints.Waypoint waypoint : FlintFixWaypoints.visibleHere(client)) {
+                if (waypoint.death) continue;
+                double dx = waypoint.x + 0.5 - client.player.getX();
+                double dz = waypoint.z + 0.5 - client.player.getZ();
+                float delta = MathHelper.wrapDegrees((float) Math.toDegrees(Math.atan2(dx, -dz)) - bearing);
+                if (Math.abs(delta) > range) continue;
+                int x = Math.round(center + delta * pxPerDegree);
+                FlintFixUi.roundedRaw(context, x - 2, rawHeight - 6, 4, 4, 1, waypoint.color);
+            }
         }
         // Center caret.
         int caret = FlintFixUi.accent();

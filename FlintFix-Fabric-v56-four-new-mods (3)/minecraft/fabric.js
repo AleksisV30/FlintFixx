@@ -10,7 +10,7 @@ const FABRIC_AGENT = new https.Agent({ keepAlive: true, maxSockets: 16, maxFreeS
 
 function getJson(url) {
     return new Promise((resolve, reject) => {
-        https.get(url, { agent: FABRIC_AGENT, headers: { "User-Agent": "FlintFix-Client/0.58" } }, response => {
+        https.get(url, { agent: FABRIC_AGENT, headers: { "User-Agent": "FlintFix-Client/0.59" } }, response => {
             if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
                 response.resume();
                 return getJson(new URL(response.headers.location, url).toString()).then(resolve, reject);
@@ -35,7 +35,7 @@ function download(url, destination) {
         if (fs.existsSync(destination) && fs.statSync(destination).size > 0) return resolve(destination);
         const temp = `${destination}.part`;
         const request = currentUrl => {
-            https.get(currentUrl, { agent: FABRIC_AGENT, headers: { "User-Agent": "FlintFix-Client/0.58" } }, response => {
+            https.get(currentUrl, { agent: FABRIC_AGENT, headers: { "User-Agent": "FlintFix-Client/0.59" } }, response => {
                 if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
                     response.resume();
                     request(new URL(response.headers.location, currentUrl).toString());

@@ -148,6 +148,12 @@ public final class FlintFixConfig {
     public boolean motionBlurEnabled = false;
     public float motionBlurStrength = 0.5f;
 
+    public boolean waypointsEnabled = true;
+    public boolean waypointsBeams = true;
+    public boolean waypointsDistance = true;
+    public boolean waypointsDeath = true;
+    public boolean waypointsCompass = true;
+
     public boolean teammateGlowEnabled = false;
     public int teammateGlowColor = 0xFF5CFFB0;
     public boolean teammateGlowFriends = true;

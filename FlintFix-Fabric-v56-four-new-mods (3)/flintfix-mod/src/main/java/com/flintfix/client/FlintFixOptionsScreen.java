@@ -18,7 +18,7 @@ import java.util.function.IntSupplier;
  * Changes save immediately.
  */
 public final class FlintFixOptionsScreen extends Screen {
-    public sealed interface Option permits Toggle, Slider, Choice, ColorPick, Info {}
+    public sealed interface Option permits Toggle, Slider, Choice, ColorPick, Info, Action {}
 
     public record Toggle(String label, BooleanSupplier get, Consumer<Boolean> set) implements Option {}
 
@@ -30,6 +30,9 @@ public final class FlintFixOptionsScreen extends Screen {
     public record ColorPick(String label, IntSupplier get, IntConsumer set) implements Option {}
 
     public record Info(String title, String text) implements Option {}
+
+    /** A row with a button on the right, e.g. to open another screen. */
+    public record Action(String label, String button, Runnable run) implements Option {}
 
     /** Swatches offered by every color option. */
     public static final int[] SWATCHES = {
@@ -87,6 +90,7 @@ public final class FlintFixOptionsScreen extends Screen {
             case Choice c -> 22;
             case ColorPick c -> 32;
             case Info i -> 30;
+            case Action a -> 22;
         };
     }
 
@@ -184,6 +188,15 @@ public final class FlintFixOptionsScreen extends Screen {
                     FlintFixUi.roundedRaw(c, sx, sy, 9, 9, 2, SWATCHES[i]);
                 }
             }
+            case Action action -> {
+                FlintFixUi.surface(c, rowX, rowY, rowW, 22, FlintFixUi.card(), FlintFixUi.border());
+                int buttonW = Math.max(54, FlintFixFont.width(action.button(), 6, true) + 16);
+                int buttonX = rowX + rowW - 4 - buttonW;
+                FlintFixUi.drawTrimmedExact(c, action.label(), rowX + 8, FlintFixFont.centeredY(rowY, 22, 7),
+                    buttonX - rowX - 14, 7, FlintFixUi.text(), true);
+                FlintFixUi.actionButton(c, buttonX, rowY + 3, buttonW, 16, action.button(), hover,
+                    FlintFixUi.ButtonStyle.PRIMARY);
+            }
             case Info info -> {
                 FlintFixUi.surface(c, rowX, rowY, rowW, 30, FlintFixUi.panel(), FlintFixUi.border());
                 FlintFixUi.drawTrimmedExact(c, info.title(), rowX + 8, rowY + 6, rowW - 16, 7, FlintFixUi.text(), true);
@@ -255,6 +268,7 @@ public final class FlintFixOptionsScreen extends Screen {
                     }
                 }
             }
+            case Action action -> action.run().run();
             case Info info -> { }
         }
         save();

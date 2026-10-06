@@ -4,5 +4,6 @@
   "key.flintfix.zoom": "Hold to Zoom",
   "key.flintfix.look_around": "Hold to Look Around",
   "key.flintfix.inspect": "Inspect Held Item",
-  "category.flintfix": "FlintFix Client"
+  "category.flintfix": "FlintFix Client",
+  "key.flintfix.waypoint": "Add Waypoint Here"
 }

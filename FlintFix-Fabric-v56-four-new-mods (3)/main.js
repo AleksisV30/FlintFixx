@@ -227,7 +227,7 @@ function buildUniqueModFileName(modsDir, originalName) {
 async function fetchJson(url) {
     const response = await fetch(url, {
         headers: {
-            "User-Agent": "FlintFix-Client/0.58",
+            "User-Agent": "FlintFix-Client/0.59",
             "Accept": "application/json"
         }
     });
@@ -330,7 +330,7 @@ async function postJson(url, body) {
     const response = await fetch(url, {
         method: "POST",
         headers: {
-            "User-Agent": "FlintFix-Client/0.58",
+            "User-Agent": "FlintFix-Client/0.59",
             "Accept": "application/json",
             "Content-Type": "application/json"
         },
@@ -391,7 +391,7 @@ async function applyInstanceModUpdate(instanceId, fileName, options = {}) {
     if (!mod) throw new Error("Mod file was not found.");
     const update = await getCompatibleModUpdate(mod, String(options.version || ""), String(options.loader || "fabric"));
     if (!update?.updateAvailable || !update.fileUrl) return { updated: false, reason: "Already up to date." };
-    const response = await fetch(update.fileUrl, { headers: { "User-Agent": "FlintFix-Client/0.58" } });
+    const response = await fetch(update.fileUrl, { headers: { "User-Agent": "FlintFix-Client/0.59" } });
     if (!response.ok) throw new Error(`Download failed (${response.status}).`);
     const bytes = Buffer.from(await response.arrayBuffer());
     const modsDir = getInstanceModsDir(instanceId);
@@ -432,7 +432,7 @@ async function installCatalogMod(instanceId, options = {}) {
         }
     }
     if (!chosenFile?.url) throw new Error("This mod does not expose a downloadable .jar file.");
-    const response = await fetch(chosenFile.url, { headers: { "User-Agent": "FlintFix-Client/0.58" } });
+    const response = await fetch(chosenFile.url, { headers: { "User-Agent": "FlintFix-Client/0.59" } });
     if (!response.ok) throw new Error(`Download failed (${response.status}).`);
     const arrayBuffer = await response.arrayBuffer();
     const finalName = buildUniqueModFileName(modsDir, chosenFile.filename || `${projectId}.jar`);
@@ -2824,7 +2824,8 @@ ipcMain.handle("news:get", async () => {
         }
     };
     try {
-        const url = `https://raw.githubusercontent.com/${UPDATE_REPO}/main/news.json`;
+        // news.json sits in the project folder inside the repository.
+        const url = `https://raw.githubusercontent.com/${UPDATE_REPO}/main/${encodeURIComponent(path.basename(__dirname))}/news.json`;
         const response = await fetch(url, { headers: { "User-Agent": "FlintFix-Client" } });
         if (!response.ok) throw new Error(String(response.status));
         const remote = await response.json();

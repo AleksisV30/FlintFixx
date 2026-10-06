@@ -71,7 +71,9 @@ public final class FlintFixSettingsScreen extends Screen {
         {"damage", "Damage Numbers", "Hit popups"},
         {"weather", "No Weather", "Hide rain and snow"},
         {"motionblur", "Motion Blur", "Smooth turning"},
-        {"teamglow", "Team Glow", "Outline friends"}
+        {"teamglow", "Team Glow", "Outline friends"},
+        {"waypoints", "Waypoints", "Save places"},
+        {"serverprofiles", "Server Profiles", "Profile per server"}
     };
     private static final int MODULE_COUNT = MODULES.length;
     private final long[] rippleStartedAt = new long[MODULE_COUNT];
@@ -392,6 +394,8 @@ public final class FlintFixSettingsScreen extends Screen {
             case 24 -> FlintFixClient.CONFIG.hideWeatherEnabled;
             case 25 -> FlintFixClient.CONFIG.motionBlurEnabled;
             case 26 -> FlintFixClient.CONFIG.teammateGlowEnabled;
+            case 27 -> FlintFixClient.CONFIG.waypointsEnabled;
+            case 28 -> FlintFixProfileStore.serverSwitchingEnabled();
             default -> false;
         };
     }
@@ -429,6 +433,8 @@ public final class FlintFixSettingsScreen extends Screen {
             case 24 -> FlintFixClient.CONFIG.hideWeatherEnabled = !FlintFixClient.CONFIG.hideWeatherEnabled;
             case 25 -> FlintFixClient.CONFIG.motionBlurEnabled = !FlintFixClient.CONFIG.motionBlurEnabled;
             case 26 -> FlintFixClient.CONFIG.teammateGlowEnabled = !FlintFixClient.CONFIG.teammateGlowEnabled;
+            case 27 -> FlintFixClient.CONFIG.waypointsEnabled = !FlintFixClient.CONFIG.waypointsEnabled;
+            case 28 -> FlintFixProfileStore.setServerSwitching(!FlintFixProfileStore.serverSwitchingEnabled());
             default -> { return; }
         }
         FlintFixClient.CONFIG.save();

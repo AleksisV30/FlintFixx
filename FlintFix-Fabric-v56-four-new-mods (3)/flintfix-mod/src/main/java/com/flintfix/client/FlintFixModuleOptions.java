@@ -6,6 +6,7 @@ import com.flintfix.client.FlintFixOptionsScreen.Info;
 import com.flintfix.client.FlintFixOptionsScreen.Option;
 import com.flintfix.client.FlintFixOptionsScreen.Slider;
 import com.flintfix.client.FlintFixOptionsScreen.Toggle;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
 
 import java.util.List;
@@ -180,8 +181,57 @@ final class FlintFixModuleOptions {
                     c().showHandHeight = 0.10f;
                     c().showHandDepth = 0.02f;
                 }, false);
+            case "waypoints" -> new FlintFixOptionsScreen(parent, id, "Waypoints",
+                "Save places and find your way back. Saved per world and per dimension.", List.of(
+                    new Toggle("Enable waypoints", () -> c().waypointsEnabled, v -> c().waypointsEnabled = v),
+                    new FlintFixOptionsScreen.Action("Your waypoints", "MANAGE",
+                        () -> MinecraftClient.getInstance().setScreen(new FlintFixWaypointScreen(MinecraftClient.getInstance().currentScreen))),
+                    new Toggle("Light beams", () -> c().waypointsBeams, v -> c().waypointsBeams = v),
+                    new Toggle("Show distance", () -> c().waypointsDistance, v -> c().waypointsDistance = v),
+                    new Toggle("Show on compass bar", () -> c().waypointsCompass, v -> c().waypointsCompass = v),
+                    new Toggle("Mark where you die", () -> c().waypointsDeath, v -> c().waypointsDeath = v),
+                    new Info("Quick add", "Press " + keyName(FlintFixClient.getWaypointKeyBinding()) + " in game to drop a waypoint where you stand.")),
+                () -> {
+                    c().waypointsBeams = true;
+                    c().waypointsDistance = true;
+                    c().waypointsCompass = true;
+                    c().waypointsDeath = true;
+                }, false);
+            case "serverprofiles" -> serverProfilesScreen(parent);
             default -> null;
         };
+    }
+
+    private static String keyName(net.minecraft.client.option.KeyBinding binding) {
+        return binding == null ? "B" : binding.getBoundKeyLocalizedText().getString();
+    }
+
+    /** One row per linked server, plus the server you are on now. */
+    private static Screen serverProfilesScreen(Screen parent) {
+        List<String> profiles = FlintFixProfileStore.names();
+        String[] values = new String[profiles.size() + 1];
+        values[0] = "Don't switch";
+        for (int i = 0; i < profiles.size(); i++) values[i + 1] = profiles.get(i);
+
+        java.util.List<Option> options = new java.util.ArrayList<>();
+        options.add(new Toggle("Switch profiles per server", FlintFixProfileStore::serverSwitchingEnabled,
+            FlintFixProfileStore::setServerSwitching));
+        String current = FlintFixProfileStore.currentServerAddress(MinecraftClient.getInstance());
+        java.util.Set<String> servers = new java.util.LinkedHashSet<>();
+        if (current != null) servers.add(current);
+        servers.addAll(FlintFixProfileStore.serverProfiles().keySet());
+        for (String server : servers) {
+            String label = server.equals(current) ? server + " (here)" : server;
+            options.add(new Choice(label, values,
+                () -> Math.max(0, profiles.indexOf(FlintFixProfileStore.profileForServer(server)) + 1),
+                index -> FlintFixProfileStore.setServerProfile(server, index <= 0 ? null : profiles.get(index - 1))));
+        }
+        if (servers.isEmpty()) {
+            options.add(new Info("Join a server to link it", "Then pick which profile to use there."));
+        }
+        options.add(new Info("Profiles are made in Manage", "Leaving the server switches back to your previous profile."));
+        return new FlintFixOptionsScreen(parent, "serverprofiles", "Server Profiles",
+            "Use a different module profile automatically on each server.", options, null, false);
     }
 
     private static Option opacity(java.util.function.DoubleSupplier get, java.util.function.Consumer<Float> set) {

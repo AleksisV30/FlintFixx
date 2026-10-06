@@ -1,4 +1,24 @@
-# FlintFix Client v58
+# FlintFix Client v59
+
+- **Servers tab:** save favorite servers, see their message, players online and ping, and join with one click using the instance you pick. A few popular servers are listed too.
+- **Skins tab:** a 3D preview (idle, walk, run), a skin library (import PNGs or save the skin you're wearing), Classic or Slim arms, and one click to put a skin on your Minecraft account or go back to a default skin.
+- **What's new** on the Home page, read from `news.json` (from GitHub when online, the bundled copy otherwise).
+- **Auto-update:** the launcher checks GitHub Releases. Installed builds download the update in the background and offer "Restart now"; a copy started with `npm start` shows a download link.
+- **Performance mode** (Mods page): installs Sodium, Lithium, FerriteCore, ImmediatelyFast, Entity Culling and ModernFix, only builds made for the instance's Minecraft version.
+- **Waypoints:** press B to drop a waypoint where you stand; manage them (color, show/hide, delete) from the Waypoints module. Waypoints show a light beam, a label with the distance through walls, and a marker on the compass bar. A "Death" waypoint is added where you die. Saved per world/server and dimension.
+- **Server Profiles:** link a server to one of your module profiles; it becomes active when you join and the previous one comes back when you leave.
+- **Motion blur** now works without shader files, by blending each frame with the previous one.
+- **Show Hand:** the arm faces the right way, and the new Arm turn, Hand height and Hand depth options let you fine-tune it.
+
+## Releasing an update
+
+1. Raise `version` in `package.json` (and `mod_version` in `flintfix-mod/gradle.properties`) and add a post to `news.json`.
+2. Create a GitHub token with `repo` access and set it: `$env:GH_TOKEN = "<token>"`.
+3. In the project folder run `npm install`, then `npm run release`. This builds the Windows installer and publishes it as a GitHub Release, which every installed copy picks up automatically.
+
+Use `npm run dist` to build the installer locally without publishing.
+
+## v58
 
 Ten new modules. Each has a card in the module dashboard (click to toggle, gear or right-click for options).
 
