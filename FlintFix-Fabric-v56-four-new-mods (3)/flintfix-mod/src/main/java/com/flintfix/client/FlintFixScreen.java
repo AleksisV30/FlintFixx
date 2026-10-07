@@ -21,7 +21,9 @@ public abstract class FlintFixScreen extends Screen {
 
     /** Blurs the game behind the screen where the game supports it (1.20.5+); a no-op before that. */
     protected void blurBehind(GuiGraphics context, float delta) {
-        //? if >=1.21.6 {
+        //? if >=26.1 {
+        /*extractBlurredBackground(context);
+        *///?} else if >=1.21.6 {
         /*renderBlurredBackground(context);
         *///?} else if >=1.21.2 {
         /*renderBlurredBackground();
@@ -29,6 +31,18 @@ public abstract class FlintFixScreen extends Screen {
         renderBlurredBackground(delta);
         //?}
     }
+
+    //? if >=26.1 {
+    /*// 26.1 renamed Screen.render to extractRenderState; FlintFix screens keep overriding render.
+    @Override
+    public void extractRenderState(GuiGraphics context, int mouseX, int mouseY, float delta) {
+        render(context, mouseX, mouseY, delta);
+    }
+
+    public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
+        super.extractRenderState(context, mouseX, mouseY, delta);
+    }
+    *///?}
 
     //? if <1.20.2 {
     /*// 1.20.1 only has the vertical scroll amount; route it to the newer four-argument form the screens override.
@@ -91,11 +105,19 @@ public abstract class FlintFixScreen extends Screen {
     @Override
     public boolean charTyped(CharacterEvent event) {
         // Characters outside the Basic Multilingual Plane do not fit a char; FlintFix fields only need typed text.
+        //? if >=26.1 {
+        /^return event.codepoint() <= Character.MAX_VALUE && charTyped((char) event.codepoint(), 0);
+        ^///?} else {
         return event.codepoint() <= Character.MAX_VALUE && charTyped((char) event.codepoint(), event.modifiers());
+        //?}
     }
 
     public boolean charTyped(char chr, int modifiers) {
+        //? if >=26.1 {
+        /^return super.charTyped(new CharacterEvent(chr));
+        ^///?} else {
         return super.charTyped(new CharacterEvent(chr, modifiers));
+        //?}
     }
 
     private MouseButtonEvent mouseEvent(double mouseX, double mouseY, int button) {

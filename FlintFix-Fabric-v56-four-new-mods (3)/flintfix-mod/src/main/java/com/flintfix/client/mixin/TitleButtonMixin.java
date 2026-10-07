@@ -19,7 +19,11 @@ public abstract class TitleButtonMixin extends AbstractWidget {
         super(x, y, width, height, message);
     }
 
+    //? if >=26.1 {
+    /*@Inject(method = "extractWidgetRenderState", at = @At("HEAD"), cancellable = true)
+    *///?} else {
     @Inject(method = "renderWidget", at = @At("HEAD"), cancellable = true)
+    //?}
     private void flintfix$renderTitleButton(GuiGraphics context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         if (!(Minecraft.getInstance().screen instanceof TitleScreen)) return;
         if (this.getWidth() < 90 || this.getHeight() < 18) return;

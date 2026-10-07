@@ -156,7 +156,7 @@ public final class FlintFixProfileStore {
         switchedFrom = store.selected;
         select(linked);
         if (client.player != null) {
-            client.player.displayClientMessage(Component.literal("FlintFix profile \"" + linked + "\" is active on this server"), true);
+            FlintFixCompat.actionBar(client.player, Component.literal("FlintFix profile \"" + linked + "\" is active on this server"));
         }
     }
 

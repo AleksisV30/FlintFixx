@@ -10,16 +10,20 @@ versions as Lunar Client, and have the launcher use a prebuilt jar per version.
   must run on JDK 25. One shared `src/`, per-version settings in
   `flintfix-mod/versions/<mc>/gradle.properties`. Active (editable) version: 1.21.1.
 - Group 1 done: **1.20.1, 1.20.2, 1.20.4, 1.20.6, 1.21.1, 1.21.3, 1.21.4,
-  1.21.5, 1.21.6, 1.21.8, 1.21.10, 1.21.11** all compile and pass a runtime
+  1.21.5, 1.21.6, 1.21.8, 1.21.10, 1.21.11, 26.1.2** all compile and pass a runtime
   mixin audit (`./gradlew :<mc>:runAudit` starts the game, force-applies every
   mixin, logs `FLINTFIX_AUDIT_OK`/`FAILED`, quits). Each jar also covers its
   neighbours (1.21.8 jar = 1.21.7-1.21.8, 1.21.10 jar = 1.21.9-1.21.10, see
-  `mc_dep`). 1.20.1/1.20.2/1.20.4 build for Java 17, the rest for Java 21.
+  `mc_dep`; the 26.1.2 jar = 26.1-26.1.2). 1.20.1/1.20.2/1.20.4 build for
+  Java 17, 26.x for Java 25, the rest for Java 21.
 - Version differences live in `FlintFixCompat` (rendering/API shims),
   `FlintFixScreen` (Screen API: blur, scroll, 1.21.9 input events) and `//? if`
   blocks in the mixins. 1.21.11 renames (ResourceLocation -> Identifier,
-  GraphicsStatus -> GraphicsPreset) are Stonecutter string replacements in
-  `stonecutter.gradle.kts`.
+  GraphicsStatus -> GraphicsPreset) and 26.1 renames (GuiGraphics ->
+  GuiGraphicsExtractor, Fabric level-render/key-mapping APIs, ...) are
+  Stonecutter replacements in `stonecutter.gradle.kts`. The 26.1 ones are
+  one-way regex rules: plain string rules also run in reverse on older
+  versions and broke them.
 - Known gaps: motion blur is off on 1.21.5+ (no post-effect hook yet); the Show
   Hand option uses vanilla first-person transforms on 1.21.5+. Visuals (sky,
   title glow, outlines, chunk borders) are only audited, not playtested, on
@@ -31,10 +35,16 @@ versions as Lunar Client, and have the launcher use a prebuilt jar per version.
 - GitHub Actions workflow builds all versions (`buildAll`), but the user's GitHub
   account is billing-locked for Actions, so builds run in the Claude session.
 
-## Next: 26.x
-26.1+ ships unobfuscated: use the `net.fabricmc.fabric-loom` (no-remap) plugin,
-no mappings line, `implementation` instead of `modImplementation`, Java 25.
-Fabric API: 26.1.2 -> 0.155.3, 26.2 -> 0.161.0, 26.3 -> 0.162.0.
+## Next: 26.2 and 26.3
+26.x is unobfuscated: `build.gradle.kts` applies `net.fabricmc.fabric-loom` (no
+remap, no mappings, `implementation`) and Java 25 for >=26.1. Fabric API:
+26.2 -> 0.161.0+26.2, 26.3 -> 0.162.0+26.3.
+26.2 is not a rename: it removes MultiBufferSource, Tesselator and
+ShapeRenderer (the base of the world-render features: hitboxes, trajectory,
+waypoints, damage numbers, block outline, custom sky) and moves the current
+screen to `minecraft.gui.screen()/setScreen()` and the camera to
+`gameRenderer.mainCamera()`. 26.3 additionally drops `org.lwjgl.glfw` (key
+codes) and `com.mojang.blaze3d.textures`. Both need those features rewritten.
 
 ## Target versions (Lunar's list)
 1. Group 1 (first): 1.20.1, 1.20.4, 1.20.6, 1.21.1, 1.21.4, then 1.21.5+

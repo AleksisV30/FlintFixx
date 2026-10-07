@@ -12,7 +12,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /** Custom crosshair: draws FlintFix's crosshair in place of vanilla's when enabled. */
 @Mixin(Gui.class)
 public abstract class InGameHudMixin {
+    //? if >=26.1 {
+    /*@Inject(method = "extractCrosshair", at = @At("HEAD"), cancellable = true, require = 0)
+    *///?} else {
     @Inject(method = "renderCrosshair", at = @At("HEAD"), cancellable = true, require = 0)
+    //?}
     private void flintfix$customCrosshair(CallbackInfo ci, @Local(argsOnly = true) GuiGraphics context) {
         if (FlintFixCrosshair.render(context)) ci.cancel();
     }

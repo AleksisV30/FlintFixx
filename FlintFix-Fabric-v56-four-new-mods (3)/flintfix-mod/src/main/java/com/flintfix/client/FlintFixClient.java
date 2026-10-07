@@ -4,7 +4,11 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+//? if >=26.1 {
+/*import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
+*///?} else {
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+//?}
 //? if >=1.21.9 {
 /*import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.minecraft.client.input.KeyEvent;
@@ -125,12 +129,12 @@ public final class FlintFixClient implements ClientModInitializer {
             while (waypointKey.consumeClick()) {
                 if (client.screen != null || client.player == null) continue;
                 if (!CONFIG.waypointsEnabled) {
-                    client.player.displayClientMessage(Component.literal("Waypoints are turned off in FlintFix"), true);
+                    FlintFixCompat.actionBar(client.player, Component.literal("Waypoints are turned off in FlintFix"));
                     continue;
                 }
                 FlintFixWaypoints.Waypoint added = FlintFixWaypoints.addHere(client, null);
-                client.player.displayClientMessage(Component.literal(added == null ? "This world already has 100 waypoints"
-                    : "Waypoint \"" + added.name + "\" added at " + added.x + ", " + added.y + ", " + added.z), true);
+                FlintFixCompat.actionBar(client.player, Component.literal(added == null ? "This world already has 100 waypoints"
+                    : "Waypoint \"" + added.name + "\" added at " + added.x + ", " + added.y + ", " + added.z));
             }
             FlintFixWaypoints.tick(client);
             pruneClicks(System.currentTimeMillis());
@@ -140,7 +144,11 @@ public final class FlintFixClient implements ClientModInitializer {
             FlintFixTeammates.tick(client);
         });
 
+        //? if >=26.1 {
+        /*HudElementRegistry.addLast(FlintFixCompat.id("flintfix", "hud"), (context, tickCounter) -> {
+        *///?} else {
         HudRenderCallback.EVENT.register((context, tickCounter) -> {
+        //?}
             Minecraft client = Minecraft.getInstance();
             if (client.screen instanceof FlintFixHudEditorScreen) return;
             // The callback still fires with the HUD hidden (F1), so respect it here.
@@ -157,7 +165,11 @@ public final class FlintFixClient implements ClientModInitializer {
             FlintFixSocialBridge.render(context, client);
         });
 
+        //? if >=26.1 {
+        /*WorldRenderEvents.AFTER_SOLID_FEATURES.register(context -> {
+        *///?} else {
         WorldRenderEvents.AFTER_ENTITIES.register(context -> {
+        //?}
             if (CONFIG == null) return;
             if (CONFIG.chunksEnabled && context.consumers() != null) {
                 var cameraPos = FlintFixCompat.cameraPos(context);

@@ -57,7 +57,14 @@ import net.minecraft.util.TriState;
 //? if >=1.21.5 {
 /*import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import net.minecraft.client.renderer.RenderPipelines;
+*///?}
+//? if >=26.1 {
+/*import com.mojang.blaze3d.pipeline.ColorTargetState;
+import com.mojang.blaze3d.pipeline.DepthStencilState;
+import com.mojang.blaze3d.platform.CompareOp;
+*///?}
+//? if >=1.21.5 {
+/*import net.minecraft.client.renderer.RenderPipelines;
 *///?} else {
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.vertex.BufferUploader;
@@ -185,6 +192,15 @@ public final class FlintFixCompat {
             .flintfix$setSampler(RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
         *///?} else {
         loaded.setFilter(true, false);
+        //?}
+    }
+
+    /** Short status text above the hotbar. */
+    public static void actionBar(net.minecraft.world.entity.player.Player player, net.minecraft.network.chat.Component message) {
+        //? if >=26.1 {
+        /*player.sendOverlayMessage(message);
+        *///?} else {
+        player.displayClientMessage(message, true);
         //?}
     }
 
@@ -390,7 +406,9 @@ public final class FlintFixCompat {
     }
 
     public static PoseStack matrices(WorldRenderContext context) {
-        //? if >=1.21.9 {
+        //? if >=26.1 {
+        /*return context.poseStack();
+        *///?} else if >=1.21.9 {
         /*return context.matrices();
         *///?} else {
         return context.matrixStack();
@@ -482,7 +500,11 @@ public final class FlintFixCompat {
         static final RenderType SKY_GLOW = skyType("sky_glow", BlendFunction.LIGHTNING);
         static final RenderPipeline GUI_GLOW_PIPELINE = RenderPipeline.builder(RenderPipelines.GUI_TEXTURED_SNIPPET)
             .withLocation(id("flintfix", "pipeline/gui_glow"))
+            //? if >=26.1 {
+            /^.withColorTargetState(new ColorTargetState(BlendFunction.LIGHTNING))
+            ^///?} else {
             .withBlend(BlendFunction.LIGHTNING)
+            //?}
             .build();
         //? if <1.21.6 {
         /^static final Function<ResourceLocation, RenderType> GUI_GLOW = Util.memoize(texture -> RenderType.create(
@@ -496,9 +518,14 @@ public final class FlintFixCompat {
             RenderPipeline pipeline = RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
                 .withLocation(id("flintfix", "pipeline/" + name))
                 .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.TRIANGLES)
+                //? if >=26.1 {
+                /^.withColorTargetState(new ColorTargetState(blend))
+                .withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, false))
+                ^///?} else {
                 .withBlend(blend)
-                .withCull(false)
                 .withDepthWrite(false)
+                //?}
+                .withCull(false)
                 .build();
             //? if >=1.21.11 {
             /^return RenderType.create("flintfix_" + name, RenderSetup.builder(pipeline).bufferSize(1 << 20).createRenderSetup());

@@ -38,7 +38,11 @@ public abstract class WorldRendererSkyMixin {
      * already on RenderSystem's model-view stack here, so the sky draws with an
      * identity matrix.
      ^/
+    //? if >=26.1 {
+    /^@Inject(method = "lambda$addSkyPass$0", at = @At("HEAD"), cancellable = true)
+    ^///?} else {
     @Inject(method = "method_62215", at = @At("HEAD"), cancellable = true)
+    //?}
     //? if >=1.21.11 {
     /^private static void flintfix$renderCustomSky(GpuBufferSlice fog, SkyRenderState state, SkyRenderer skyRenderer,
                                                  CallbackInfo ci) {

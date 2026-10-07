@@ -4,6 +4,9 @@ import com.flintfix.client.FlintFixFreecam;
 import com.flintfix.client.FlintFixLookAround;
 import net.minecraft.client.Camera;
 import net.minecraft.world.entity.Entity;
+//? if >=26.1 {
+/*import net.minecraft.client.DeltaTracker;
+*///?}
 //? if >=1.21.11 {
 /*import net.minecraft.world.level.Level;
 *///?} else {
@@ -25,21 +28,33 @@ public abstract class CameraMixin {
     @Shadow protected abstract void setPosition(double x, double y, double z);
     @Shadow protected abstract void setRotation(float yaw, float pitch);
 
-    //? if >=1.21.11 {
+    //? if >=26.1 {
+    /*@Shadow private Level level;
+
+    @Inject(method = "update(Lnet/minecraft/client/DeltaTracker;)V", at = @At("TAIL"))
+    private void flintfix$applyCameraModes(DeltaTracker deltaTracker, CallbackInfo ci) {
+        Camera self = (Camera) (Object) this;
+        flintfix$applyCameraModes(level, self.entity(), self.getCameraEntityPartialTicks(deltaTracker));
+    }
+
+    private void flintfix$applyCameraModes(Level area, Entity focusedEntity, float tickDelta) {
+    *///?} else if >=1.21.11 {
     /*@Inject(
         method = "setup(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/entity/Entity;ZZF)V",
         at = @At("TAIL")
     )
     private void flintfix$applyCameraModes(Level area, Entity focusedEntity,
+                                           boolean thirdPerson, boolean inverseView,
+                                           float tickDelta, CallbackInfo ci) {
     *///?} else {
     @Inject(
         method = "setup(Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/world/entity/Entity;ZZF)V",
         at = @At("TAIL")
     )
     private void flintfix$applyCameraModes(BlockGetter area, Entity focusedEntity,
-    //?}
                                            boolean thirdPerson, boolean inverseView,
                                            float tickDelta, CallbackInfo ci) {
+    //?}
         if (FlintFixFreecam.isActive()) {
             Vec3 position = FlintFixFreecam.renderPosition(tickDelta);
             setPosition(position.x, position.y, position.z);

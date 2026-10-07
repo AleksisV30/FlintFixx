@@ -14,7 +14,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(LevelRenderer.class)
 public abstract class ChunkBorderGizmoMixin {
     //? if >=1.21.11 {
-    /*@Inject(method = "renderLevel", at = @At(value = "INVOKE",
+    /*//? if >=26.1 {
+    /^@Inject(method = "extractLevel", at = @At(value = "INVOKE",
+    ^///?} else {
+    @Inject(method = "renderLevel", at = @At(value = "INVOKE",
+    //?}
         target = "Lnet/minecraft/client/renderer/debug/DebugRenderer;emitGizmos(Lnet/minecraft/client/renderer/culling/Frustum;DDDF)V",
         shift = At.Shift.AFTER))
     private void flintfix$emitChunkBorders(CallbackInfo ci) {

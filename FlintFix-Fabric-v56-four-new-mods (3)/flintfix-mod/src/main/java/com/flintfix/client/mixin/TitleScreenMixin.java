@@ -129,7 +129,11 @@ public abstract class TitleScreenMixin extends Screen {
 
     //? if >=1.21.6 {
     /*/^* From 1.21.6 the title screen draws its panorama in its own renderBackground. ^/
+    //? if >=26.1 {
+    /^@Inject(method = "extractBackground", at = @At("HEAD"), cancellable = true)
+    ^///?} else {
     @Inject(method = "renderBackground", at = @At("HEAD"), cancellable = true)
+    //?}
     private void flintfix$replacePanorama(GuiGraphics context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         FlintFixTitleBackground.render(context, this.width, this.height);
         ci.cancel();
@@ -161,12 +165,21 @@ public abstract class TitleScreenMixin extends Screen {
     *///?}
 
     /** FlintFix branding replaces the vanilla Minecraft logo. */
+    //? if >=26.1 {
+    /*@Redirect(method = "extractRenderState", at = @At(value = "INVOKE",
+        target = "Lnet/minecraft/client/gui/components/LogoRenderer;extractRenderState(Lnet/minecraft/client/gui/GuiGraphics;IF)V"))
+    *///?} else {
     @Redirect(method = "render", at = @At(value = "INVOKE",
         target = "Lnet/minecraft/client/gui/components/LogoRenderer;renderLogo(Lnet/minecraft/client/gui/GuiGraphics;IF)V"))
+    //?}
     private void flintfix$hideVanillaLogo(LogoRenderer logoDrawer, GuiGraphics context, int screenWidth, float alpha) {
     }
 
+    //? if >=26.1 {
+    /*@Inject(method = "extractRenderState", at = @At("TAIL"))
+    *///?} else {
     @Inject(method = "render", at = @At("TAIL"))
+    //?}
     private void flintfix$renderBranding(GuiGraphics context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
         FlintFixTitleBranding.render(
             context,

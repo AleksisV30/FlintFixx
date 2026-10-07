@@ -19,7 +19,8 @@ const FLINTFIX_TARGETS = {
     "1.21.6": "1.21.6",
     "1.21.7": "1.21.8", "1.21.8": "1.21.8",
     "1.21.9": "1.21.10", "1.21.10": "1.21.10",
-    "1.21.11": "1.21.11"
+    "1.21.11": "1.21.11",
+    "26.1": "26.1.2", "26.1.1": "26.1.2", "26.1.2": "26.1.2"
 };
 const FLINTFIX_VERSIONS = Object.keys(FLINTFIX_TARGETS);
 // Fabric API is pinned for this version; the others use the newest release from Modrinth.
