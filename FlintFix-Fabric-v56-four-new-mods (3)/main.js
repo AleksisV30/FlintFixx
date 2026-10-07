@@ -1015,6 +1015,10 @@ ipcMain.handle("java:detect", async () => {
 // FLINTFIX MANAGED BUILD JDK
 // ========================================
 
+// The mod build (Gradle 9 + Fabric Loom 1.18) runs on JDK 25; it still compiles
+// Java 17/21 jars for older Minecraft versions.
+const BUILD_JDK_MAJOR = 25;
+
 function findJavacExecutable(directory) {
     if (!fs.existsSync(directory)) return null;
     const stack = [directory];
@@ -1038,27 +1042,27 @@ function findJavacOnPath() {
     });
 }
 
-async function findSystemJdk21() {
+async function findSystemBuildJdk() {
     for (const javac of await findJavacOnPath()) {
         const javaExecutable = path.join(path.dirname(javac), "java.exe");
         if (!fs.existsSync(javaExecutable)) continue;
         try {
             const java = await runJava(javaExecutable);
             const major = Number(String(java.version || "").split(/[._]/)[0]);
-            if (major === 21) return javaExecutable;
+            if (major === BUILD_JDK_MAJOR) return javaExecutable;
         } catch (_) {}
     }
     return null;
 }
 
-async function ensureBuildJdk21(emit) {
-    const systemJdk = await findSystemJdk21();
+async function ensureBuildJdk(emit) {
+    const systemJdk = await findSystemBuildJdk();
     if (systemJdk) {
-        emit?.({ stage: "fabric", phase: "jdk", message: "Using existing system JDK 21." });
+        emit?.({ stage: "fabric", phase: "jdk", message: `Using existing system JDK ${BUILD_JDK_MAJOR}.` });
         return systemJdk;
     }
 
-    const jdkRoot = path.join(app.getPath("userData"), "runtime", "jdk-21-build");
+    const jdkRoot = path.join(app.getPath("userData"), "runtime", `jdk-${BUILD_JDK_MAJOR}-build`);
     const existingJavac = findJavacExecutable(jdkRoot);
     if (existingJavac) {
         const javaExecutable = path.join(path.dirname(existingJavac), "java.exe");
@@ -1069,9 +1073,9 @@ async function ensureBuildJdk21(emit) {
         throw new Error("Automatic FlintFix build JDK installation currently supports Windows x64 only.");
     }
 
-    emit?.({ stage: "fabric", message: "Installing managed JDK 21 for FlintFix mod compilation..." });
-    const zipPath = path.join(app.getPath("temp"), "flintfix-jdk-21-build.zip");
-    const downloadUrl = "https://api.adoptium.net/v3/binary/latest/21/ga/windows/x64/jdk/hotspot/normal/eclipse";
+    emit?.({ stage: "fabric", message: `Installing managed JDK ${BUILD_JDK_MAJOR} for FlintFix mod compilation...` });
+    const zipPath = path.join(app.getPath("temp"), `flintfix-jdk-${BUILD_JDK_MAJOR}-build.zip`);
+    const downloadUrl = `https://api.adoptium.net/v3/binary/latest/${BUILD_JDK_MAJOR}/ga/windows/x64/jdk/hotspot/normal/eclipse`;
 
     await downloadFile(downloadUrl, zipPath, percent => {
         emit?.({
@@ -1079,7 +1083,7 @@ async function ensureBuildJdk21(emit) {
             phase: "jdk-download",
             current: percent,
             total: 100,
-            message: `Downloading managed JDK 21... ${percent}%`
+            message: `Downloading managed JDK ${BUILD_JDK_MAJOR}... ${percent}%`
         });
     });
 
@@ -1089,11 +1093,11 @@ async function ensureBuildJdk21(emit) {
     try { fs.rmSync(zipPath, { force: true }); } catch (_) {}
 
     const javac = findJavacExecutable(jdkRoot);
-    if (!javac) throw new Error("Managed JDK 21 downloaded, but javac.exe was not found.");
+    if (!javac) throw new Error(`Managed JDK ${BUILD_JDK_MAJOR} downloaded, but javac.exe was not found.`);
     const javaExecutable = path.join(path.dirname(javac), "java.exe");
-    if (!fs.existsSync(javaExecutable)) throw new Error("Managed JDK 21 downloaded, but java.exe was not found next to javac.exe.");
+    if (!fs.existsSync(javaExecutable)) throw new Error(`Managed JDK ${BUILD_JDK_MAJOR} downloaded, but java.exe was not found next to javac.exe.`);
 
-    emit?.({ stage: "fabric", message: "Managed JDK 21 compiler ready." });
+    emit?.({ stage: "fabric", message: `Managed JDK ${BUILD_JDK_MAJOR} compiler ready.` });
     return javaExecutable;
 }
 
@@ -1954,7 +1958,7 @@ ipcMain.handle(
                 const fabricEmit = data => {
                     if (!event.sender.isDestroyed()) event.sender.send("minecraft:progress", data);
                 };
-                const buildJavaExecutable = await ensureBuildJdk21(fabricEmit);
+                const buildJavaExecutable = await ensureBuildJdk(fabricEmit);
                 const fabric = await installFabric({
                     rootDir: minecraftRoot,
                     projectRoot: __dirname,
@@ -2106,7 +2110,7 @@ ipcMain.handle(
                 const fabricEmit = data => emitLaunchProgress(data);
 
                 emitLaunchProgress({ stage: "fabric", phase: "jdk", message: "Checking Fabric build runtime..." });
-                const buildJavaExecutable = await ensureBuildJdk21(fabricEmit);
+                const buildJavaExecutable = await ensureBuildJdk(fabricEmit);
                 const fabric = await installFabric({
                     rootDir: minecraftRoot,
                     projectRoot: __dirname,

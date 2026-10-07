@@ -101,7 +101,17 @@ public final class FlintFixHand {
         ItemDisplayContext mode = right
             ? ItemDisplayContext.FIRST_PERSON_RIGHT_HAND
             : ItemDisplayContext.FIRST_PERSON_LEFT_HAND;
-        //? if >=1.21.4 {
+        //? if >=1.21.5 {
+        /*// 1.21.5 no longer exposes the model's display transform; use vanilla's standard
+        // first-person transforms for blocks and for flat (generated/handheld) items.
+        ItemStackRenderState state = new ItemStackRenderState();
+        client.getItemModelResolver().updateForTopItem(state, stack, mode, player.level(), player, player.getId());
+        boolean solid = state.usesBlockLight();
+        ItemTransform display = solid
+            ? new ItemTransform(new Vector3f(0.0f, 45.0f, 0.0f), new Vector3f(), new Vector3f(0.4f))
+            : new ItemTransform(new Vector3f(0.0f, -90.0f, 25.0f), new Vector3f(1.13f, 3.2f, 1.13f).mul(0.0625f),
+                new Vector3f(0.68f));
+        *///?} else if >=1.21.4 {
         /*ItemStackRenderState state = new ItemStackRenderState();
         client.getItemModelResolver().updateForTopItem(state, stack, mode, !right, player.level(), player, player.getId());
         ItemTransform display = state.transform();
@@ -112,7 +122,11 @@ public final class FlintFixHand {
         boolean solid = model.isGui3d();
         //?}
         PoseStack local = new PoseStack();
+        //? if >=1.21.5 {
+        /*display.apply(!right, local.last());
+        *///?} else {
         display.apply(!right, local);
+        //?}
         local.translate(-0.5f, -0.5f, -0.5f);
         Vector3f grip = solid ? new Vector3f(0.5f, 0.12f, 0.5f) : new Vector3f(3.5f / 16.0f, 3.5f / 16.0f, 0.5f);
         Vector3f along = solid ? new Vector3f(0.5f, 1.0f, 0.5f) : new Vector3f(13.0f / 16.0f, 13.0f / 16.0f, 0.5f);

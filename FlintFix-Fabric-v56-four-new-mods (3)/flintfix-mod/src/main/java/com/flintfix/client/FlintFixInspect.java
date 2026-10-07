@@ -47,7 +47,7 @@ public final class FlintFixInspect {
         // Pressing again mid-animation restarts it smoothly from the beginning.
         active = true;
         startedAt = System.nanoTime();
-        slot = client.player.getInventory().selected;
+        slot = FlintFixCompat.selectedSlot(client.player.getInventory());
         item = stack.getItem();
     }
 
@@ -55,7 +55,7 @@ public final class FlintFixInspect {
     public static void tick(Minecraft client) {
         if (!active) return;
         if (client.player == null || !FlintFixClient.CONFIG.itemInspectEnabled
-            || client.player.getInventory().selected != slot
+            || FlintFixCompat.selectedSlot(client.player.getInventory()) != slot
             || client.player.getMainHandItem().getItem() != item
             || client.options.keyAttack.isDown() || client.options.keyUse.isDown()
             || progress() >= 1.0f) {

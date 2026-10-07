@@ -3,10 +3,21 @@ const path = require("path");
 const https = require("https");
 const { execFile } = require("child_process");
 
-// Minecraft versions the FlintFix in-game client is built for (one jar each,
-// see flintfix-mod/versions). Fabric itself (with Fabric API) installs on any
-// version Fabric supports; other versions simply launch without the FlintFix mod.
-const FLINTFIX_VERSIONS = ["1.20.1", "1.20.4", "1.20.6", "1.21.1", "1.21.4"];
+// Minecraft versions the FlintFix in-game client supports, mapped to the build
+// target whose jar runs on them (hotfix releases share a jar; see
+// flintfix-mod/versions). Fabric itself (with Fabric API) installs on any version
+// Fabric supports; other versions simply launch without the FlintFix mod.
+const FLINTFIX_TARGETS = {
+    "1.20": "1.20.1", "1.20.1": "1.20.1",
+    "1.20.2": "1.20.2",
+    "1.20.3": "1.20.4", "1.20.4": "1.20.4",
+    "1.20.5": "1.20.6", "1.20.6": "1.20.6",
+    "1.21": "1.21.1", "1.21.1": "1.21.1",
+    "1.21.2": "1.21.3", "1.21.3": "1.21.3",
+    "1.21.4": "1.21.4",
+    "1.21.5": "1.21.5"
+};
+const FLINTFIX_VERSIONS = Object.keys(FLINTFIX_TARGETS);
 // Fabric API is pinned for this version; the others use the newest release from Modrinth.
 const MC_VERSION = "1.21.1";
 const FABRIC_API_VERSION = "0.116.16+1.21.1";
@@ -118,8 +129,9 @@ function runPowerShell(scriptPath, cwd, javaExecutable, args = []) {
 }
 
 async function ensureModJar(projectRoot, gameVersion, javaExecutable, emit) {
+    const target = FLINTFIX_TARGETS[gameVersion];
     const modRoot = path.join(projectRoot, "flintfix-mod");
-    const libs = path.join(modRoot, "versions", gameVersion, "build", "libs");
+    const libs = path.join(modRoot, "versions", target, "build", "libs");
     const sourceRoot = path.join(modRoot, "src");
     const newestSource = (() => {
         let newest = 0;
@@ -133,7 +145,7 @@ async function ensureModJar(projectRoot, gameVersion, javaExecutable, emit) {
         };
         walk(sourceRoot);
         for (const name of ["build.gradle.kts", "gradle.properties", "settings.gradle.kts", "stonecutter.gradle.kts",
-            path.join("versions", gameVersion, "gradle.properties")]) {
+            path.join("versions", target, "gradle.properties")]) {
             const full = path.join(modRoot, name);
             if (fs.existsSync(full)) newest = Math.max(newest, fs.statSync(full).mtimeMs);
         }
@@ -151,7 +163,7 @@ async function ensureModJar(projectRoot, gameVersion, javaExecutable, emit) {
     emit?.({ stage: "fabric", message: "Building FlintFix in-game client..." });
     const script = path.join(modRoot, "build-mod.ps1");
     if (!fs.existsSync(script)) throw new Error("flintfix-mod/build-mod.ps1 is missing.");
-    await runPowerShell(script, modRoot, javaExecutable, ["-MinecraftVersion", gameVersion]);
+    await runPowerShell(script, modRoot, javaExecutable, ["-MinecraftVersion", target]);
 
     const candidate = newestJar();
     if (!candidate) throw new Error("The FlintFix mod build completed but no mod JAR was produced.");
@@ -302,7 +314,7 @@ async function installFabric({ rootDir, projectRoot, minecraftVersion, javaExecu
         fs.rmSync(targetMod, { force: true });
         emit?.({
             stage: "fabric",
-            message: `Fabric ${loaderVersion} ready. FlintFix in-game features need Minecraft ${FLINTFIX_VERSIONS.join(", ")}; this version launches without them.`
+            message: `Fabric ${loaderVersion} ready. FlintFix in-game features aren't available for Minecraft ${gameVersion} yet; it launches without them.`
         });
     }
     return { versionId: fabricVersionId, loaderVersion, modsDir, modJar: modJar ? targetMod : null, flintfix: Boolean(modJar) };

@@ -14,7 +14,7 @@ plugins {
 stonecutter {
     create(rootProject) {
         // One jar per Minecraft version; per-version settings live in versions/<mc>/gradle.properties.
-        versions("1.20.1", "1.20.4", "1.20.6", "1.21.1", "1.21.4")
+        versions("1.20.1", "1.20.2", "1.20.4", "1.20.6", "1.21.1", "1.21.3", "1.21.4", "1.21.5")
         vcsVersion = "1.21.1"
     }
 }

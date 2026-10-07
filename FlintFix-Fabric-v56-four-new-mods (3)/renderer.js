@@ -213,7 +213,10 @@ let lastProgressLogKey = "";
 // FlintFix's in-game client runs on Fabric; it is the default loader.
 // Default selection; FlintFix in-game features run on every version in FLINTFIX_GAME_VERSIONS.
 const FLINTFIX_GAME_VERSION = "1.21.1";
-const FLINTFIX_GAME_VERSIONS = ["1.20.1", "1.20.4", "1.20.6", "1.21.1", "1.21.4"];
+const FLINTFIX_GAME_VERSIONS = [
+    "1.20", "1.20.1", "1.20.2", "1.20.3", "1.20.4", "1.20.5", "1.20.6",
+    "1.21", "1.21.1", "1.21.2", "1.21.3", "1.21.4", "1.21.5"
+];
 const loaderOptions = [
     { value: "fabric", label: "Fabric", subtitle: "FlintFix in-game client" },
     { value: "vanilla", label: "Vanilla", subtitle: "Unmodded Minecraft" },
@@ -1265,7 +1268,7 @@ function getReadiness() {
         return { ready: false, reason: `${selectedLoader.label} support is not available yet.` };
     }
     if (selectedLoader.value === "fabric" && !FLINTFIX_GAME_VERSIONS.includes(selectedVersion)) {
-        return { ready: true, reason: `Ready. FlintFix in-game features need ${FLINTFIX_GAME_VERSIONS.join(", ")}; Fabric ${selectedVersion} launches without them.` };
+        return { ready: true, reason: `Ready. FlintFix in-game features aren't available for ${selectedVersion} yet; Fabric launches without them.` };
     }
     return { ready: true, reason: "Everything is ready to launch." };
 }

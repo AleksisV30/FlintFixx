@@ -1,5 +1,5 @@
 plugins {
-    id("fabric-loom")
+    id("net.fabricmc.fabric-loom-remap")
 }
 
 fun prop(name: String) = project.property(name) as String

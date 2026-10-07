@@ -221,7 +221,10 @@ public final class FlintFixClient implements ClientModInitializer {
             } catch (Throwable error) {
                 log.error("FLINTFIX_AUDIT_FAILED", error);
             }
-            client.stop();
+        });
+        // Quit once resource loading has finished; stopping mid-load can crash the GL driver on exit.
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if (done.get() && client.getOverlay() == null) client.stop();
         });
     }
 
@@ -551,8 +554,13 @@ public final class FlintFixClient implements ClientModInitializer {
         List<MobEffectInstance> effects = new ArrayList<>();
         if (client.player != null) effects.addAll(client.player.getActiveEffects());
         if (effects.isEmpty() && (editor || preview)) {
+            //? if >=1.21.5 {
+            /*effects.add(new MobEffectInstance(MobEffects.SPEED, 1680, 1));
+            effects.add(new MobEffectInstance(MobEffects.STRENGTH, 160, 0));
+            *///?} else {
             effects.add(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 1680, 1));
             effects.add(new MobEffectInstance(MobEffects.DAMAGE_BOOST, 160, 0));
+            //?}
             effects.add(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 3600, 0));
         }
         if (effects.isEmpty()) return emptyBounds();

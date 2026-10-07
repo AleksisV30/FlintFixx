@@ -59,8 +59,13 @@ public abstract class HeldItemRendererMixin {
      * draw the arm there so its fist closes around the item's grip and follows
      * every swing, then apply the inspect flip to the item alone.
      */
+    //? if >=1.21.5 {
+    /*@Inject(method = "renderArmWithItem", at = @At(value = "INVOKE",
+        target = "Lnet/minecraft/client/renderer/ItemInHandRenderer;renderItem(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemDisplayContext;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V"))
+    *///?} else {
     @Inject(method = "renderArmWithItem", at = @At(value = "INVOKE",
         target = "Lnet/minecraft/client/renderer/ItemInHandRenderer;renderItem(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemDisplayContext;ZLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V"))
+    //?}
     private void flintfix$holdItem(AbstractClientPlayer player, float tickDelta, float pitch, InteractionHand hand,
                                    float swingProgress, ItemStack item, float equipProgress,
                                    PoseStack matrices, MultiBufferSource vertexConsumers, int light,

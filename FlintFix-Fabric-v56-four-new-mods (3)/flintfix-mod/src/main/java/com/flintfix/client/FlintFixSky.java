@@ -1,7 +1,5 @@
 package com.flintfix.client;
 
-import com.mojang.blaze3d.platform.GlStateManager;
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexFormat;
@@ -182,12 +180,7 @@ public final class FlintFixSky {
         PoseStack matrices = new PoseStack();
         matrices.last().pose().mul(modelView);
 
-        RenderSystem.depthMask(false);
-        RenderSystem.disableCull();
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
-        FlintFixCompat.usePositionColorShader();
+        FlintFixCompat.beginSky();
 
         // Sun direction in world space; matches the celestial rotation below.
         float theta = skyAngle * (float) (Math.PI * 2.0);
@@ -222,7 +215,7 @@ public final class FlintFixSky {
             float sunAlpha = clear * sunUp;
             draw(sunGlow(celestial, preset, sunAlpha, sunDir[1], time, config.skySunGlow, config.skySunRays));
             // Solid core with normal blending, so it stays visible against bright skies.
-            RenderSystem.defaultBlendFunc();
+            FlintFixCompat.skyBlend(false);
             draw(sunCore(celestial, preset, sunAlpha, sunDir[1]));
             additive();
         }
@@ -237,14 +230,11 @@ public final class FlintFixSky {
             if (meteors != null) draw(meteors);
         }
 
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.disableBlend();
-        RenderSystem.enableCull();
-        RenderSystem.depthMask(true);
+        FlintFixCompat.endSky();
     }
 
     private static void additive() {
-        RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE);
+        FlintFixCompat.skyBlend(true);
     }
 
     public static final String[] TIME_MODES = {"Follow world", "Day", "Sunset", "Night"};

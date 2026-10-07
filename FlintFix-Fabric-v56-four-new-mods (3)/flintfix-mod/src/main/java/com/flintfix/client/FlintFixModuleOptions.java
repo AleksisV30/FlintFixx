@@ -147,7 +147,10 @@ final class FlintFixModuleOptions {
                     new Info("Only changes what you see", "The server and other players still have the real weather.")),
                 () -> c().hideWeatherEnabled = false, false);
             case "motionblur" -> new FlintFixOptionsScreen(parent, id, "Motion Blur",
-                "Blends frames together for smoother, cinematic camera movement.", List.of(
+                "Blends frames together for smoother, cinematic camera movement.", !FlintFixMotionBlur.supported()
+                    ? List.of(new Info("Not available on this Minecraft version yet",
+                        "Motion blur works on Minecraft 1.20.1 to 1.21.4."))
+                    : List.of(
                     new Toggle("Enable motion blur", () -> c().motionBlurEnabled, v -> c().motionBlurEnabled = v),
                     new Slider("Strength", 0.1f, 0.9f, 0.05f, () -> c().motionBlurStrength, v -> c().motionBlurStrength = v,
                         FlintFixModuleOptions::percent),

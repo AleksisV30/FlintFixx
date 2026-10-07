@@ -1,9 +1,7 @@
 package com.flintfix.client;
 
-import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
@@ -18,17 +16,32 @@ import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import org.joml.Matrix4f;
+//? if >=1.21.5 {
+/*import com.mojang.blaze3d.pipeline.BlendFunction;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+import java.util.function.Function;
+import net.minecraft.Util;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.RenderStateShard;
+import net.minecraft.util.TriState;
+*///?} else {
+import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.vertex.BufferUploader;
+//?}
 //? if >=1.21.2 {
-/*import net.minecraft.client.renderer.CoreShaders;
-import net.minecraft.client.renderer.RenderType;
+/*import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.ShapeRenderer;
 *///?} else {
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.LevelRenderer;
 //?}
+//? if >=1.21.2 <1.21.5 {
+/*import net.minecraft.client.renderer.CoreShaders;
+*///?}
 //? if >=1.21 {
 import com.mojang.blaze3d.vertex.MeshData;
 //?}
@@ -87,6 +100,15 @@ public final class FlintFixCompat {
         //?}
     }
 
+    /** Selected hotbar slot (0-8). */
+    public static int selectedSlot(Inventory inventory) {
+        //? if >=1.21.5 {
+        /*return inventory.getSelectedSlot();
+        *///?} else {
+        return inventory.selected;
+        //?}
+    }
+
     /** Elytra flight. */
     public static boolean isGliding(LivingEntity entity) {
         return entity.isFallFlying();
@@ -123,7 +145,9 @@ public final class FlintFixCompat {
         float r = ((color >>> 16) & 0xFF) / 255.0f;
         float g = ((color >>> 8) & 0xFF) / 255.0f;
         float b = (color & 0xFF) / 255.0f;
-        //? if >=1.21.2 {
+        //? if >=1.21.5 {
+        /*context.blit(Pipelines.GUI_GLOW, texture, x, y, 0, 0, w, h, 1, 1, 1, 1, color);
+        *///?} else if >=1.21.2 {
         /*// GUI draws are batched from 1.21.2, and each batch sets its own blending, so flush them
         // and draw this quad immediately with additive blending.
         context.flush();
@@ -212,8 +236,77 @@ public final class FlintFixCompat {
     }
 
     // ------------------------------------------------------------------
-    // Immediate-mode position/color buffers (custom sky)
+    // Custom sky: position/color triangles drawn right where the vanilla sky
+    // would be, with normal or additive ("glow") blending.
     // ------------------------------------------------------------------
+
+    //? if >=1.21.5 {
+    /*private static boolean skyGlow;
+
+    /^* Render pipelines exist from 1.21.5; created on first use, not at class load. ^/
+    private static final class Pipelines {
+        static final RenderType SKY = skyType("sky", BlendFunction.TRANSLUCENT);
+        static final RenderType SKY_GLOW = skyType("sky_glow", BlendFunction.LIGHTNING);
+        static final RenderPipeline GUI_GLOW_PIPELINE = RenderPipeline.builder(RenderPipelines.GUI_TEXTURED_SNIPPET)
+            .withLocation(id("flintfix", "pipeline/gui_glow"))
+            .withBlend(BlendFunction.LIGHTNING)
+            .build();
+        static final Function<ResourceLocation, RenderType> GUI_GLOW = Util.memoize(texture -> RenderType.create(
+            "flintfix_gui_glow", 786432, GUI_GLOW_PIPELINE,
+            RenderType.CompositeState.builder()
+                .setTextureState(new RenderStateShard.TextureStateShard(texture, TriState.TRUE, false))
+                .createCompositeState(false)));
+
+        private static RenderType skyType(String name, BlendFunction blend) {
+            RenderPipeline pipeline = RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
+                .withLocation(id("flintfix", "pipeline/" + name))
+                .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.TRIANGLES)
+                .withBlend(blend)
+                .withCull(false)
+                .withDepthWrite(false)
+                .build();
+            return RenderType.create("flintfix_" + name, 1 << 20, false, false, pipeline,
+                RenderType.CompositeState.builder().createCompositeState(false));
+        }
+    }
+    *///?}
+
+    /** Sets up drawing state for the sky: no depth writes, no culling, normal blending. */
+    public static void beginSky() {
+        //? if >=1.21.5 {
+        /*skyGlow = false;
+        *///?} else {
+        RenderSystem.depthMask(false);
+        RenderSystem.disableCull();
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
+        //? if >=1.21.2 {
+        /*RenderSystem.setShader(CoreShaders.POSITION_COLOR);
+        *///?} else {
+        RenderSystem.setShader(GameRenderer::getPositionColorShader);
+        //?}
+        //?}
+    }
+
+    /** Switches between normal blending and additive glow for the following sky draws. */
+    public static void skyBlend(boolean glow) {
+        //? if >=1.21.5 {
+        /*skyGlow = glow;
+        *///?} else {
+        if (glow) RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE);
+        else RenderSystem.defaultBlendFunc();
+        //?}
+    }
+
+    public static void endSky() {
+        //? if <1.21.5 {
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.disableBlend();
+        RenderSystem.enableCull();
+        RenderSystem.depthMask(true);
+        //?}
+    }
 
     public static BufferBuilder beginPositionColor(VertexFormat.Mode mode) {
         //? if >=1.21 {
@@ -225,21 +318,17 @@ public final class FlintFixCompat {
         *///?}
     }
 
-    /** Draws and releases a buffer from {@link #beginPositionColor}; empty buffers are skipped. */
+    /** Draws and releases a sky buffer from {@link #beginPositionColor}; empty buffers are skipped. */
     public static void drawBuffer(BufferBuilder buffer) {
-        //? if >=1.21 {
+        //? if >=1.21.5 {
+        /*MeshData built = buffer.build();
+        if (built != null) (skyGlow ? Pipelines.SKY_GLOW : Pipelines.SKY).draw(built);
+        *///?} else if >=1.21 {
         MeshData built = buffer.build();
+        if (built != null) BufferUploader.drawWithShader(built);
         //?} else {
         /*BufferBuilder.RenderedBuffer built = buffer.endOrDiscardIfEmpty();
-        *///?}
         if (built != null) BufferUploader.drawWithShader(built);
-    }
-
-    public static void usePositionColorShader() {
-        //? if >=1.21.2 {
-        /*RenderSystem.setShader(CoreShaders.POSITION_COLOR);
-        *///?} else {
-        RenderSystem.setShader(GameRenderer::getPositionColorShader);
-        //?}
+        *///?}
     }
 }

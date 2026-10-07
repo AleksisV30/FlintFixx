@@ -1,5 +1,8 @@
 package com.flintfix.client;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+//? if <1.21.5 {
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.platform.GlStateManager;
@@ -8,22 +11,45 @@ import net.minecraft.client.Minecraft;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL30;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+//?}
 
 /**
  * Motion blur by frame accumulation: a copy of the previous (already blurred)
  * frame is blended over each newly drawn world frame, then the result is kept
  * for the next frame. It runs right after the world is drawn, so the hand and
  * HUD stay sharp. Plain framebuffer operations, no shader files involved.
+ *
+ * Minecraft 1.21.5 replaced direct framebuffer access with its GPU device API;
+ * motion blur is not available there yet and stays off.
  */
 public final class FlintFixMotionBlur {
     private static final Logger LOGGER = LoggerFactory.getLogger("FlintFix");
+
+    private FlintFixMotionBlur() {}
+
+    /** False on Minecraft versions where motion blur cannot run yet. */
+    public static boolean supported() {
+        //? if >=1.21.5 {
+        /*return false;
+        *///?} else {
+        return true;
+        //?}
+    }
+
+    //? if >=1.21.5 {
+    /*private static boolean noticeLogged;
+
+    public static void render() {
+        FlintFixConfig config = FlintFixClient.CONFIG;
+        if (config != null && config.motionBlurEnabled && !noticeLogged) {
+            LOGGER.info("FlintFix motion blur is not available on this Minecraft version yet");
+            noticeLogged = true;
+        }
+    }
+    *///?} else {
     private static RenderTarget history;
     private static boolean primed;
     private static boolean failed;
-
-    private FlintFixMotionBlur() {}
 
     public static void render() {
         Minecraft client = Minecraft.getInstance();
@@ -85,4 +111,5 @@ public final class FlintFixMotionBlur {
         }
         primed = false;
     }
+    //?}
 }
