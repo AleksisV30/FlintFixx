@@ -1,9 +1,9 @@
 package com.flintfix.client;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 public final class FlintFixHudEditorScreen extends FlintFixScreen {
     private enum Module { FPS, CPS, COORDINATES, PING, KEYSTROKES, ARMOR, POTIONS, SPEED, COMPASS }
@@ -45,7 +45,7 @@ public final class FlintFixHudEditorScreen extends FlintFixScreen {
     private float oldCompassX, oldCompassY, oldCompassScale;
 
     public FlintFixHudEditorScreen(Screen parent) {
-        super(Text.literal("FlintFix HUD Editor"));
+        super(Component.literal("FlintFix HUD Editor"));
         this.parent = parent;
     }
 
@@ -58,7 +58,7 @@ public final class FlintFixHudEditorScreen extends FlintFixScreen {
     }
 
     @Override
-    public void render(DrawContext c, int mouseX, int mouseY, float delta) {
+    public void render(GuiGraphics c, int mouseX, int mouseY, float delta) {
         c.fill(0, 0, width, height, 0x52000000);
         int step = GRID_SIZE * 2;
         for (int gx = 0; gx < width; gx += step) c.fill(gx, 0, gx + 1, height, 0x12222222);
@@ -67,10 +67,10 @@ public final class FlintFixHudEditorScreen extends FlintFixScreen {
         float t = Math.min(1.0f, (System.currentTimeMillis() - transitionStartedAt) / (float) TRANSITION_MS);
         float eased = t * t * (3.0f - 2.0f * t);
         float scale = 0.96f + 0.04f * eased;
-        c.getMatrices().push();
-        c.getMatrices().translate(width / 2.0f, height / 2.0f + (1.0f - eased) * 4.0f, 0.0f);
-        c.getMatrices().scale(scale, scale, 1.0f);
-        c.getMatrices().translate(-width / 2.0f, -height / 2.0f, 0.0f);
+        c.pose().pushPose();
+        c.pose().translate(width / 2.0f, height / 2.0f + (1.0f - eased) * 4.0f, 0.0f);
+        c.pose().scale(scale, scale, 1.0f);
+        c.pose().translate(-width / 2.0f, -height / 2.0f, 0.0f);
 
         int topW = Math.max(1, Math.min(280, width - 24));
         int topX = (width - topW) / 2;
@@ -79,7 +79,7 @@ public final class FlintFixHudEditorScreen extends FlintFixScreen {
         FlintFixFont.drawCenteredExact(c, FlintFixFont.trim("8px grid  ·  Magnetic align  ·  Drag corners to resize",
             topW - 12, 6, false), width / 2, 27, 6, FlintFixUi.muted(), false);
 
-        MinecraftClient mc = MinecraftClient.getInstance();
+        Minecraft mc = Minecraft.getInstance();
         fpsBounds = FlintFixClient.renderFpsHud(c, mc, true, selected == Module.FPS);
         cpsBounds = FlintFixClient.renderCpsHud(c, mc, true, selected == Module.CPS);
         coordinatesBounds = FlintFixClient.renderCoordinatesHud(c, mc, true, selected == Module.COORDINATES);
@@ -111,7 +111,7 @@ public final class FlintFixHudEditorScreen extends FlintFixScreen {
         FlintFixUi.drawTrimmedExact(c, selected == null ? "SELECT A HUD" : selected.name(), bottomX + 9,
             FlintFixFont.centeredY(bottomY, 27, 6), Math.max(0, cancelX - bottomX - 14), 6,
             selected == null ? FlintFixUi.subtle() : FlintFixUi.accentBright(), true);
-        c.getMatrices().pop();
+        c.pose().popPose();
     }
 
     @Override
@@ -246,7 +246,7 @@ public final class FlintFixHudEditorScreen extends FlintFixScreen {
         return ResizeCorner.NONE;
     }
 
-    private void drawResizeHandles(DrawContext c) {
+    private void drawResizeHandles(GuiGraphics c) {
         if (selected == null) return;
         FlintFixClient.HudBounds b = boundsFor(selected);
         if (b.width() <= 0 || b.height() <= 0) return;
@@ -415,7 +415,7 @@ public final class FlintFixHudEditorScreen extends FlintFixScreen {
         return best;
     }
 
-    private void drawSnapGuides(DrawContext c) {
+    private void drawSnapGuides(GuiGraphics c) {
         if (!dragging || selected == null || snapGuideX < 0 || snapGuideY < 0) return;
         int color = snappedToWidget ? 0xA671D687 : 0x706E879E;
         c.fill(snapGuideX, 0, snapGuideX + 1, height, color);
@@ -423,7 +423,7 @@ public final class FlintFixHudEditorScreen extends FlintFixScreen {
         if (snappedToWidget) drawWidgetBorder(c, boundsFor(selected));
     }
 
-    private void drawConnectedBorders(DrawContext c) {
+    private void drawConnectedBorders(GuiGraphics c) {
         Module[] modules = Module.values();
         for (int i = 0; i < modules.length; i++) {
             FlintFixClient.HudBounds a = boundsFor(modules[i]);
@@ -452,7 +452,7 @@ public final class FlintFixHudEditorScreen extends FlintFixScreen {
         return horizontal || vertical;
     }
 
-    private void drawWidgetBorder(DrawContext c, FlintFixClient.HudBounds b) {
+    private void drawWidgetBorder(GuiGraphics c, FlintFixClient.HudBounds b) {
         int color = 0xB97C8793;
         c.fill(b.x(), b.y(), b.x() + b.width(), b.y() + 1, color);
         c.fill(b.x(), b.y() + b.height() - 1, b.x() + b.width(), b.y() + b.height(), color);
@@ -460,7 +460,7 @@ public final class FlintFixHudEditorScreen extends FlintFixScreen {
         c.fill(b.x() + b.width() - 1, b.y(), b.x() + b.width(), b.y() + b.height(), color);
     }
 
-    private void drawConnectionBridge(DrawContext c, FlintFixClient.HudBounds a, FlintFixClient.HudBounds b) {
+    private void drawConnectionBridge(GuiGraphics c, FlintFixClient.HudBounds a, FlintFixClient.HudBounds b) {
         int color = 0xCC71D687;
         int verticalOverlapTop = Math.max(a.y(), b.y()) + 3;
         int verticalOverlapBottom = Math.min(a.y() + a.height(), b.y() + b.height()) - 3;
@@ -546,17 +546,17 @@ public final class FlintFixHudEditorScreen extends FlintFixScreen {
     private void saveAndClose() {
         FlintFixClient.CONFIG.save();
         captureSnapshot();
-        if (client != null) client.setScreen(parent);
+        if (minecraft != null) minecraft.setScreen(parent);
     }
 
     private void cancelAndClose() {
         restoreSnapshot();
-        if (client != null) client.setScreen(parent);
+        if (minecraft != null) minecraft.setScreen(parent);
     }
 
     public void cancelToGame() {
         restoreSnapshot();
-        if (client != null) client.setScreen(null);
+        if (minecraft != null) minecraft.setScreen(null);
     }
 
     @Override
@@ -569,10 +569,10 @@ public final class FlintFixHudEditorScreen extends FlintFixScreen {
     }
 
     @Override
-    public boolean shouldPause() { return false; }
+    public boolean isPauseScreen() { return false; }
 
     @Override
-    public void close() {
+    public void onClose() {
         cancelAndClose();
     }
 }

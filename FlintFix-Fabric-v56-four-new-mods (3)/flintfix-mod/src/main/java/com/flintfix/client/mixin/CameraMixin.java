@@ -2,13 +2,13 @@ package com.flintfix.client.mixin;
 
 import com.flintfix.client.FlintFixFreecam;
 import com.flintfix.client.FlintFixLookAround;
-import net.minecraft.client.render.Camera;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.BlockView;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.world.RaycastContext;
+import net.minecraft.client.Camera;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -18,19 +18,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /** Applies FlintFix's interpolated freecam transform after vanilla camera setup. */
 @Mixin(Camera.class)
 public abstract class CameraMixin {
-    @Shadow protected abstract void setPos(double x, double y, double z);
+    @Shadow protected abstract void setPosition(double x, double y, double z);
     @Shadow protected abstract void setRotation(float yaw, float pitch);
 
     @Inject(
-        method = "update(Lnet/minecraft/world/BlockView;Lnet/minecraft/entity/Entity;ZZF)V",
+        method = "setup(Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/world/entity/Entity;ZZF)V",
         at = @At("TAIL")
     )
-    private void flintfix$applyCameraModes(BlockView area, Entity focusedEntity,
+    private void flintfix$applyCameraModes(BlockGetter area, Entity focusedEntity,
                                            boolean thirdPerson, boolean inverseView,
                                            float tickDelta, CallbackInfo ci) {
         if (FlintFixFreecam.isActive()) {
-            Vec3d position = FlintFixFreecam.renderPosition(tickDelta);
-            setPos(position.x, position.y, position.z);
+            Vec3 position = FlintFixFreecam.renderPosition(tickDelta);
+            setPosition(position.x, position.y, position.z);
             setRotation(FlintFixFreecam.cameraYaw(), FlintFixFreecam.cameraPitch());
             return;
         }
@@ -40,13 +40,13 @@ public abstract class CameraMixin {
         if (FlintFixLookAround.isActive()) {
             float yaw = FlintFixLookAround.yaw();
             float pitch = FlintFixLookAround.pitch();
-            Vec3d look = Vec3d.fromPolar(pitch, yaw).normalize();
-            Vec3d eye = focusedEntity.getCameraPosVec(tickDelta);
-            Vec3d desired = eye.subtract(look.multiply(4.0));
-            BlockHitResult hit = area.raycast(new RaycastContext(eye, desired,
-                RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.NONE, focusedEntity));
-            if (hit.getType() == HitResult.Type.BLOCK) desired = hit.getPos().add(look.multiply(0.2));
-            setPos(desired.x, desired.y, desired.z);
+            Vec3 look = Vec3.directionFromRotation(pitch, yaw).normalize();
+            Vec3 eye = focusedEntity.getEyePosition(tickDelta);
+            Vec3 desired = eye.subtract(look.scale(4.0));
+            BlockHitResult hit = area.clip(new ClipContext(eye, desired,
+                ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, focusedEntity));
+            if (hit.getType() == HitResult.Type.BLOCK) desired = hit.getLocation().add(look.scale(0.2));
+            setPosition(desired.x, desired.y, desired.z);
             setRotation(yaw, pitch);
         }
 

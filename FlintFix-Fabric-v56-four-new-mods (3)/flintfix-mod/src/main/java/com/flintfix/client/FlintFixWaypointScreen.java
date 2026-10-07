@@ -1,12 +1,11 @@
 package com.flintfix.client;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.text.Text;
-
 import java.util.List;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 /** Lists the waypoints of the current world: add, show or hide, recolor and delete. */
 public final class FlintFixWaypointScreen extends FlintFixScreen {
@@ -16,12 +15,12 @@ public final class FlintFixWaypointScreen extends FlintFixScreen {
 
     private final Screen parent;
     private final long openedAt = System.currentTimeMillis();
-    private TextFieldWidget nameField;
+    private EditBox nameField;
     private int x, y, w, h, listTop, listBottom;
     private int scroll, maxScroll;
 
     public FlintFixWaypointScreen(Screen parent) {
-        super(Text.literal("Waypoints"));
+        super(Component.literal("Waypoints"));
         this.parent = parent;
     }
 
@@ -32,7 +31,7 @@ public final class FlintFixWaypointScreen extends FlintFixScreen {
         y = (height - h) / 2;
         listTop = y + 72;
         listBottom = y + h - 30;
-        int count = MinecraftClient.getInstance().world == null ? 0 : FlintFixWaypoints.currentWorld(MinecraftClient.getInstance()).size();
+        int count = Minecraft.getInstance().level == null ? 0 : FlintFixWaypoints.currentWorld(Minecraft.getInstance()).size();
         maxScroll = Math.max(0, count * ROW_H - (listBottom - listTop));
         scroll = Math.max(0, Math.min(maxScroll, scroll));
     }
@@ -41,23 +40,23 @@ public final class FlintFixWaypointScreen extends FlintFixScreen {
     protected void init() {
         layout();
         // init() runs again on resize; keep what was typed.
-        String typed = nameField == null ? "" : nameField.getText();
-        nameField = new TextFieldWidget(textRenderer, x + 14, y + 50, w - 28 - 72, 16, Text.literal("Waypoint name"));
+        String typed = nameField == null ? "" : nameField.getValue();
+        nameField = new EditBox(font, x + 14, y + 50, w - 28 - 72, 16, Component.literal("Waypoint name"));
         nameField.setMaxLength(32);
-        nameField.setText(typed);
-        nameField.setPlaceholder(Text.literal("Name (optional)"));
-        addDrawableChild(nameField);
+        nameField.setValue(typed);
+        nameField.setHint(Component.literal("Name (optional)"));
+        addRenderableWidget(nameField);
     }
 
     @Override
-    public void render(DrawContext c, int mouseX, int mouseY, float delta) {
+    public void render(GuiGraphics c, int mouseX, int mouseY, float delta) {
         layout();
         float intro = FlintFixUi.openProgress(openedAt);
         blurBehind(delta);
         FlintFixUi.backdrop(c, width, height, intro);
         FlintFixUi.panelFrame(c, x, y, w, h);
-        MinecraftClient mc = MinecraftClient.getInstance();
-        String where = mc.world == null ? "Join a world to add waypoints"
+        Minecraft mc = Minecraft.getInstance();
+        String where = mc.level == null ? "Join a world to add waypoints"
             : FlintFixWaypoints.worldKey(mc).replaceFirst("^(sp|mp):", "") + "  ·  " + prettyDimension(FlintFixWaypoints.dimension(mc));
         FlintFixUi.header(c, x + 14, y + 11, w - 28 - 22, "waypoints", "Waypoints", where);
         FlintFixUi.iconButton(c, "waypoints-close", closeX(), y + 13, 15, "close",
@@ -70,7 +69,7 @@ public final class FlintFixWaypointScreen extends FlintFixScreen {
         FlintFixUi.actionButton(c, addX, y + 50, 66, 16, "ADD HERE",
             FlintFixUi.inside(mouseX, mouseY, addX, y + 50, 66, 16), FlintFixUi.ButtonStyle.PRIMARY);
 
-        List<FlintFixWaypoints.Waypoint> list = mc.world == null ? List.of() : FlintFixWaypoints.currentWorld(mc);
+        List<FlintFixWaypoints.Waypoint> list = mc.level == null ? List.of() : FlintFixWaypoints.currentWorld(mc);
         c.enableScissor(x + 10, listTop, x + w - 10, listBottom);
         int rowY = listTop - scroll;
         for (int i = 0; i < list.size(); i++) {
@@ -89,21 +88,21 @@ public final class FlintFixWaypointScreen extends FlintFixScreen {
             FlintFixUi.inside(mouseX, mouseY, x + w - 68, y + h - 24, 54, 16), FlintFixUi.ButtonStyle.SECONDARY);
     }
 
-    private void renderRow(DrawContext c, MinecraftClient mc, FlintFixWaypoints.Waypoint waypoint, int rowY, int mouseX, int mouseY) {
+    private void renderRow(GuiGraphics c, Minecraft mc, FlintFixWaypoints.Waypoint waypoint, int rowY, int mouseX, int mouseY) {
         int rowX = x + 14;
         int rowW = w - 28 - 6;
         boolean hover = mouseY >= listTop && mouseY <= listBottom && FlintFixUi.inside(mouseX, mouseY, rowX, rowY, rowW, ROW_H - 3);
         FlintFixUi.surface(c, rowX, rowY, rowW, ROW_H - 3,
             FlintFixUi.blendColors(FlintFixUi.card(), FlintFixUi.raised(), hover ? 0.5f : 0.0f), FlintFixUi.border());
         FlintFixUi.roundedRaw(c, rowX + 6, rowY + 5, 11, 11, 3, waypoint.color);
-        boolean here = mc.world != null && FlintFixWaypoints.dimension(mc).equals(waypoint.dimension);
+        boolean here = mc.level != null && FlintFixWaypoints.dimension(mc).equals(waypoint.dimension);
         int textColor = waypoint.visible ? FlintFixUi.text() : FlintFixUi.subtle();
         FlintFixUi.drawTrimmedExact(c, waypoint.name, rowX + 23, rowY + 3, rowW - 140, 7, textColor, true);
         String coords = waypoint.x + ", " + waypoint.y + ", " + waypoint.z
             + (here ? "" : "  ·  " + prettyDimension(waypoint.dimension));
         FlintFixUi.drawTrimmedExact(c, coords, rowX + 23, rowY + 12, rowW - 140, 6, FlintFixUi.muted(), false);
         if (here && mc.player != null) {
-            double distance = Math.sqrt(mc.player.squaredDistanceTo(waypoint.x + 0.5, waypoint.y, waypoint.z + 0.5));
+            double distance = Math.sqrt(mc.player.distanceToSqr(waypoint.x + 0.5, waypoint.y, waypoint.z + 0.5));
             String text = Math.round(distance) + " m";
             FlintFixFont.drawExact(c, text, rowX + rowW - 66 - FlintFixFont.width(text, 6, true), FlintFixFont.centeredY(rowY, ROW_H - 3, 6), 6,
                 FlintFixUi.muted(), true);
@@ -119,7 +118,7 @@ public final class FlintFixWaypointScreen extends FlintFixScreen {
 
     private static String keyLabel() {
         return FlintFixClient.getWaypointKeyBinding() == null ? "B"
-            : FlintFixClient.getWaypointKeyBinding().getBoundKeyLocalizedText().getString();
+            : FlintFixClient.getWaypointKeyBinding().getTranslatedKeyMessage().getString();
     }
 
     private static String prettyDimension(String id) {
@@ -136,18 +135,18 @@ public final class FlintFixWaypointScreen extends FlintFixScreen {
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         layout();
         if (button == 0) {
-            MinecraftClient mc = MinecraftClient.getInstance();
+            Minecraft mc = Minecraft.getInstance();
             if (FlintFixUi.inside(mouseX, mouseY, closeX(), y + 13, 15, 15)
                 || FlintFixUi.inside(mouseX, mouseY, x + w - 68, y + h - 24, 54, 16)) {
-                close();
+                onClose();
                 return true;
             }
             int addX = x + w - 14 - 66;
             if (FlintFixUi.inside(mouseX, mouseY, addX, y + 50, 66, 16)) {
-                if (FlintFixWaypoints.addHere(mc, nameField.getText()) != null) nameField.setText("");
+                if (FlintFixWaypoints.addHere(mc, nameField.getValue()) != null) nameField.setValue("");
                 return true;
             }
-            if (mc.world != null && mouseY >= listTop && mouseY <= listBottom) {
+            if (mc.level != null && mouseY >= listTop && mouseY <= listBottom) {
                 List<FlintFixWaypoints.Waypoint> list = FlintFixWaypoints.currentWorld(mc);
                 int rowX = x + 14;
                 int rowW = w - 28 - 6;
@@ -184,12 +183,12 @@ public final class FlintFixWaypointScreen extends FlintFixScreen {
     }
 
     @Override
-    public void close() {
-        if (client != null) client.setScreen(parent);
+    public void onClose() {
+        if (minecraft != null) minecraft.setScreen(parent);
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 }

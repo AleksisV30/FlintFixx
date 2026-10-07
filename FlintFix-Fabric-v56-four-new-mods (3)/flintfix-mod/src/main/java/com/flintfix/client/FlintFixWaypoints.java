@@ -2,16 +2,16 @@ package com.flintfix.client;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.network.ServerInfo;
-import net.minecraft.client.render.LightmapTextureManager;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 
 import java.io.Reader;
@@ -91,28 +91,28 @@ public final class FlintFixWaypoints {
     }
 
     /** "sp:<save name>" in singleplayer, "mp:<address>" on a server. */
-    public static String worldKey(MinecraftClient client) {
-        if (client.isInSingleplayer() && client.getServer() != null) {
-            return "sp:" + client.getServer().getSaveProperties().getLevelName();
+    public static String worldKey(Minecraft client) {
+        if (client.isLocalServer() && client.getSingleplayerServer() != null) {
+            return "sp:" + client.getSingleplayerServer().getWorldData().getLevelName();
         }
-        ServerInfo server = client.getCurrentServerEntry();
-        if (server != null && server.address != null) return "mp:" + server.address.toLowerCase(Locale.ROOT);
+        ServerData server = client.getCurrentServer();
+        if (server != null && server.ip != null) return "mp:" + server.ip.toLowerCase(Locale.ROOT);
         return "unknown";
     }
 
-    public static String dimension(MinecraftClient client) {
-        return client.world == null ? "" : client.world.getRegistryKey().getValue().toString();
+    public static String dimension(Minecraft client) {
+        return client.level == null ? "" : client.level.dimension().location().toString();
     }
 
     /** All waypoints of the current world (every dimension). Never null. */
-    public static List<Waypoint> currentWorld(MinecraftClient client) {
+    public static List<Waypoint> currentWorld(Minecraft client) {
         return store().worlds.computeIfAbsent(worldKey(client), key -> new ArrayList<>());
     }
 
     /** Visible waypoints in the dimension the player is in. */
-    public static List<Waypoint> visibleHere(MinecraftClient client) {
+    public static List<Waypoint> visibleHere(Minecraft client) {
         List<Waypoint> result = new ArrayList<>();
-        if (client.world == null) return result;
+        if (client.level == null) return result;
         String dimension = dimension(client);
         for (Waypoint waypoint : currentWorld(client)) {
             if (waypoint.visible && dimension.equals(waypoint.dimension)) result.add(waypoint);
@@ -120,8 +120,8 @@ public final class FlintFixWaypoints {
         return result;
     }
 
-    public static Waypoint addHere(MinecraftClient client, String name) {
-        if (client.player == null || client.world == null) return null;
+    public static Waypoint addHere(Minecraft client, String name) {
+        if (client.player == null || client.level == null) return null;
         List<Waypoint> list = currentWorld(client);
         if (list.size() >= MAX_PER_WORLD) return null;
         String clean = name == null || name.isBlank() ? "Waypoint " + (list.size() + 1) : name.trim();
@@ -133,18 +133,18 @@ public final class FlintFixWaypoints {
         return waypoint;
     }
 
-    public static void remove(MinecraftClient client, Waypoint waypoint) {
+    public static void remove(Minecraft client, Waypoint waypoint) {
         currentWorld(client).remove(waypoint);
         save();
     }
 
     /** Drops a "Death" waypoint where the player died, replacing the previous one. */
-    public static void tick(MinecraftClient client) {
-        if (client.player == null || client.world == null) {
+    public static void tick(Minecraft client) {
+        if (client.player == null || client.level == null) {
             wasDead = false;
             return;
         }
-        boolean dead = client.player.isDead();
+        boolean dead = client.player.isDeadOrDying();
         if (dead && !wasDead && FlintFixClient.CONFIG.waypointsEnabled && FlintFixClient.CONFIG.waypointsDeath) {
             List<Waypoint> list = currentWorld(client);
             list.removeIf(waypoint -> waypoint.death);
@@ -160,53 +160,53 @@ public final class FlintFixWaypoints {
     public static void render(WorldRenderContext context) {
         FlintFixConfig config = FlintFixClient.CONFIG;
         if (config == null || !config.waypointsEnabled || context.matrixStack() == null || context.consumers() == null) return;
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         List<Waypoint> waypoints = visibleHere(client);
         if (waypoints.isEmpty()) return;
-        Vec3d camera = context.camera().getPos();
-        MatrixStack matrices = context.matrixStack();
+        Vec3 camera = context.camera().getPosition();
+        PoseStack matrices = context.matrixStack();
 
         if (config.waypointsBeams) {
-            matrices.push();
+            matrices.pushPose();
             matrices.translate(-camera.x, -camera.y, -camera.z);
-            Matrix4f matrix = matrices.peek().getPositionMatrix();
-            VertexConsumer quads = context.consumers().getBuffer(RenderLayer.getDebugQuads());
+            Matrix4f matrix = matrices.last().pose();
+            VertexConsumer quads = context.consumers().getBuffer(RenderType.debugQuads());
             for (Waypoint waypoint : waypoints) {
-                Vec3d base = new Vec3d(waypoint.x + 0.5, waypoint.y, waypoint.z + 0.5);
+                Vec3 base = new Vec3(waypoint.x + 0.5, waypoint.y, waypoint.z + 0.5);
                 double distance = base.distanceTo(camera);
                 if (distance > 600.0) continue;
                 double width = 0.25 + distance * 0.004;
-                Vec3d top = base.add(0.0, 220.0, 0.0);
+                Vec3 top = base.add(0.0, 220.0, 0.0);
                 FlintFixWorldDraw.line(quads, matrix, camera, base, base.add(0.0, 6.0, 0.0), width, waypoint.color, 0.55f);
                 FlintFixWorldDraw.line(quads, matrix, camera, base.add(0.0, 6.0, 0.0), top, width * 0.6, waypoint.color, 0.22f);
             }
-            matrices.pop();
+            matrices.popPose();
         }
 
-        TextRenderer text = client.textRenderer;
+        Font text = client.font;
         for (Waypoint waypoint : waypoints) {
-            Vec3d target = new Vec3d(waypoint.x + 0.5, waypoint.y + 1.6, waypoint.z + 0.5);
-            Vec3d toTarget = target.subtract(camera);
+            Vec3 target = new Vec3(waypoint.x + 0.5, waypoint.y + 1.6, waypoint.z + 0.5);
+            Vec3 toTarget = target.subtract(camera);
             double distance = toTarget.length();
             if (distance < 0.5) continue;
             // Labels far away are drawn closer along the same line so they never fall
             // outside the view distance, but keep the same size on screen.
             double shown = Math.min(distance, 48.0);
-            Vec3d at = camera.add(toTarget.multiply(shown / distance));
+            Vec3 at = camera.add(toTarget.scale(shown / distance));
             float scale = 0.025f * (float) Math.max(1.0, shown / 7.0);
             String label = waypoint.name + (config.waypointsDistance ? "  " + Math.round(distance) + "m" : "");
 
-            matrices.push();
+            matrices.pushPose();
             matrices.translate(at.x - camera.x, at.y - camera.y, at.z - camera.z);
-            matrices.multiply(context.camera().getRotation());
+            matrices.mulPose(context.camera().rotation());
             matrices.scale(scale, -scale, scale);
-            float x = -text.getWidth(label) / 2.0f;
+            float x = -text.width(label) / 2.0f;
             int background = 0x66000000;
-            text.draw(label, x, 0.0f, 0xFFFFFFFF, false, matrices.peek().getPositionMatrix(), context.consumers(),
-                TextRenderer.TextLayerType.SEE_THROUGH, background, LightmapTextureManager.MAX_LIGHT_COORDINATE);
-            text.draw("◆", -text.getWidth("◆") / 2.0f, -10.0f, waypoint.color, false, matrices.peek().getPositionMatrix(),
-                context.consumers(), TextRenderer.TextLayerType.SEE_THROUGH, 0, LightmapTextureManager.MAX_LIGHT_COORDINATE);
-            matrices.pop();
+            text.drawInBatch(label, x, 0.0f, 0xFFFFFFFF, false, matrices.last().pose(), context.consumers(),
+                Font.DisplayMode.SEE_THROUGH, background, LightTexture.FULL_BRIGHT);
+            text.drawInBatch("◆", -text.width("◆") / 2.0f, -10.0f, waypoint.color, false, matrices.last().pose(),
+                context.consumers(), Font.DisplayMode.SEE_THROUGH, 0, LightTexture.FULL_BRIGHT);
+            matrices.popPose();
         }
     }
 }

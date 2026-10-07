@@ -6,11 +6,10 @@ import com.flintfix.client.FlintFixOptionsScreen.Info;
 import com.flintfix.client.FlintFixOptionsScreen.Option;
 import com.flintfix.client.FlintFixOptionsScreen.Slider;
 import com.flintfix.client.FlintFixOptionsScreen.Toggle;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
-
 import java.util.List;
 import java.util.Locale;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 
 /** Settings pages for the modules that use {@link FlintFixOptionsScreen}. */
 final class FlintFixModuleOptions {
@@ -185,7 +184,7 @@ final class FlintFixModuleOptions {
                 "Save places and find your way back. Saved per world and per dimension.", List.of(
                     new Toggle("Enable waypoints", () -> c().waypointsEnabled, v -> c().waypointsEnabled = v),
                     new FlintFixOptionsScreen.Action("Your waypoints", "MANAGE",
-                        () -> MinecraftClient.getInstance().setScreen(new FlintFixWaypointScreen(MinecraftClient.getInstance().currentScreen))),
+                        () -> Minecraft.getInstance().setScreen(new FlintFixWaypointScreen(Minecraft.getInstance().screen))),
                     new Toggle("Light beams", () -> c().waypointsBeams, v -> c().waypointsBeams = v),
                     new Toggle("Show distance", () -> c().waypointsDistance, v -> c().waypointsDistance = v),
                     new Toggle("Show on compass bar", () -> c().waypointsCompass, v -> c().waypointsCompass = v),
@@ -202,8 +201,8 @@ final class FlintFixModuleOptions {
         };
     }
 
-    private static String keyName(net.minecraft.client.option.KeyBinding binding) {
-        return binding == null ? "B" : binding.getBoundKeyLocalizedText().getString();
+    private static String keyName(net.minecraft.client.KeyMapping binding) {
+        return binding == null ? "B" : binding.getTranslatedKeyMessage().getString();
     }
 
     /** One row per linked server, plus the server you are on now. */
@@ -216,7 +215,7 @@ final class FlintFixModuleOptions {
         java.util.List<Option> options = new java.util.ArrayList<>();
         options.add(new Toggle("Switch profiles per server", FlintFixProfileStore::serverSwitchingEnabled,
             FlintFixProfileStore::setServerSwitching));
-        String current = FlintFixProfileStore.currentServerAddress(MinecraftClient.getInstance());
+        String current = FlintFixProfileStore.currentServerAddress(Minecraft.getInstance());
         java.util.Set<String> servers = new java.util.LinkedHashSet<>();
         if (current != null) servers.add(current);
         servers.addAll(FlintFixProfileStore.serverProfiles().keySet());

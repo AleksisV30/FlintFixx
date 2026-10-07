@@ -1,11 +1,11 @@
 package com.flintfix.client;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.math.RotationAxis;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
@@ -40,24 +40,24 @@ public final class FlintFixInspect {
 
     private FlintFixInspect() {}
 
-    public static void start(MinecraftClient client) {
+    public static void start(Minecraft client) {
         if (!FlintFixClient.CONFIG.itemInspectEnabled || client.player == null) return;
-        ItemStack stack = client.player.getMainHandStack();
+        ItemStack stack = client.player.getMainHandItem();
         if (stack.isEmpty()) return;
         // Pressing again mid-animation restarts it smoothly from the beginning.
         active = true;
         startedAt = System.nanoTime();
-        slot = client.player.getInventory().selectedSlot;
+        slot = client.player.getInventory().selected;
         item = stack.getItem();
     }
 
     /** Ends the animation early when the player switches items or starts using them. */
-    public static void tick(MinecraftClient client) {
+    public static void tick(Minecraft client) {
         if (!active) return;
         if (client.player == null || !FlintFixClient.CONFIG.itemInspectEnabled
-            || client.player.getInventory().selectedSlot != slot
-            || client.player.getMainHandStack().getItem() != item
-            || client.options.attackKey.isPressed() || client.options.useKey.isPressed()
+            || client.player.getInventory().selected != slot
+            || client.player.getMainHandItem().getItem() != item
+            || client.options.keyAttack.isDown() || client.options.keyUse.isDown()
             || progress() >= 1.0f) {
             active = false;
         }
@@ -75,16 +75,16 @@ public final class FlintFixInspect {
      * Moves the whole hand (arm and item together) around the wrist.
      * side is 1 for a right-handed player and -1 for a left-handed one.
      */
-    public static void applyHand(MatrixStack matrices, int side) {
+    public static void applyHand(PoseStack matrices, int side) {
         float[] pose = sample(clamp01(progress()));
         matrices.translate(pose[0] * side, pose[1], pose[2]);
         float pivotX = 0.58f * side;
         float pivotY = -0.58f;
         float pivotZ = -0.78f;
         matrices.translate(pivotX, pivotY, pivotZ);
-        matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(pose[4] * side));
-        matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(pose[5] * side));
-        matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(pose[3]));
+        matrices.mulPose(Axis.YP.rotationDegrees(pose[4] * side));
+        matrices.mulPose(Axis.ZP.rotationDegrees(pose[5] * side));
+        matrices.mulPose(Axis.XP.rotationDegrees(pose[3]));
         matrices.translate(-pivotX, -pivotY, -pivotZ);
     }
 
@@ -92,7 +92,7 @@ public final class FlintFixInspect {
      * Flips only the item around its own handle, so it turns over inside the
      * fist: once to show the back, and once more on the way down.
      */
-    public static void applyItem(MatrixStack matrices, AbstractClientPlayerEntity player, ItemStack stack, boolean right) {
+    public static void applyItem(PoseStack matrices, AbstractClientPlayer player, ItemStack stack, boolean right) {
         float t = clamp01(progress());
         float angle = 180.0f * easeInOutCubic((t - 0.44f) / 0.16f)
             + 180.0f * easeInOutCubic((t - 0.84f) / 0.14f);
@@ -101,7 +101,7 @@ public final class FlintFixInspect {
         Vector3f grip = axis[0];
         Vector3f dir = axis[1];
         matrices.translate(grip.x, grip.y, grip.z);
-        matrices.multiply(new Quaternionf().rotationAxis((float) Math.toRadians(angle * (right ? 1 : -1)), dir.x, dir.y, dir.z));
+        matrices.mulPose(new Quaternionf().rotationAxis((float) Math.toRadians(angle * (right ? 1 : -1)), dir.x, dir.y, dir.z));
         matrices.translate(-grip.x, -grip.y, -grip.z);
     }
 

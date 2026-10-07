@@ -2,23 +2,23 @@ package com.flintfix.client;
 
 import com.flintfix.client.mixin.HandledScreenAccessor;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
-import net.minecraft.block.ShulkerBoxBlock;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.core.NonNullList;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
 //? if >=1.20.5 {
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.ContainerComponent;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.item.component.ItemContainerContents;
 //?} else {
-/*import net.minecraft.inventory.Inventories;
-import net.minecraft.nbt.NbtCompound;
+/*import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.ContainerHelper;
 *///?}
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.text.Text;
-import net.minecraft.util.collection.DefaultedList;
+import net.minecraft.world.level.block.ShulkerBoxBlock;
 
 /** Renders a small, real 27-slot inventory beside a hovered shulker box. */
 public final class FlintFixShulkerPreview {
@@ -33,16 +33,16 @@ public final class FlintFixShulkerPreview {
     public static void register() {
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) ->
             ScreenEvents.afterRender(screen).register((renderedScreen, context, mouseX, mouseY, delta) -> {
-                if (!FlintFixClient.CONFIG.shulkerPreviewEnabled || !(renderedScreen instanceof HandledScreen<?> handled)) return;
+                if (!FlintFixClient.CONFIG.shulkerPreviewEnabled || !(renderedScreen instanceof AbstractContainerScreen<?> handled)) return;
                 Slot slot = ((HandledScreenAccessor) handled).flintfix$getSlotAt(mouseX, mouseY);
-                if (slot != null) render(context, renderedScreen, mouseX, mouseY, slot.getStack());
+                if (slot != null) render(context, renderedScreen, mouseX, mouseY, slot.getItem());
             })
         );
     }
 
-    private static void render(DrawContext context, Screen screen, int mouseX, int mouseY, ItemStack shulker) {
+    private static void render(GuiGraphics context, Screen screen, int mouseX, int mouseY, ItemStack shulker) {
         if (!(shulker.getItem() instanceof BlockItem blockItem) || !(blockItem.getBlock() instanceof ShulkerBoxBlock)) return;
-        DefaultedList<ItemStack> stacks = DefaultedList.ofSize(COLUMNS * ROWS, ItemStack.EMPTY);
+        NonNullList<ItemStack> stacks = NonNullList.withSize(COLUMNS * ROWS, ItemStack.EMPTY);
         if (!readContents(shulker, stacks)) return;
 
         int panelX = mouseX + 14;
@@ -52,15 +52,15 @@ public final class FlintFixShulkerPreview {
         if (panelY + PANEL_HEIGHT > screen.height - 4) panelY = mouseY - PANEL_HEIGHT - 12;
         panelY = Math.max(4, Math.min(panelY, screen.height - PANEL_HEIGHT - 4));
 
-        MinecraftClient client = MinecraftClient.getInstance();
-        var matrices = context.getMatrices();
-        matrices.push();
+        Minecraft client = Minecraft.getInstance();
+        var matrices = context.pose();
+        matrices.pushPose();
         matrices.translate(0.0, 0.0, 500.0);
         try {
             FlintFixUi.rounded(context, panelX + 2, panelY + 3, PANEL_WIDTH, PANEL_HEIGHT, 5, 0x88000000);
             FlintFixUi.rounded(context, panelX, panelY, PANEL_WIDTH, PANEL_HEIGHT, 5, 0xFF515A65);
             FlintFixUi.rounded(context, panelX + 1, panelY + 1, PANEL_WIDTH - 2, PANEL_HEIGHT - 2, 4, 0xF2161B22);
-            context.drawText(client.textRenderer, Text.literal("SHULKER CONTENTS"), panelX + 7, panelY + 6, 0xFFF1F2F4, false);
+            context.drawString(client.font, Component.literal("SHULKER CONTENTS"), panelX + 7, panelY + 6, 0xFFF1F2F4, false);
             context.fill(panelX + 7, panelY + 18, panelX + PANEL_WIDTH - 7, panelY + 19, 0xFF343B44);
 
             int nonEmpty = 0;
@@ -74,34 +74,30 @@ public final class FlintFixShulkerPreview {
                 context.fill(x, y, x + CELL - 1, y + CELL - 1, 0xFF303740);
                 ItemStack stack = stacks.get(index);
                 if (!stack.isEmpty()) {
-                    context.drawItem(stack, x + 1, y + 1);
-                    //? if >=1.21.2 {
-                    /*context.drawStackOverlay(client.textRenderer, stack, x + 1, y + 1);
-                    *///?} else {
-                    context.drawItemInSlot(client.textRenderer, stack, x + 1, y + 1);
-                    //?}
+                    context.renderItem(stack, x + 1, y + 1);
+                    context.renderItemDecorations(client.font, stack, x + 1, y + 1);
                 }
             }
 
             String count = nonEmpty + "/27 slots";
-            context.drawText(client.textRenderer, Text.literal(count), panelX + PANEL_WIDTH - 7 - client.textRenderer.getWidth(count),
+            context.drawString(client.font, Component.literal(count), panelX + PANEL_WIDTH - 7 - client.font.width(count),
                 panelY + PANEL_HEIGHT - 9, 0xFF9BA4B0, false);
         } finally {
-            matrices.pop();
+            matrices.popPose();
         }
     }
 
     /** Copies a shulker box item's stored items into stacks; false when the item carries no contents. */
-    private static boolean readContents(ItemStack shulker, DefaultedList<ItemStack> stacks) {
+    private static boolean readContents(ItemStack shulker, NonNullList<ItemStack> stacks) {
         //? if >=1.20.5 {
-        ContainerComponent contents = shulker.get(DataComponentTypes.CONTAINER);
+        ItemContainerContents contents = shulker.get(DataComponents.CONTAINER);
         if (contents == null) return false;
-        contents.copyTo(stacks);
+        contents.copyInto(stacks);
         return true;
         //?} else {
-        /*NbtCompound tag = BlockItem.getBlockEntityNbt(shulker);
+        /*CompoundTag tag = BlockItem.getBlockEntityData(shulker);
         if (tag == null || !tag.contains("Items", 9)) return false;
-        Inventories.readNbt(tag, stacks);
+        ContainerHelper.loadAllItems(tag, stacks);
         return true;
         *///?}
     }

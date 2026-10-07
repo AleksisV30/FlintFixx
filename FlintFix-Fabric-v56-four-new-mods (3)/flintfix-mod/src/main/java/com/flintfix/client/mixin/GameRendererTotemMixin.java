@@ -2,9 +2,9 @@ package com.flintfix.client.mixin;
 
 import com.flintfix.client.FlintFixClient;
 import com.llamalad7.mixinextras.sugar.Local;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.GameRenderer;
-import net.minecraft.client.util.math.MatrixStack;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.GameRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -17,32 +17,32 @@ public abstract class GameRendererTotemMixin {
     //? if >=1.21 {
     @Unique private boolean flintfix$totemScaled;
 
-    @Inject(method = "renderFloatingItem", at = @At("HEAD"), require = 0)
-    private void flintfix$shrinkTotem(CallbackInfo ci, @Local(argsOnly = true) DrawContext context) {
+    @Inject(method = "renderItemActivationAnimation", at = @At("HEAD"), require = 0)
+    private void flintfix$shrinkTotem(CallbackInfo ci, @Local(argsOnly = true) GuiGraphics context) {
         flintfix$totemScaled = false;
         if (FlintFixClient.CONFIG == null || !FlintFixClient.CONFIG.lowOverlaysEnabled || !FlintFixClient.CONFIG.lowTotem) return;
         float scale = FlintFixClient.CONFIG.totemSize;
-        float cx = context.getScaledWindowWidth() / 2.0f;
-        float cy = context.getScaledWindowHeight() / 2.0f;
-        context.getMatrices().push();
-        context.getMatrices().translate(cx, cy, 0.0f);
-        context.getMatrices().scale(scale, scale, 1.0f);
-        context.getMatrices().translate(-cx, -cy, 0.0f);
+        float cx = context.guiWidth() / 2.0f;
+        float cy = context.guiHeight() / 2.0f;
+        context.pose().pushPose();
+        context.pose().translate(cx, cy, 0.0f);
+        context.pose().scale(scale, scale, 1.0f);
+        context.pose().translate(-cx, -cy, 0.0f);
         flintfix$totemScaled = true;
     }
 
-    @Inject(method = "renderFloatingItem", at = @At("RETURN"), require = 0)
-    private void flintfix$restoreTotem(CallbackInfo ci, @Local(argsOnly = true) DrawContext context) {
+    @Inject(method = "renderItemActivationAnimation", at = @At("RETURN"), require = 0)
+    private void flintfix$restoreTotem(CallbackInfo ci, @Local(argsOnly = true) GuiGraphics context) {
         if (!flintfix$totemScaled) return;
-        context.getMatrices().pop();
+        context.pose().popPose();
         flintfix$totemScaled = false;
     }
     //?} else {
     /*/^* Before 1.21 the item is drawn on a fresh MatrixStack; vanilla pops it at the end, which also undoes this. ^/
-    @Inject(method = "renderFloatingItem", require = 0, at = @At(value = "INVOKE",
-        target = "Lnet/minecraft/client/util/math/MatrixStack;push()V", shift = At.Shift.AFTER, ordinal = 0))
+    @Inject(method = "renderItemActivationAnimation", require = 0, at = @At(value = "INVOKE",
+        target = "Lcom/mojang/blaze3d/vertex/PoseStack;pushPose()V", shift = At.Shift.AFTER, ordinal = 0))
     private void flintfix$shrinkTotem(int scaledWidth, int scaledHeight, float tickDelta, CallbackInfo ci,
-                                      @Local MatrixStack matrices) {
+                                      @Local PoseStack matrices) {
         if (FlintFixClient.CONFIG == null || !FlintFixClient.CONFIG.lowOverlaysEnabled || !FlintFixClient.CONFIG.lowTotem) return;
         float scale = FlintFixClient.CONFIG.totemSize;
         float cx = scaledWidth / 2.0f;

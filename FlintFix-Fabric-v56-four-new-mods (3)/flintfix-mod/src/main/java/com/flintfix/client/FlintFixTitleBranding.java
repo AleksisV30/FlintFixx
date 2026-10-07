@@ -1,8 +1,8 @@
 package com.flintfix.client;
 
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 /** FlintFix logo block for the title screen: glowing flint, wordmark and tagline. */
 public final class FlintFixTitleBranding {
@@ -10,18 +10,18 @@ public final class FlintFixTitleBranding {
 
     private FlintFixTitleBranding() {}
 
-    public static void render(DrawContext context, int x, int y, int width, int height) {
+    public static void render(GuiGraphics context, int x, int y, int width, int height) {
         int centerX = x + width / 2;
         float t = (System.currentTimeMillis() % 3_600_000L) / 1000.0f;
         float pulse = 0.5f + 0.5f * (float) Math.sin(t * 1.4f);
 
         // Flint icon with a breathing glow behind it.
         FlintFixTitleBackground.glow(context, centerX, y + 18, 84 + pulse * 10, 0x8A6BFF, 0.42f + pulse * 0.12f);
-        context.getMatrices().push();
-        context.getMatrices().translate(centerX - 16, y + 2 + (float) Math.sin(t * 1.1f) * 1.5f, 0);
-        context.getMatrices().scale(2.0f, 2.0f, 1.0f);
-        context.drawItem(FLINT, 0, 0);
-        context.getMatrices().pop();
+        context.pose().pushPose();
+        context.pose().translate(centerX - 16, y + 2 + (float) Math.sin(t * 1.1f) * 1.5f, 0);
+        context.pose().scale(2.0f, 2.0f, 1.0f);
+        context.renderItem(FLINT, 0, 0);
+        context.pose().popPose();
 
         String title = "FlintFix";
         int titleSize = 24;

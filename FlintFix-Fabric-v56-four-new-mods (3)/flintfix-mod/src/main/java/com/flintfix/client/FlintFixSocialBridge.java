@@ -4,16 +4,15 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.network.ServerInfo;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.multiplayer.ServerData;
 
 /**
  * Tiny file bridge between the Electron launcher and the Fabric client.
@@ -27,35 +26,35 @@ public final class FlintFixSocialBridge {
 
     private FlintFixSocialBridge() {}
 
-    public static void tick(MinecraftClient client) {
+    public static void tick(Minecraft client) {
         ticks++;
         if (ticks % 40 == 0) writePresence(client);
         if (ticks % 10 == 0) readNotifications(client);
         pruneToasts();
     }
 
-    private static Path statePath(MinecraftClient client) {
-        return client.runDirectory.toPath().resolve("flintfix-social-state.json");
+    private static Path statePath(Minecraft client) {
+        return client.gameDirectory.toPath().resolve("flintfix-social-state.json");
     }
 
-    private static Path notificationsPath(MinecraftClient client) {
-        return client.runDirectory.toPath().resolve("flintfix-social-notifications.json");
+    private static Path notificationsPath(Minecraft client) {
+        return client.gameDirectory.toPath().resolve("flintfix-social-notifications.json");
     }
 
-    private static void writePresence(MinecraftClient client) {
+    private static void writePresence(Minecraft client) {
         JsonObject root = new JsonObject();
-        boolean inGame = client.player != null && client.world != null;
+        boolean inGame = client.player != null && client.level != null;
         root.addProperty("state", inGame ? "in_game" : "launcher");
         root.addProperty("updatedAt", System.currentTimeMillis());
 
         if (inGame) {
             String serverName = null;
-            if (client.isInSingleplayer()) {
+            if (client.isLocalServer()) {
                 serverName = "Singleplayer";
             } else {
-                ServerInfo server = client.getCurrentServerEntry();
-                if (server != null && server.address != null && !server.address.isBlank()) {
-                    serverName = server.address;
+                ServerData server = client.getCurrentServer();
+                if (server != null && server.ip != null && !server.ip.isBlank()) {
+                    serverName = server.ip;
                 }
             }
             if (serverName != null) root.addProperty("server", serverName);
@@ -68,7 +67,7 @@ public final class FlintFixSocialBridge {
         }
     }
 
-    private static void readNotifications(MinecraftClient client) {
+    private static void readNotifications(Minecraft client) {
         Path path = notificationsPath(client);
         if (!Files.exists(path)) return;
         try {
@@ -106,9 +105,9 @@ public final class FlintFixSocialBridge {
         while (!TOASTS.isEmpty() && TOASTS.peekFirst().expiresAt < now) TOASTS.removeFirst();
     }
 
-    public static void render(DrawContext context, MinecraftClient client) {
+    public static void render(GuiGraphics context, Minecraft client) {
         if (TOASTS.isEmpty()) return;
-        int width = client.getWindow().getScaledWidth();
+        int width = client.getWindow().getGuiScaledWidth();
         int y = 14;
         for (SocialToast toast : TOASTS) {
             int panelW = 220;

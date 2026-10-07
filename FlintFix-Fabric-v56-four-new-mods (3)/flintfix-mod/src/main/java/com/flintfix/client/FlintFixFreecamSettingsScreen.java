@@ -1,10 +1,10 @@
 package com.flintfix.client;
 
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.text.Text;
+import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
 /** FlintFix card options for changing Freecam's on/off toggle key. */
@@ -21,7 +21,7 @@ public final class FlintFixFreecamSettingsScreen extends FlintFixScreen {
     private final long openedAt = System.currentTimeMillis();
 
     public FlintFixFreecamSettingsScreen(Screen parent) {
-        super(Text.literal("Freecam Settings"));
+        super(Component.literal("Freecam Settings"));
         this.parent = parent;
     }
 
@@ -44,7 +44,7 @@ public final class FlintFixFreecamSettingsScreen extends FlintFixScreen {
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+    public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
         layout();
         float intro = FlintFixUi.openProgress(openedAt);
         blurBehind(delta);
@@ -81,17 +81,17 @@ public final class FlintFixFreecamSettingsScreen extends FlintFixScreen {
     }
 
     private String keyLabel() {
-        KeyBinding binding = FlintFixClient.getFreecamKeyBinding();
+        KeyMapping binding = FlintFixClient.getFreecamKeyBinding();
         if (binding == null || binding.isUnbound()) return "UNBOUND";
-        return FlintFixFont.trim(binding.getBoundKeyLocalizedText().getString(), keyW - 8, 5, true);
+        return FlintFixFont.trim(binding.getTranslatedKeyMessage().getString(), keyW - 8, 5, true);
     }
 
-    private void bind(InputUtil.Key key) {
-        KeyBinding binding = FlintFixClient.getFreecamKeyBinding();
+    private void bind(InputConstants.Key key) {
+        KeyMapping binding = FlintFixClient.getFreecamKeyBinding();
         if (binding == null) return;
-        binding.setBoundKey(key);
-        KeyBinding.updateKeysByCode();
-        client.options.write();
+        binding.setKey(key);
+        KeyMapping.resetMapping();
+        minecraft.options.save();
     }
 
     private void updateSpeed(double mouseX) {
@@ -116,7 +116,7 @@ public final class FlintFixFreecamSettingsScreen extends FlintFixScreen {
             return true;
         }
         if (FlintFixUi.inside(mouseX, mouseY, resetX, resetY, 30, 14)) {
-            KeyBinding binding = FlintFixClient.getFreecamKeyBinding();
+            KeyMapping binding = FlintFixClient.getFreecamKeyBinding();
             if (binding != null) bind(binding.getDefaultKey());
             listening = false;
             return true;
@@ -128,7 +128,7 @@ public final class FlintFixFreecamSettingsScreen extends FlintFixScreen {
         }
         if (FlintFixUi.inside(mouseX, mouseY, backX, backY, backW, 14)) {
             saveSpeed();
-            close();
+            onClose();
             return true;
         }
         return true;
@@ -161,17 +161,17 @@ public final class FlintFixFreecamSettingsScreen extends FlintFixScreen {
             return true;
         }
         if (keyCode == GLFW.GLFW_KEY_BACKSPACE || keyCode == GLFW.GLFW_KEY_DELETE) {
-            bind(InputUtil.UNKNOWN_KEY);
+            bind(InputConstants.UNKNOWN);
         } else {
-            bind(InputUtil.fromKeyCode(keyCode, scanCode));
+            bind(InputConstants.getKey(keyCode, scanCode));
         }
         listening = false;
         return true;
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         saveSpeed();
-        if (client != null) client.setScreen(parent);
+        if (minecraft != null) minecraft.setScreen(parent);
     }
 }

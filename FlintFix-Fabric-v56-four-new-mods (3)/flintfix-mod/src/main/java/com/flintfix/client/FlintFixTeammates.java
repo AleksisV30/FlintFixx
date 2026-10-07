@@ -3,16 +3,15 @@ package com.flintfix.client;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
 
 /**
  * Team Glow: outlines your FlintFix friends (the launcher writes their
@@ -25,9 +24,9 @@ public final class FlintFixTeammates {
 
     private FlintFixTeammates() {}
 
-    public static void tick(MinecraftClient client) {
+    public static void tick(Minecraft client) {
         if (++ticks % 100 != 0) return;
-        Path path = client.runDirectory.toPath().resolve("flintfix-social-friends.json");
+        Path path = client.gameDirectory.toPath().resolve("flintfix-social-friends.json");
         try {
             if (!Files.exists(path)) {
                 FRIENDS.clear();
@@ -55,10 +54,10 @@ public final class FlintFixTeammates {
     public static boolean shouldGlow(Entity entity) {
         FlintFixConfig config = FlintFixClient.CONFIG;
         if (config == null || !config.teammateGlowEnabled) return false;
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (!(entity instanceof PlayerEntity player) || client.player == null || player == client.player) return false;
-        if (config.teammateGlowFriends && FRIENDS.contains(player.getUuid())) return true;
-        return config.teammateGlowTeam && client.player.getScoreboardTeam() != null && player.isTeammate(client.player);
+        Minecraft client = Minecraft.getInstance();
+        if (!(entity instanceof Player player) || client.player == null || player == client.player) return false;
+        if (config.teammateGlowFriends && FRIENDS.contains(player.getUUID())) return true;
+        return config.teammateGlowTeam && client.player.getTeam() != null && player.isAlliedTo(client.player);
     }
 
     public static int glowColor() {

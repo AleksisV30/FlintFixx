@@ -1,11 +1,10 @@
 package com.flintfix.client;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.option.AttackIndicator;
-
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.client.AttackIndicatorStatus;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
 
 /**
  * Custom crosshair: cross, dot, circle, cross with dot, or X, with adjustable
@@ -24,16 +23,16 @@ public final class FlintFixCrosshair {
     }
 
     /** Draws the crosshair. Returns true when vanilla's crosshair should be skipped. */
-    public static boolean render(DrawContext context) {
-        MinecraftClient client = MinecraftClient.getInstance();
+    public static boolean render(GuiGraphics context) {
+        Minecraft client = Minecraft.getInstance();
         FlintFixConfig config = FlintFixClient.CONFIG;
         if (config == null || !config.crosshairEnabled || client.player == null) return false;
         // Leave the debug-screen axes and spectator handling to vanilla.
         if (FlintFixCompat.debugHudVisible(client) || client.player.isSpectator()) return false;
-        if (!client.options.getPerspective().isFirstPerson()) return true;
+        if (!client.options.getCameraType().isFirstPerson()) return true;
 
-        int cx = context.getScaledWindowWidth() / 2;
-        int cy = context.getScaledWindowHeight() / 2;
+        int cx = context.guiWidth() / 2;
+        int cy = context.guiHeight() / 2;
         draw(context, cx, cy, config);
 
         long sinceHit = System.currentTimeMillis() - lastHitAt;
@@ -49,8 +48,8 @@ public final class FlintFixCrosshair {
             }
         }
 
-        if (client.options.getAttackIndicator().getValue() == AttackIndicator.CROSSHAIR) {
-            float progress = client.player.getAttackCooldownProgress(0.0f);
+        if (client.options.attackIndicator().get() == AttackIndicatorStatus.CROSSHAIR) {
+            float progress = client.player.getAttackStrengthScale(0.0f);
             if (progress < 1.0f) {
                 int barW = 16;
                 int barY = cy + Math.round(config.crosshairGap + config.crosshairSize) + 5;
@@ -63,7 +62,7 @@ public final class FlintFixCrosshair {
     }
 
     /** Draws the configured shape centered on (cx, cy); also used for settings previews. */
-    public static void draw(DrawContext context, int cx, int cy, FlintFixConfig config) {
+    public static void draw(GuiGraphics context, int cx, int cy, FlintFixConfig config) {
         int size = Math.round(config.crosshairSize);
         int gap = Math.round(config.crosshairGap);
         int t = Math.max(1, Math.round(config.crosshairThickness));

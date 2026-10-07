@@ -1,8 +1,8 @@
 package com.flintfix.client;
 
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
 /** Small palette picker opened from the FlintFix sidebar. */
@@ -12,7 +12,7 @@ public final class FlintFixThemeScreen extends FlintFixScreen {
     private int x, y, w, h, listTop;
 
     public FlintFixThemeScreen(Screen parent) {
-        super(Text.literal("FlintFix Themes"));
+        super(Component.literal("FlintFix Themes"));
         this.parent = parent;
     }
 
@@ -27,7 +27,7 @@ public final class FlintFixThemeScreen extends FlintFixScreen {
     @Override protected void init() { layout(); }
 
     @Override
-    public void render(DrawContext c, int mouseX, int mouseY, float delta) {
+    public void render(GuiGraphics c, int mouseX, int mouseY, float delta) {
         layout();
         float intro = FlintFixUi.openProgress(openedAt);
         blurBehind(delta);
@@ -69,7 +69,7 @@ public final class FlintFixThemeScreen extends FlintFixScreen {
     }
 
     /** A tiny window drawn in the theme's own colors. */
-    private static void renderSwatch(DrawContext c, FlintFixTheme theme, int sx, int sy) {
+    private static void renderSwatch(GuiGraphics c, FlintFixTheme theme, int sx, int sy) {
         int sw = 38;
         int sh = 15;
         FlintFixUi.roundedRaw(c, sx, sy, sw, sh, 2, theme.border());
@@ -115,8 +115,8 @@ public final class FlintFixThemeScreen extends FlintFixScreen {
     }
 
     private void closeToParent() {
-        if (client != null) client.setScreen(parent);
+        if (minecraft != null) minecraft.setScreen(parent);
     }
 
-    @Override public boolean shouldPause() { return false; }
+    @Override public boolean isPauseScreen() { return false; }
 }

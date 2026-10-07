@@ -1,16 +1,16 @@
 package com.flintfix.client;
 
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 /** Live-rendered FlintFix module dashboard. */
 public final class FlintFixSettingsScreen extends FlintFixScreen {
@@ -82,7 +82,7 @@ public final class FlintFixSettingsScreen extends FlintFixScreen {
     private final boolean[] rippleEnabled = new boolean[MODULE_COUNT];
 
     public FlintFixSettingsScreen(Screen parent) {
-        super(Text.literal("FlintFix Client"));
+        super(Component.literal("FlintFix Client"));
         this.parent = parent;
     }
 
@@ -128,7 +128,7 @@ public final class FlintFixSettingsScreen extends FlintFixScreen {
     }
 
     @Override
-    public void render(DrawContext c, int mouseX, int mouseY, float delta) {
+    public void render(GuiGraphics c, int mouseX, int mouseY, float delta) {
         layout();
         float visibility = visibility();
         blurBehind(delta);
@@ -137,10 +137,10 @@ public final class FlintFixSettingsScreen extends FlintFixScreen {
         float scale = 0.965f + 0.035f * visibility;
         float centerX = x + w / 2.0f;
         float centerY = y + h / 2.0f;
-        c.getMatrices().push();
-        c.getMatrices().translate(centerX, centerY + (1.0f - visibility) * 5.0f, 0);
-        c.getMatrices().scale(scale, scale, 1.0f);
-        c.getMatrices().translate(-centerX, -centerY, 0);
+        c.pose().pushPose();
+        c.pose().translate(centerX, centerY + (1.0f - visibility) * 5.0f, 0);
+        c.pose().scale(scale, scale, 1.0f);
+        c.pose().translate(-centerX, -centerY, 0);
 
         FlintFixUi.panelFrame(c, x, y, w, h);
         FlintFixUi.roundedRaw(c, x + 1, y + 1, sidebarW - 1, h - 2, 2, FlintFixUi.panel());
@@ -168,7 +168,7 @@ public final class FlintFixSettingsScreen extends FlintFixScreen {
 
         // Fade the whole window in and out with the open/close transition.
         c.fill(x - 1, y - 1, x + w + 1, y + h + 1, FlintFixUi.opacity(FlintFixUi.bg(), 1.0f - visibility));
-        c.getMatrices().pop();
+        c.pose().popPose();
     }
 
     private float visibility() {
@@ -183,17 +183,17 @@ public final class FlintFixSettingsScreen extends FlintFixScreen {
         super.tick();
         if (closing && System.currentTimeMillis() - transitionStartedAt >= TRANSITION_MS) {
             closing = false;
-            if (client != null) client.setScreen(parent);
+            if (minecraft != null) minecraft.setScreen(parent);
         }
     }
 
-    private void renderSidebar(DrawContext c, int mouseX, int mouseY) {
+    private void renderSidebar(GuiGraphics c, int mouseX, int mouseY) {
         int innerX = x + 8;
         int innerW = sidebarW - 16;
 
         FlintFixUi.surface(c, innerX, y + 9, 22, 22, FlintFixUi.raised(),
             FlintFixUi.blendColors(FlintFixUi.border(), FlintFixUi.accent(), 0.35f));
-        c.drawItem(FLINT_PFP, innerX + 3, y + 12);
+        c.renderItem(FLINT_PFP, innerX + 3, y + 12);
         FlintFixFont.drawExact(c, "FlintFix", innerX + 28, y + 10, 8, FlintFixUi.text(), true);
         FlintFixFont.drawExact(c, "CLIENT", innerX + 28, y + 21, 6, FlintFixUi.muted(), false);
         FlintFixUi.hairline(c, innerX, y + 38, innerW);
@@ -226,7 +226,7 @@ public final class FlintFixSettingsScreen extends FlintFixScreen {
             FlintFixUi.inside(mouseX, mouseY, innerX, themesY, innerW, 16));
     }
 
-    private void renderHeader(DrawContext c, int mouseX, int mouseY) {
+    private void renderHeader(GuiGraphics c, int mouseX, int mouseY) {
         int active = 0;
         for (int i = 0; i < MODULE_COUNT; i++) if (isModuleEnabled(i)) active++;
         int titleW = Math.max(0, searchX - 6 - contentX);
@@ -240,7 +240,7 @@ public final class FlintFixSettingsScreen extends FlintFixScreen {
             FlintFixUi.inside(mouseX, mouseY, closeX, closeY, 15, 15));
     }
 
-    private void renderFooter(DrawContext c) {
+    private void renderFooter(GuiGraphics c) {
         int footerY = y + h - 15;
         String keyLabel = FlintFixClient.getSettingsKeyLabel().toUpperCase(Locale.ROOT);
         int keyW = FlintFixFont.width(keyLabel, 6, true) + 8;
@@ -257,7 +257,7 @@ public final class FlintFixSettingsScreen extends FlintFixScreen {
             FlintFixFont.centeredY(footerY - 2, 11, 6), keyX - 8 - contentX, 6, FlintFixUi.subtle(), false);
     }
 
-    private void renderModule(DrawContext c, int index, int cardX, int rowY, int mouseX, int mouseY) {
+    private void renderModule(GuiGraphics c, int index, int cardX, int rowY, int mouseX, int mouseY) {
         boolean enabled = isModuleEnabled(index);
         boolean hover = mouseY >= listTop && mouseY < listBottom
             && FlintFixUi.inside(mouseX, mouseY, cardX, rowY, cardW, ROW_H);
@@ -297,7 +297,7 @@ public final class FlintFixSettingsScreen extends FlintFixScreen {
     }
 
     /** Expanding ring anchored at the point of the most recent toggle click. */
-    private void renderRipple(DrawContext c, int index, int cardX, int rowY, long now) {
+    private void renderRipple(GuiGraphics c, int index, int cardX, int rowY, long now) {
         long started = rippleStartedAt[index];
         if (started == 0L) return;
         float t = Math.min(1.0f, (now - started) / (float) RIPPLE_MS);
@@ -402,8 +402,8 @@ public final class FlintFixSettingsScreen extends FlintFixScreen {
 
     private void toggleModule(int index) {
         if (index == 7) {
-            if (FlintFixFreecam.isActive()) FlintFixFreecam.disable(MinecraftClient.getInstance());
-            else FlintFixFreecam.requestEnable(MinecraftClient.getInstance(), this);
+            if (FlintFixFreecam.isActive()) FlintFixFreecam.disable(Minecraft.getInstance());
+            else FlintFixFreecam.requestEnable(Minecraft.getInstance(), this);
             return;
         }
         switch (index) {
@@ -441,28 +441,28 @@ public final class FlintFixSettingsScreen extends FlintFixScreen {
     }
 
     private void openModuleOptions(int moduleIndex) {
-        if (client == null) return;
+        if (minecraft == null) return;
         switch (moduleIndex) {
-            case 0 -> client.setScreen(new FlintFixFpsSettingsScreen(this));
-            case 1 -> client.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.CPS));
-            case 2 -> client.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.COORDINATES));
-            case 3 -> client.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.KEYSTROKES));
-            case 4 -> client.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.PING));
-            case 5 -> client.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.ARMOR));
-            case 6 -> client.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.CHUNKS));
-            case 7 -> client.setScreen(new FlintFixFreecamSettingsScreen(this));
-            case 8 -> client.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.TRAJECTORY));
-            case 9 -> client.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.HITBOXES));
-            case 10 -> client.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.ZOOM));
-            case 11 -> client.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.LOOK_AROUND));
-            case 12 -> client.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.SHULKERS));
-            case 13 -> client.setScreen(new FlintFixSkyScreen(this));
-            case 14 -> client.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.INSPECT));
-            case 15 -> client.setScreen(FlintFixModuleOptions.screenFor("showhand", this));
-            case 16 -> client.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.FULLBRIGHT));
+            case 0 -> minecraft.setScreen(new FlintFixFpsSettingsScreen(this));
+            case 1 -> minecraft.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.CPS));
+            case 2 -> minecraft.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.COORDINATES));
+            case 3 -> minecraft.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.KEYSTROKES));
+            case 4 -> minecraft.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.PING));
+            case 5 -> minecraft.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.ARMOR));
+            case 6 -> minecraft.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.CHUNKS));
+            case 7 -> minecraft.setScreen(new FlintFixFreecamSettingsScreen(this));
+            case 8 -> minecraft.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.TRAJECTORY));
+            case 9 -> minecraft.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.HITBOXES));
+            case 10 -> minecraft.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.ZOOM));
+            case 11 -> minecraft.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.LOOK_AROUND));
+            case 12 -> minecraft.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.SHULKERS));
+            case 13 -> minecraft.setScreen(new FlintFixSkyScreen(this));
+            case 14 -> minecraft.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.INSPECT));
+            case 15 -> minecraft.setScreen(FlintFixModuleOptions.screenFor("showhand", this));
+            case 16 -> minecraft.setScreen(new FlintFixModuleSettingsScreen(this, FlintFixModuleSettingsScreen.Module.FULLBRIGHT));
             default -> {
                 Screen options = FlintFixModuleOptions.screenFor(MODULES[moduleIndex][0], this);
-                if (options != null) client.setScreen(options);
+                if (options != null) minecraft.setScreen(options);
             }
         }
     }
@@ -491,7 +491,7 @@ public final class FlintFixSettingsScreen extends FlintFixScreen {
             }
             searchFocused = false;
             if (FlintFixUi.inside(mouseX, mouseY, closeX, closeY, 15, 15)) {
-                close();
+                onClose();
                 return true;
             }
             if (handleSidebarClick(mouseX, mouseY)) return true;
@@ -537,15 +537,15 @@ public final class FlintFixSettingsScreen extends FlintFixScreen {
             }
         }
         if (FlintFixUi.inside(mouseX, mouseY, innerX, manageY, innerW, 15)) {
-            if (client != null) client.setScreen(new FlintFixProfileScreen(this));
+            if (minecraft != null) minecraft.setScreen(new FlintFixProfileScreen(this));
             return true;
         }
         if (FlintFixUi.inside(mouseX, mouseY, innerX, layoutY, innerW, 16)) {
-            if (client != null) client.setScreen(new FlintFixHudEditorScreen(this));
+            if (minecraft != null) minecraft.setScreen(new FlintFixHudEditorScreen(this));
             return true;
         }
         if (FlintFixUi.inside(mouseX, mouseY, innerX, themesY, innerW, 16)) {
-            if (client != null) client.setScreen(new FlintFixThemeScreen(this));
+            if (minecraft != null) minecraft.setScreen(new FlintFixThemeScreen(this));
             return true;
         }
         return false;
@@ -599,7 +599,7 @@ public final class FlintFixSettingsScreen extends FlintFixScreen {
             }
         }
         if (!searchFocused && !profileSearchFocused && FlintFixClient.isSettingsKey(keyCode, scanCode)) {
-            close();
+            onClose();
             return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
@@ -610,12 +610,12 @@ public final class FlintFixSettingsScreen extends FlintFixScreen {
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         if (closing) return;
         closing = true;
         transitionStartedAt = System.currentTimeMillis();

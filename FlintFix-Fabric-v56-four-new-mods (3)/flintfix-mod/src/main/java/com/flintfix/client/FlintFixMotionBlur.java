@@ -1,10 +1,10 @@
 package com.flintfix.client;
 
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gl.SimpleFramebuffer;
+import net.minecraft.client.Minecraft;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL30;
@@ -19,68 +19,68 @@ import org.slf4j.LoggerFactory;
  */
 public final class FlintFixMotionBlur {
     private static final Logger LOGGER = LoggerFactory.getLogger("FlintFix");
-    private static Framebuffer history;
+    private static RenderTarget history;
     private static boolean primed;
     private static boolean failed;
 
     private FlintFixMotionBlur() {}
 
     public static void render() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         FlintFixConfig config = FlintFixClient.CONFIG;
-        if (config == null || !config.motionBlurEnabled || failed || client.world == null) {
+        if (config == null || !config.motionBlurEnabled || failed || client.level == null) {
             release();
             return;
         }
-        Framebuffer main = client.getFramebuffer();
-        int width = main.textureWidth;
-        int height = main.textureHeight;
+        RenderTarget main = client.getMainRenderTarget();
+        int width = main.width;
+        int height = main.height;
         try {
-            if (history == null || history.textureWidth != width || history.textureHeight != height) {
+            if (history == null || history.width != width || history.height != height) {
                 release();
                 //? if >=1.21.2 {
-                /*history = new SimpleFramebuffer(width, height, false);
+                /*history = new TextureTarget(width, height, false);
                 *///?} else {
-                history = new SimpleFramebuffer(width, height, false, MinecraftClient.IS_SYSTEM_MAC);
+                history = new TextureTarget(width, height, false, Minecraft.ON_OSX);
                 //?}
                 primed = false;
             }
             if (primed) {
                 // Draw the previous frame over this one at the chosen strength.
-                main.beginWrite(false);
+                main.bindWrite(false);
                 RenderSystem.enableBlend();
                 GL14.glBlendColor(0.0f, 0.0f, 0.0f, config.motionBlurStrength);
                 GlStateManager._blendFuncSeparate(GL14.GL_CONSTANT_ALPHA, GL14.GL_ONE_MINUS_CONSTANT_ALPHA,
                     GL11.GL_ZERO, GL11.GL_ONE);
                 // A textured quad that keeps the blend state set above (1.21.2+ draw() is a raw blit).
                 //? if >=1.21.2 {
-                /*history.drawInternal(width, height);
+                /*history.blitAndBlendToScreen(width, height);
                 *///?} else {
-                history.draw(width, height, false);
+                history.blitToScreen(width, height, false);
                 //?}
                 RenderSystem.defaultBlendFunc();
                 RenderSystem.disableBlend();
             }
             // Keep the blended result for the next frame.
-            GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, main.fbo);
-            GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, history.fbo);
+            GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, main.frameBufferId);
+            GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, history.frameBufferId);
             GlStateManager._glBlitFrameBuffer(0, 0, width, height, 0, 0, width, height,
                 GL11.GL_COLOR_BUFFER_BIT, GL11.GL_NEAREST);
             primed = true;
-            main.beginWrite(true);
+            main.bindWrite(true);
             RenderSystem.enableDepthTest();
             RenderSystem.depthMask(true);
         } catch (Exception | LinkageError error) {
             LOGGER.warn("FlintFix motion blur is unavailable and was turned off", error);
             failed = true;
             release();
-            main.beginWrite(true);
+            main.bindWrite(true);
         }
     }
 
     private static void release() {
         if (history != null) {
-            history.delete();
+            history.destroyBuffers();
             history = null;
         }
         primed = false;

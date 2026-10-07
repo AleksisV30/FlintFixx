@@ -3,7 +3,9 @@ package com.flintfix.client;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.fabricmc.loader.api.FabricLoader;
-
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.network.chat.Component;
 import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
@@ -15,9 +17,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ServerInfo;
-import net.minecraft.text.Text;
 
 /** Stores named copies of FlintFix settings and restores the active profile. */
 public final class FlintFixProfileStore {
@@ -143,13 +142,13 @@ public final class FlintFixProfileStore {
         write();
     }
 
-    public static String currentServerAddress(MinecraftClient client) {
-        if (client == null || client.isInSingleplayer()) return null;
-        ServerInfo server = client.getCurrentServerEntry();
-        return server == null || server.address == null ? null : normalizeAddress(server.address);
+    public static String currentServerAddress(Minecraft client) {
+        if (client == null || client.isLocalServer()) return null;
+        ServerData server = client.getCurrentServer();
+        return server == null || server.ip == null ? null : normalizeAddress(server.ip);
     }
 
-    static void onJoinServer(MinecraftClient client) {
+    static void onJoinServer(Minecraft client) {
         if (!serverSwitchingEnabled()) return;
         String address = currentServerAddress(client);
         String linked = profileForServer(address);
@@ -157,7 +156,7 @@ public final class FlintFixProfileStore {
         switchedFrom = store.selected;
         select(linked);
         if (client.player != null) {
-            client.player.sendMessage(Text.literal("FlintFix profile \"" + linked + "\" is active on this server"), true);
+            client.player.displayClientMessage(Component.literal("FlintFix profile \"" + linked + "\" is active on this server"), true);
         }
     }
 

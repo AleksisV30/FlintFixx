@@ -1,21 +1,20 @@
 package com.flintfix.client;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.util.Identifier;
-
 import java.util.Random;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.resources.ResourceLocation;
 
 /** Animated night backdrop for the title screen: drifting color glows and twinkling stars. */
 public final class FlintFixTitleBackground {
-    private static final Identifier GLOW = FlintFixCompat.id("flintfix", "textures/gui/glow.png");
+    private static final ResourceLocation GLOW = FlintFixCompat.id("flintfix", "textures/gui/glow.png");
     private static final int STAR_COUNT = 150;
     private static final float[] STARS = buildStars();
     private static boolean glowFiltered;
 
     private FlintFixTitleBackground() {}
 
-    public static void render(DrawContext c, int w, int h) {
+    public static void render(GuiGraphics c, int w, int h) {
         float t = (System.currentTimeMillis() % 3_600_000L) / 1000.0f;
         c.fillGradient(0, 0, w, h, 0xFF070A17, 0xFF0E1130);
 
@@ -45,9 +44,9 @@ public final class FlintFixTitleBackground {
     }
 
     /** Soft additive glow centered on (cx, cy). */
-    public static void glow(DrawContext c, float cx, float cy, float size, int rgb, float alpha) {
+    public static void glow(GuiGraphics c, float cx, float cy, float size, int rgb, float alpha) {
         if (!glowFiltered) {
-            MinecraftClient.getInstance().getTextureManager().getTexture(GLOW).setFilter(true, false);
+            Minecraft.getInstance().getTextureManager().getTexture(GLOW).setFilter(true, false);
             glowFiltered = true;
         }
         int s = Math.max(1, Math.round(size));

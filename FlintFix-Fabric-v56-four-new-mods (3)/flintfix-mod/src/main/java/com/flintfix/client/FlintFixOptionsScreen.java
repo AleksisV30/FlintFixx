@@ -1,9 +1,5 @@
 package com.flintfix.client;
 
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.text.Text;
-
 import java.util.List;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
@@ -11,6 +7,9 @@ import java.util.function.DoubleSupplier;
 import java.util.function.Function;
 import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 /**
  * Settings page built from a list of options (switches, sliders, choices,
@@ -58,7 +57,7 @@ public final class FlintFixOptionsScreen extends FlintFixScreen {
 
     public FlintFixOptionsScreen(Screen parent, String icon, String heading, String description,
                                  List<Option> options, Runnable reset, boolean hudModule) {
-        super(Text.literal(heading));
+        super(Component.literal(heading));
         this.parent = parent;
         this.icon = icon;
         this.heading = heading;
@@ -96,10 +95,10 @@ public final class FlintFixOptionsScreen extends FlintFixScreen {
     }
 
     @Override
-    public void render(DrawContext c, int mouseX, int mouseY, float delta) {
+    public void render(GuiGraphics c, int mouseX, int mouseY, float delta) {
         layout();
         float intro = FlintFixUi.openProgress(openedAt);
-        if (client != null && client.world != null) blurBehind(delta);
+        if (minecraft != null && minecraft.level != null) blurBehind(delta);
         FlintFixUi.backdrop(c, width, height, intro);
         FlintFixUi.pushPanelIntro(c, x, y, w, h, intro);
         FlintFixUi.panelFrame(c, x, y, w, h);
@@ -134,7 +133,7 @@ public final class FlintFixOptionsScreen extends FlintFixScreen {
         return x + w - 14 - 15;
     }
 
-    private void renderRow(DrawContext c, Option option, int rowY, int mouseX, int mouseY) {
+    private void renderRow(GuiGraphics c, Option option, int rowY, int mouseX, int mouseY) {
         boolean hover = mouseY >= listTop && mouseY <= listBottom
             && FlintFixUi.inside(mouseX, mouseY, rowX, rowY, rowW, rowHeight(option));
         {
@@ -205,13 +204,13 @@ public final class FlintFixOptionsScreen extends FlintFixScreen {
         layout();
         if (button != 0) return super.mouseClicked(mouseX, mouseY, button);
         if (FlintFixUi.inside(mouseX, mouseY, closeX(), y + 13, 15, 15)) {
-            close();
+            onClose();
             return true;
         }
         int fy = y + h - 26;
         if (hudModule && FlintFixUi.inside(mouseX, mouseY, x + 14, fy, 66, 17)) {
             save();
-            if (client != null) client.setScreen(new FlintFixHudEditorScreen(this));
+            if (minecraft != null) minecraft.setScreen(new FlintFixHudEditorScreen(this));
             return true;
         }
         if (FlintFixUi.inside(mouseX, mouseY, x + w - 126, fy, 52, 17)) {
@@ -220,7 +219,7 @@ public final class FlintFixOptionsScreen extends FlintFixScreen {
             return true;
         }
         if (FlintFixUi.inside(mouseX, mouseY, x + w - 68, fy, 54, 17)) {
-            close();
+            onClose();
             return true;
         }
         if (mouseY < listTop || mouseY > listBottom) return super.mouseClicked(mouseX, mouseY, button);
@@ -305,13 +304,13 @@ public final class FlintFixOptionsScreen extends FlintFixScreen {
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         save();
-        if (client != null) client.setScreen(parent);
+        if (minecraft != null) minecraft.setScreen(parent);
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 }

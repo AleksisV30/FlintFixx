@@ -1,23 +1,23 @@
 package com.flintfix.client;
 
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 /**
  * Base for FlintFix screens: hides the Screen API differences between
  * Minecraft versions so the screens themselves stay version-independent.
  */
 public abstract class FlintFixScreen extends Screen {
-    protected FlintFixScreen(Text title) {
+    protected FlintFixScreen(Component title) {
         super(title);
     }
 
     /** Blurs the game behind the screen where the game supports it (1.20.5+); a no-op before that. */
     protected void blurBehind(float delta) {
         //? if >=1.21.2 {
-        /*applyBlur();
+        /*renderBlurredBackground();
         *///?} else if >=1.20.5 {
-        applyBlur(delta);
+        renderBlurredBackground(delta);
         //?}
     }
 

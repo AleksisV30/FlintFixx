@@ -1,13 +1,13 @@
 package com.flintfix.client;
 
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.Locale;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 /** Shift-opened FlintFix landing menu. */
 public final class FlintFixHomeScreen extends FlintFixScreen {
@@ -30,7 +30,7 @@ public final class FlintFixHomeScreen extends FlintFixScreen {
     private static final int TILE_GAP = 6;
 
     public FlintFixHomeScreen(Screen parent) {
-        super(Text.literal("FlintFix Client"));
+        super(Component.literal("FlintFix Client"));
         this.parent = parent;
     }
 
@@ -54,7 +54,7 @@ public final class FlintFixHomeScreen extends FlintFixScreen {
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+    public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
         layout();
         float visible = visibility();
         blurBehind(delta);
@@ -63,10 +63,10 @@ public final class FlintFixHomeScreen extends FlintFixScreen {
         float scale = 0.96f + 0.04f * visible;
         float cx = panelX + panelW / 2.0f;
         float cy = panelY + panelH / 2.0f;
-        context.getMatrices().push();
-        context.getMatrices().translate(cx, cy + (1.0f - visible) * 6.0f, 0);
-        context.getMatrices().scale(scale, scale, 1.0f);
-        context.getMatrices().translate(-cx, -cy, 0);
+        context.pose().pushPose();
+        context.pose().translate(cx, cy + (1.0f - visible) * 6.0f, 0);
+        context.pose().scale(scale, scale, 1.0f);
+        context.pose().translate(-cx, -cy, 0);
 
         FlintFixUi.panelFrame(context, panelX, panelY, panelW, panelH);
 
@@ -77,11 +77,11 @@ public final class FlintFixHomeScreen extends FlintFixScreen {
         FlintFixUi.shadow(context, avatarX, avatarY, avatarSize, avatarSize, 0.6f);
         FlintFixUi.surface(context, avatarX, avatarY, avatarSize, avatarSize, FlintFixUi.raised(),
             FlintFixUi.blendColors(FlintFixUi.border(), FlintFixUi.accent(), 0.5f));
-        context.getMatrices().push();
-        context.getMatrices().translate(avatarX + 4, avatarY + 4, 0);
-        context.getMatrices().scale(2.0f, 2.0f, 1.0f);
-        context.drawItem(FLINT, 0, 0);
-        context.getMatrices().pop();
+        context.pose().pushPose();
+        context.pose().translate(avatarX + 4, avatarY + 4, 0);
+        context.pose().scale(2.0f, 2.0f, 1.0f);
+        context.renderItem(FLINT, 0, 0);
+        context.pose().popPose();
 
         FlintFixFont.drawCenteredExact(context, "FlintFix Client", centerX, panelY + 62, 12, FlintFixUi.text(), true);
         String profile = "Profile  ·  " + FlintFixProfileStore.selectedName();
@@ -103,10 +103,10 @@ public final class FlintFixHomeScreen extends FlintFixScreen {
 
         context.fill(panelX - 1, panelY - 1, panelX + panelW + 1, panelY + panelH + 1,
             FlintFixUi.opacity(FlintFixUi.bg(), 1.0f - visible));
-        context.getMatrices().pop();
+        context.pose().popPose();
     }
 
-    private void renderModsButton(DrawContext c, int mouseX, int mouseY) {
+    private void renderModsButton(GuiGraphics c, int mouseX, int mouseY) {
         boolean hover = FlintFixUi.inside(mouseX, mouseY, modsX, modsY, modsW, MODS_H);
         float t = FlintFixUi.hoverProgress("home-mods", hover);
         int fill = FlintFixUi.blendColors(FlintFixUi.accent(), FlintFixUi.accentBright(), t);
@@ -118,7 +118,7 @@ public final class FlintFixHomeScreen extends FlintFixScreen {
         FlintFixIcons.drawExact(c, "next", arrowX, modsY + (MODS_H - 8) / 2, 8, ink);
     }
 
-    private void renderTile(DrawContext c, int index, int tileX, int mouseX, int mouseY) {
+    private void renderTile(GuiGraphics c, int index, int tileX, int mouseX, int mouseY) {
         boolean hover = FlintFixUi.inside(mouseX, mouseY, tileX, tilesY, tileW, TILE_H);
         float t = FlintFixUi.hoverProgress("home-tile:" + index, hover);
         FlintFixUi.surface(c, tileX, tilesY, tileW, TILE_H,
@@ -134,18 +134,18 @@ public final class FlintFixHomeScreen extends FlintFixScreen {
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         layout();
         if (closing || System.currentTimeMillis() - transitionStartedAt < TRANSITION_MS) return true;
-        if (button != 0 || client == null) return super.mouseClicked(mouseX, mouseY, button);
+        if (button != 0 || minecraft == null) return super.mouseClicked(mouseX, mouseY, button);
         if (FlintFixUi.inside(mouseX, mouseY, modsX, modsY, modsW, MODS_H)) {
-            client.setScreen(new FlintFixSettingsScreen(this));
+            minecraft.setScreen(new FlintFixSettingsScreen(this));
             return true;
         }
         for (int i = 0; i < TILES.length; i++) {
             int tileX = modsX + i * (tileW + TILE_GAP);
             if (!FlintFixUi.inside(mouseX, mouseY, tileX, tilesY, tileW, TILE_H)) continue;
             switch (i) {
-                case 0 -> client.setScreen(new FlintFixHudEditorScreen(this));
-                case 1 -> client.setScreen(new FlintFixThemeScreen(this));
-                default -> client.setScreen(new FlintFixProfileScreen(this));
+                case 0 -> minecraft.setScreen(new FlintFixHudEditorScreen(this));
+                case 1 -> minecraft.setScreen(new FlintFixThemeScreen(this));
+                default -> minecraft.setScreen(new FlintFixProfileScreen(this));
             }
             return true;
         }
@@ -156,7 +156,7 @@ public final class FlintFixHomeScreen extends FlintFixScreen {
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (closing) return true;
         if (keyCode == GLFW.GLFW_KEY_ESCAPE || FlintFixClient.isSettingsKey(keyCode, scanCode)) {
-            close();
+            onClose();
             return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
@@ -167,19 +167,19 @@ public final class FlintFixHomeScreen extends FlintFixScreen {
         super.tick();
         if (closing && System.currentTimeMillis() - transitionStartedAt >= TRANSITION_MS) {
             closing = false;
-            if (client != null) client.setScreen(parent);
+            if (minecraft != null) minecraft.setScreen(parent);
         }
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         if (closing) return;
         closing = true;
         transitionStartedAt = System.currentTimeMillis();
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 }

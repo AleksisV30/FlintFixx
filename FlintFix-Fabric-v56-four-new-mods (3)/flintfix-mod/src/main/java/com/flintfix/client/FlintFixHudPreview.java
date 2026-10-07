@@ -1,7 +1,7 @@
 package com.flintfix.client;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
 
 /** Renders settings previews through the same routines used by the live HUD. */
 public final class FlintFixHudPreview {
@@ -11,7 +11,7 @@ public final class FlintFixHudPreview {
 
     private FlintFixHudPreview() {}
 
-    public static void render(DrawContext context, MinecraftClient client, Widget widget,
+    public static void render(GuiGraphics context, Minecraft client, Widget widget,
                               int x, int y, int width, int height) {
         if (context == null || client == null || width <= 0 || height <= 0) return;
         if (widget == Widget.CHUNKS) {
@@ -22,12 +22,12 @@ public final class FlintFixHudPreview {
         float oldX = getX(widget);
         float oldY = getY(widget);
         setPosition(widget, 0.5f, 0.5f);
-        context.getMatrices().push();
+        context.pose().pushPose();
         try {
-            context.getMatrices().translate(x + width / 2.0f, y + height / 2.0f, 0);
-            context.getMatrices().scale(FIT_SCALE, FIT_SCALE, 1.0f);
-            context.getMatrices().translate(-client.getWindow().getScaledWidth() / 2.0f,
-                -client.getWindow().getScaledHeight() / 2.0f, 0);
+            context.pose().translate(x + width / 2.0f, y + height / 2.0f, 0);
+            context.pose().scale(FIT_SCALE, FIT_SCALE, 1.0f);
+            context.pose().translate(-client.getWindow().getGuiScaledWidth() / 2.0f,
+                -client.getWindow().getGuiScaledHeight() / 2.0f, 0);
             switch (widget) {
                 case FPS -> FlintFixClient.renderFpsHud(context, client, false, false, true);
                 case CPS -> FlintFixClient.renderCpsHud(context, client, false, false, true);
@@ -38,12 +38,12 @@ public final class FlintFixHudPreview {
                 case CHUNKS -> { }
             }
         } finally {
-            context.getMatrices().pop();
+            context.pose().popPose();
             setPosition(widget, oldX, oldY);
         }
     }
 
-    private static void renderChunks(DrawContext context, int x, int y, int width, int height) {
+    private static void renderChunks(GuiGraphics context, int x, int y, int width, int height) {
         int cell = Math.max(5, Math.min(10, Math.min((width - 8) / 5, (height - 12) / 5)));
         int gridW = cell * 5;
         int gridH = cell * 5;

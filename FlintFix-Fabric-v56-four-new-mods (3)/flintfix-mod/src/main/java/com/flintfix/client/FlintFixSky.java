@@ -2,25 +2,21 @@ package com.flintfix.client;
 
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
-//? if >=1.21 {
-import net.minecraft.block.enums.CameraSubmersionType;
-//?} else {
-/*import net.minecraft.client.render.CameraSubmersionType;
-*///?}
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.DimensionEffects;
-import net.minecraft.client.render.VertexFormat;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.util.math.RotationAxis;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.math.Axis;
 import org.joml.Matrix4f;
 
 import java.util.Locale;
 import java.util.Random;
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.renderer.DimensionSpecialEffects;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.material.FogType;
 
 /**
  * Procedural replacement for the overworld sky: a gradient dome with
@@ -141,28 +137,28 @@ public final class FlintFixSky {
 
     /** True when the custom sky should replace the vanilla one for this frame. */
     public static boolean shouldRender(Camera camera, boolean thickFog) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        ClientWorld world = client.world;
+        Minecraft client = Minecraft.getInstance();
+        ClientLevel world = client.level;
         if (FlintFixClient.CONFIG == null || !FlintFixClient.CONFIG.skyEnabled || world == null || thickFog) return false;
-        if (world.getDimensionEffects().getSkyType() != DimensionEffects.SkyType.NORMAL) return false;
-        if (camera.getSubmersionType() != CameraSubmersionType.NONE) return false;
-        if (camera.getFocusedEntity() instanceof LivingEntity living
-            && (living.hasStatusEffect(StatusEffects.BLINDNESS) || living.hasStatusEffect(StatusEffects.DARKNESS))) {
+        if (!FlintFixCompat.hasOverworldSky(world)) return false;
+        if (camera.getFluidInCamera() != FogType.NONE) return false;
+        if (camera.getEntity() instanceof LivingEntity living
+            && (living.hasEffect(MobEffects.BLINDNESS) || living.hasEffect(MobEffects.DARKNESS))) {
             return false;
         }
         return true;
     }
 
     /** Fog tint matched to the dome's horizon (rgb + strength), or null to keep vanilla fog. */
-    public static float[] fogColor(Camera camera, ClientWorld world, float tickDelta) {
+    public static float[] fogColor(Camera camera, ClientLevel world, float tickDelta) {
         if (world == null || !FlintFixClient.CONFIG.skyFogTint || !shouldRender(camera, false)) return null;
         // Fade the effect out underground so caves keep their dark fog.
-        double depth = world.getSeaLevel() - 8 - camera.getPos().y;
+        double depth = world.getSeaLevel() - 8 - camera.getPosition().y;
         float strength = 0.8f * (float) Math.max(0.0, Math.min(1.0, 1.0 - depth / 24.0));
         if (strength <= 0.0f) return null;
         Preset preset = preset();
         float daylight = daylight(preset, world, tickDelta);
-        int horizon = weather(lerpColor(preset.night.horizon, preset.day.horizon, daylight), world.getRainGradient(tickDelta));
+        int horizon = weather(lerpColor(preset.night.horizon, preset.day.horizon, daylight), world.getRainLevel(tickDelta));
         return new float[] {
             ((horizon >>> 16) & 0xFF) / 255.0f,
             ((horizon >>> 8) & 0xFF) / 255.0f,
@@ -172,19 +168,19 @@ public final class FlintFixSky {
     }
 
     public static void render(Matrix4f modelView, float tickDelta) {
-        ClientWorld world = MinecraftClient.getInstance().world;
+        ClientLevel world = Minecraft.getInstance().level;
         if (world == null) return;
         FlintFixConfig config = FlintFixClient.CONFIG;
         Preset preset = preset();
         float skyAngle = skyAngle(world, tickDelta);
         float daylight = daylight(preset, world, tickDelta);
         float night = 1.0f - daylight;
-        float rain = world.getRainGradient(tickDelta);
+        float rain = world.getRainLevel(tickDelta);
         float clear = 1.0f - rain;
         float time = (System.currentTimeMillis() % 3_600_000L) / 1000.0f;
 
-        MatrixStack matrices = new MatrixStack();
-        matrices.multiplyPositionMatrix(modelView);
+        PoseStack matrices = new PoseStack();
+        matrices.last().pose().mul(modelView);
 
         RenderSystem.depthMask(false);
         RenderSystem.disableCull();
@@ -196,7 +192,7 @@ public final class FlintFixSky {
         // Sun direction in world space; matches the celestial rotation below.
         float theta = skyAngle * (float) (Math.PI * 2.0);
         float[] sunDir = {-(float) Math.sin(theta), (float) Math.cos(theta), 0.0f};
-        Matrix4f world0 = matrices.peek().getPositionMatrix();
+        Matrix4f world0 = matrices.last().pose();
         draw(dome(world0, preset, daylight, rain, sunDir, config.skyHorizonGlow));
 
         // Everything below glows, so add it on top of the dome.
@@ -205,10 +201,10 @@ public final class FlintFixSky {
             draw(aurora(world0, preset, night * clear * preset.aurora, time));
         }
 
-        matrices.push();
-        matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(-90.0f));
-        matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(skyAngle * 360.0f));
-        Matrix4f celestial = matrices.peek().getPositionMatrix();
+        matrices.pushPose();
+        matrices.mulPose(Axis.YP.rotationDegrees(-90.0f));
+        matrices.mulPose(Axis.XP.rotationDegrees(skyAngle * 360.0f));
+        Matrix4f celestial = matrices.last().pose();
         float starAlpha = preset.stars * Math.max(night, preset.starsInDay) * clear;
         if (config.skyMilkyWay && starAlpha > 0.02f) {
             draw(milkyWay(celestial, starAlpha, time, theta));
@@ -234,7 +230,7 @@ public final class FlintFixSky {
         if (moonUp > 0.0f && clear > 0.0f) {
             draw(moon(celestial, preset, clear * moonUp, world.getMoonPhase(), config.skySunGlow, config.skyMoonPhases));
         }
-        matrices.pop();
+        matrices.popPose();
 
         if (config.skyShootingStars && night * clear > 0.3f) {
             BufferBuilder meteors = shootingStars(world0, night * clear, time);
@@ -248,22 +244,22 @@ public final class FlintFixSky {
     }
 
     private static void additive() {
-        RenderSystem.blendFunc(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE);
+        RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE);
     }
 
     public static final String[] TIME_MODES = {"Follow world", "Day", "Sunset", "Night"};
 
     /** Sky angle used for drawing; the Sky time option can pin it without touching the world clock. */
-    private static float skyAngle(ClientWorld world, float tickDelta) {
+    private static float skyAngle(ClientLevel world, float tickDelta) {
         return switch (FlintFixClient.CONFIG.skyTimeMode) {
             case 1 -> 0.0f;
             case 2 -> 0.22f;
             case 3 -> 0.5f;
-            default -> world.getSkyAngle(tickDelta);
+            default -> world.getTimeOfDay(tickDelta);
         };
     }
 
-    private static float daylight(Preset preset, ClientWorld world, float tickDelta) {
+    private static float daylight(Preset preset, ClientLevel world, float tickDelta) {
         if (FlintFixClient.CONFIG.skyTimeMode == 0 && preset.forcedDaylight >= 0.0f) return preset.forcedDaylight;
         float angle = skyAngle(world, tickDelta);
         float light = (float) Math.cos(angle * Math.PI * 2.0) * 2.0f + 0.5f;
@@ -271,7 +267,7 @@ public final class FlintFixSky {
     }
 
     private static BufferBuilder begin() {
-        return FlintFixCompat.beginPositionColor(VertexFormat.DrawMode.TRIANGLES);
+        return FlintFixCompat.beginPositionColor(VertexFormat.Mode.TRIANGLES);
     }
 
     private static void draw(BufferBuilder buffer) {

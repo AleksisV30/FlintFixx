@@ -1,12 +1,11 @@
 package com.flintfix.client;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.util.Identifier;
-
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.resources.ResourceLocation;
 
 /** Lucide icon assets used by the in-game FlintFix UI. */
 public final class FlintFixIcons {
@@ -56,20 +55,20 @@ public final class FlintFixIcons {
         Map.entry("waypoints", "map-pin"),
         Map.entry("serverprofiles", "server-cog")
     );
-    private static final Set<Identifier> FILTERED = ConcurrentHashMap.newKeySet();
+    private static final Set<ResourceLocation> FILTERED = ConcurrentHashMap.newKeySet();
 
     private FlintFixIcons() {}
 
-    public static void draw(DrawContext context, String id, int x, int y, int size, int color) {
+    public static void draw(GuiGraphics context, String id, int x, int y, int size, int color) {
         drawExact(context, id, x, y, size, FlintFixUi.themedText(color));
     }
 
     /** Draws with the given tint as-is, for colors already taken from the active theme. */
-    public static void drawExact(DrawContext context, String id, int x, int y, int size, int color) {
+    public static void drawExact(GuiGraphics context, String id, int x, int y, int size, int color) {
         String name = ICONS.getOrDefault(id, "layout-grid");
-        Identifier texture = FlintFixCompat.id("flintfix", "textures/gui/icons/" + name + ".png");
+        ResourceLocation texture = FlintFixCompat.id("flintfix", "textures/gui/icons/" + name + ".png");
         if (FILTERED.add(texture)) {
-            MinecraftClient.getInstance().getTextureManager().getTexture(texture).setFilter(true, false);
+            Minecraft.getInstance().getTextureManager().getTexture(texture).setFilter(true, false);
         }
         FlintFixCompat.drawTexture(context, texture, x, y, size, size, 0, 0, ICON_SIZE, ICON_SIZE, ICON_SIZE, ICON_SIZE,
             color);

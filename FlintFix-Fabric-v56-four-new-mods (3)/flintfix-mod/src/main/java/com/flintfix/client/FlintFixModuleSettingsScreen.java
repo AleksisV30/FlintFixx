@@ -1,9 +1,9 @@
 package com.flintfix.client;
 
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 public final class FlintFixModuleSettingsScreen extends FlintFixScreen {
     public enum Module {
@@ -46,7 +46,7 @@ public final class FlintFixModuleSettingsScreen extends FlintFixScreen {
     private static final int MAX_H = 188;
 
     public FlintFixModuleSettingsScreen(Screen parent, Module module) {
-        super(Text.literal(module.title() + " Settings"));
+        super(Component.literal(module.title() + " Settings"));
         this.parent = parent;
         this.module = module;
     }
@@ -75,7 +75,7 @@ public final class FlintFixModuleSettingsScreen extends FlintFixScreen {
     }
 
     @Override
-    public void render(DrawContext c, int mouseX, int mouseY, float delta) {
+    public void render(GuiGraphics c, int mouseX, int mouseY, float delta) {
         layout();
         float intro = FlintFixUi.openProgress(openedAt);
         blurBehind(delta);
@@ -147,7 +147,7 @@ public final class FlintFixModuleSettingsScreen extends FlintFixScreen {
         return module.name().toLowerCase(java.util.Locale.ROOT).replace("_", "");
     }
 
-    private void toggleRow(DrawContext c, int rowY, String label, boolean value, int mouseX, int mouseY) {
+    private void toggleRow(GuiGraphics c, int rowY, String label, boolean value, int mouseX, int mouseY) {
         boolean hover = mouseY >= listTop && mouseY <= listBottom
             && FlintFixUi.inside(mouseX, mouseY, leftX, rowY, leftW, 22);
         float t = FlintFixUi.hoverProgress("module-row:" + module + ":" + label, hover);
@@ -158,7 +158,7 @@ public final class FlintFixModuleSettingsScreen extends FlintFixScreen {
         FlintFixUi.switchToggle(c, module + ":" + label, leftX + leftW - 28, rowY + 6, value);
     }
 
-    private void sliderRow(DrawContext c, int rowY, String label, float value, float min, float max,
+    private void sliderRow(GuiGraphics c, int rowY, String label, float value, float min, float max,
                            String valueText, boolean dragging) {
         FlintFixUi.surface(c, leftX, rowY, leftW, 30, FlintFixUi.card(), FlintFixUi.border());
         FlintFixFont.drawExact(c, label, leftX + 8, rowY + 6, 7, FlintFixUi.text(), true);
@@ -167,7 +167,7 @@ public final class FlintFixModuleSettingsScreen extends FlintFixScreen {
         FlintFixUi.slider(c, leftX + 8, rowY + 20, leftW - 16, (value - min) / (max - min), dragging);
     }
 
-    private void infoCard(DrawContext c, int cardY, String title, String... lines) {
+    private void infoCard(GuiGraphics c, int cardY, String title, String... lines) {
         int cardH = 22 + lines.length * 11;
         FlintFixUi.surface(c, leftX, cardY, leftW, cardH, FlintFixUi.panel(), FlintFixUi.border());
         FlintFixUi.drawTrimmedExact(c, title, leftX + 8, cardY + 7, leftW - 16, 7, FlintFixUi.text(), true);
@@ -177,7 +177,7 @@ public final class FlintFixModuleSettingsScreen extends FlintFixScreen {
         }
     }
 
-    private void renderPreview(DrawContext c) {
+    private void renderPreview(GuiGraphics c) {
         int previewH = Math.max(82, Math.min(132, listBottom - listTop));
         FlintFixUi.surface(c, rightX, listTop, rightW, previewH, FlintFixUi.panel(), FlintFixUi.border());
         FlintFixUi.sectionLabel(c, "PREVIEW", rightX + 8, listTop + 8);
@@ -223,13 +223,13 @@ public final class FlintFixModuleSettingsScreen extends FlintFixScreen {
                 lineY += 17;
             }
         } else {
-            FlintFixHudPreview.render(c, MinecraftClient.getInstance(),
+            FlintFixHudPreview.render(c, Minecraft.getInstance(),
                 FlintFixHudPreview.Widget.valueOf(module.name()), demoX, demoY, demoW, demoH);
         }
         c.disableScissor();
     }
 
-    private static void drawPreviewLine(DrawContext c, int x0, int y0, int x1, int y1) {
+    private static void drawPreviewLine(GuiGraphics c, int x0, int y0, int x1, int y1) {
         int dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
         int dy = -Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
         int error = dx + dy;
@@ -242,7 +242,7 @@ public final class FlintFixModuleSettingsScreen extends FlintFixScreen {
         }
     }
 
-    private void renderScrollbar(DrawContext c) {
+    private void renderScrollbar(GuiGraphics c) {
         FlintFixUi.scrollbar(c, leftX + leftW + 3, listTop, listBottom - listTop, scroll, maxScroll);
     }
 
@@ -296,8 +296,8 @@ public final class FlintFixModuleSettingsScreen extends FlintFixScreen {
             if (isSimpleModule()) {
                 setEnabled(!enabled());
                 save();
-            } else if (client != null) {
-                client.setScreen(new FlintFixHudEditorScreen(this));
+            } else if (minecraft != null) {
+                minecraft.setScreen(new FlintFixHudEditorScreen(this));
             }
             return true;
         }
@@ -473,14 +473,14 @@ public final class FlintFixModuleSettingsScreen extends FlintFixScreen {
 
     private void save() { FlintFixClient.CONFIG.save(); }
 
-    private static String keyLabel(net.minecraft.client.option.KeyBinding binding) {
-        return binding == null ? "Unbound" : binding.getBoundKeyLocalizedText().getString();
+    private static String keyLabel(net.minecraft.client.KeyMapping binding) {
+        return binding == null ? "Unbound" : binding.getTranslatedKeyMessage().getString();
     }
 
     private void returnToModules() {
         save();
-        if (client != null) {
-            client.setScreen(parent instanceof FlintFixSettingsScreen ? parent : new FlintFixSettingsScreen(null));
+        if (minecraft != null) {
+            minecraft.setScreen(parent instanceof FlintFixSettingsScreen ? parent : new FlintFixSettingsScreen(null));
         }
     }
 
@@ -489,10 +489,10 @@ public final class FlintFixModuleSettingsScreen extends FlintFixScreen {
     }
 
     @Override
-    public boolean shouldPause() { return false; }
+    public boolean isPauseScreen() { return false; }
 
     @Override
-    public void close() {
+    public void onClose() {
         returnToModules();
     }
 }

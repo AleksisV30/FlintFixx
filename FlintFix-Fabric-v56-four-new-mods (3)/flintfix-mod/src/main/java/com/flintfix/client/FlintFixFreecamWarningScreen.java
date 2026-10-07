@@ -1,8 +1,8 @@
 package com.flintfix.client;
 
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
 /** Displays a one-time risk notice before the first Freecam activation. */
@@ -11,12 +11,12 @@ final class FlintFixFreecamWarningScreen extends FlintFixScreen {
     private int panelX, panelY, panelW, panelH;
 
     FlintFixFreecamWarningScreen(Screen parent) {
-        super(Text.literal("Freecam warning"));
+        super(Component.literal("Freecam warning"));
         this.parent = parent;
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+    public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
         context.fill(0, 0, width, height, 0xA9000000);
         panelW = Math.min(220, Math.max(150, width - 20));
         panelH = 88;
@@ -50,26 +50,26 @@ final class FlintFixFreecamWarningScreen extends FlintFixScreen {
         int cancelX = width / 2 - buttonW - 5;
         int continueX = width / 2 + 5;
         if (FlintFixUi.inside(mouseX, mouseY, cancelX, buttonY, buttonW, 14)) {
-            close();
+            onClose();
             return true;
         }
         if (FlintFixUi.inside(mouseX, mouseY, continueX, buttonY, buttonW, 14)) {
             FlintFixClient.CONFIG.freecamRiskAccepted = true;
             FlintFixClient.CONFIG.save();
-            client.setScreen(null);
-            FlintFixFreecam.enable(client);
+            minecraft.setScreen(null);
+            FlintFixFreecam.enable(minecraft);
             return true;
         }
         return true;
     }
 
     @Override
-    public void close() {
-        if (client != null) client.setScreen(parent);
+    public void onClose() {
+        if (minecraft != null) minecraft.setScreen(parent);
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 }
