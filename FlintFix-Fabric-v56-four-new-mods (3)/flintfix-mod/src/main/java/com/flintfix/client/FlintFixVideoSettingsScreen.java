@@ -1,7 +1,7 @@
 package com.flintfix.client;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.flintfix.client.mixin.ScreenInvoker;
-import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
 
 import java.util.Locale;
@@ -662,7 +662,7 @@ public final class FlintFixVideoSettingsScreen extends FlintFixScreen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == GLFW.GLFW_KEY_TAB) {
+        if (keyCode == InputConstants.KEY_TAB) {
             selectTab(selectedTab == PERFORMANCE_TAB ? VISUAL_TAB : PERFORMANCE_TAB);
             return true;
         }

@@ -85,6 +85,9 @@ public final class FlintFixDamageNumbers {
     }
 
     public static void render(WorldRenderContext context) {
+        //? if >=26.2 {
+        /*// In-world rendering is not ported to 26.2 yet (no MultiBufferSource/Tesselator).
+        *///?} else {
         if (POPUPS.isEmpty() || FlintFixCompat.matrices(context) == null || context.consumers() == null) return;
         Minecraft client = Minecraft.getInstance();
         Font text = client.font;
@@ -119,5 +122,6 @@ public final class FlintFixDamageNumbers {
                 Font.DisplayMode.NORMAL, 0, LightTexture.FULL_BRIGHT);
             matrices.popPose();
         }
+        //?}
     }
 }

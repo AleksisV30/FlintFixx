@@ -161,6 +161,9 @@ public final class FlintFixWaypoints {
     }
 
     public static void render(WorldRenderContext context) {
+        //? if >=26.2 {
+        /*// In-world rendering is not ported to 26.2 yet (no MultiBufferSource/Tesselator).
+        *///?} else {
         FlintFixConfig config = FlintFixClient.CONFIG;
         if (config == null || !config.waypointsEnabled || FlintFixCompat.matrices(context) == null || context.consumers() == null) return;
         Minecraft client = Minecraft.getInstance();
@@ -211,5 +214,6 @@ public final class FlintFixWaypoints {
                 context.consumers(), Font.DisplayMode.SEE_THROUGH, 0, LightTexture.FULL_BRIGHT);
             matrices.popPose();
         }
+        //?}
     }
 }

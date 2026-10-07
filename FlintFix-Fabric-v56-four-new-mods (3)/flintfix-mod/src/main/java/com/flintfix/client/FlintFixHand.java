@@ -4,7 +4,9 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.AbstractClientPlayer;
+//? if <26.2 {
 import net.minecraft.client.renderer.MultiBufferSource;
+//?}
 import net.minecraft.client.renderer.block.model.ItemTransform;
 //? if >=1.21.9 {
 /*import net.minecraft.client.renderer.SubmitNodeCollector;
@@ -54,6 +56,9 @@ public final class FlintFixHand {
                                          *///?} else {
                                          PoseStack matrices, MultiBufferSource consumers, int light) {
                                          //?}
+        //? if >=26.3 {
+        /*// Show Hand is not ported to 26.3 yet (ItemInHandRenderer was replaced).
+        *///?} else {
         Minecraft client = Minecraft.getInstance();
         //? if >=1.21.9 {
         /*var playerRenderer = client.getEntityRenderDispatcher().getPlayerRenderer(player);
@@ -95,6 +100,7 @@ public final class FlintFixHand {
         else playerRenderer.renderLeftHand(matrices, consumers, light, player);
         //?}
         matrices.popPose();
+        //?}
     }
 
     /**

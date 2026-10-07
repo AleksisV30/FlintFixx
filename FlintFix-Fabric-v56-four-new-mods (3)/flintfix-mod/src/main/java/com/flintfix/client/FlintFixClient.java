@@ -39,7 +39,6 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import org.lwjgl.glfw.GLFW;
 import com.mojang.blaze3d.platform.InputConstants;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -85,12 +84,12 @@ public final class FlintFixClient implements ClientModInitializer {
             }
         });
 
-        settingsKey = KeyBindingHelper.registerKeyBinding(key("key.flintfix.open_client", GLFW.GLFW_KEY_RIGHT_SHIFT));
-        freecamKey = KeyBindingHelper.registerKeyBinding(key("key.flintfix.freecam", GLFW.GLFW_KEY_G));
-        zoomKey = KeyBindingHelper.registerKeyBinding(key("key.flintfix.zoom", GLFW.GLFW_KEY_C));
-        lookAroundKey = KeyBindingHelper.registerKeyBinding(key("key.flintfix.look_around", GLFW.GLFW_KEY_V));
-        inspectKey = KeyBindingHelper.registerKeyBinding(key("key.flintfix.inspect", GLFW.GLFW_KEY_I));
-        waypointKey = KeyBindingHelper.registerKeyBinding(key("key.flintfix.waypoint", GLFW.GLFW_KEY_B));
+        settingsKey = KeyBindingHelper.registerKeyBinding(key("key.flintfix.open_client", InputConstants.KEY_RSHIFT));
+        freecamKey = KeyBindingHelper.registerKeyBinding(key("key.flintfix.freecam", InputConstants.KEY_G));
+        zoomKey = KeyBindingHelper.registerKeyBinding(key("key.flintfix.zoom", InputConstants.KEY_C));
+        lookAroundKey = KeyBindingHelper.registerKeyBinding(key("key.flintfix.look_around", InputConstants.KEY_V));
+        inspectKey = KeyBindingHelper.registerKeyBinding(key("key.flintfix.inspect", InputConstants.KEY_I));
+        waypointKey = KeyBindingHelper.registerKeyBinding(key("key.flintfix.waypoint", InputConstants.KEY_B));
         FlintFixShulkerPreview.register();
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> FlintFixProfileStore.onJoinServer(client));
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> client.execute(FlintFixProfileStore::onLeaveServer));
@@ -171,19 +170,22 @@ public final class FlintFixClient implements ClientModInitializer {
         WorldRenderEvents.AFTER_ENTITIES.register(context -> {
         //?}
             if (CONFIG == null) return;
-            if (CONFIG.chunksEnabled && context.consumers() != null) {
+            //? if >=1.21.11 {
+            /*// 1.21.11 draws chunk borders as gizmos; ChunkBorderGizmoMixin emits them each frame.
+            *///?} else if >=1.21.9 {
+            /*if (CONFIG.chunksEnabled && context.consumers() != null) {
                 var cameraPos = FlintFixCompat.cameraPos(context);
-                //? if >=1.21.11 {
-                /*// 1.21.11 draws chunk borders as gizmos; ChunkBorderGizmoMixin emits them each frame.
-                *///?} else if >=1.21.9 {
-                /*// The debug-value and frustum arguments are unused by the chunk border renderer.
+                // The debug-value and frustum arguments are unused by the chunk border renderer.
                 chunkBorderRenderer.render(FlintFixCompat.matrices(context), context.consumers(),
                     cameraPos.x, cameraPos.y, cameraPos.z, null, null);
-                *///?} else {
+            }
+            *///?} else {
+            if (CONFIG.chunksEnabled && context.consumers() != null) {
+                var cameraPos = FlintFixCompat.cameraPos(context);
                 chunkBorderRenderer.render(FlintFixCompat.matrices(context), context.consumers(),
                     cameraPos.x, cameraPos.y, cameraPos.z);
-                //?}
             }
+            //?}
             if (CONFIG.trajectoryEnabled) FlintFixTrajectory.render(context);
             if (CONFIG.hitboxesEnabled) FlintFixHitboxes.render(context);
             if (CONFIG.damageNumbersEnabled) FlintFixDamageNumbers.render(context);
@@ -274,8 +276,8 @@ public final class FlintFixClient implements ClientModInitializer {
 
     public static synchronized void recordClick(int button) {
         long now = System.currentTimeMillis();
-        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) LEFT_CLICKS.addLast(now);
-        else if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) RIGHT_CLICKS.addLast(now);
+        if (button == InputConstants.MOUSE_BUTTON_LEFT) LEFT_CLICKS.addLast(now);
+        else if (button == InputConstants.MOUSE_BUTTON_RIGHT) RIGHT_CLICKS.addLast(now);
         pruneClicks(now);
     }
 

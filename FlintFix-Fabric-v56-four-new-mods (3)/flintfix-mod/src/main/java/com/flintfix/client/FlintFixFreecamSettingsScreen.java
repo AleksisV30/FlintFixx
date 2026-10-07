@@ -5,7 +5,6 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
 
 /** FlintFix card options for changing Freecam's on/off toggle key. */
 public final class FlintFixFreecamSettingsScreen extends FlintFixScreen {
@@ -109,7 +108,7 @@ public final class FlintFixFreecamSettingsScreen extends FlintFixScreen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) return super.mouseClicked(mouseX, mouseY, button);
+        if (button != InputConstants.MOUSE_BUTTON_LEFT) return super.mouseClicked(mouseX, mouseY, button);
         layout();
         if (FlintFixUi.inside(mouseX, mouseY, keyX, keyY, keyW, 20)) {
             listening = true;
@@ -136,7 +135,7 @@ public final class FlintFixFreecamSettingsScreen extends FlintFixScreen {
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
-        if (draggingSpeed && button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+        if (draggingSpeed && button == InputConstants.MOUSE_BUTTON_LEFT) {
             updateSpeed(mouseX);
             return true;
         }
@@ -145,7 +144,7 @@ public final class FlintFixFreecamSettingsScreen extends FlintFixScreen {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (draggingSpeed && button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+        if (draggingSpeed && button == InputConstants.MOUSE_BUTTON_LEFT) {
             draggingSpeed = false;
             saveSpeed();
             return true;
@@ -156,11 +155,11 @@ public final class FlintFixFreecamSettingsScreen extends FlintFixScreen {
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (!listening) return super.keyPressed(keyCode, scanCode, modifiers);
-        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+        if (keyCode == InputConstants.KEY_ESCAPE) {
             listening = false;
             return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_BACKSPACE || keyCode == GLFW.GLFW_KEY_DELETE) {
+        if (keyCode == InputConstants.KEY_BACKSPACE || keyCode == InputConstants.KEY_DELETE) {
             bind(InputConstants.UNKNOWN);
         } else {
             bind(FlintFixCompat.inputKey(keyCode, scanCode));

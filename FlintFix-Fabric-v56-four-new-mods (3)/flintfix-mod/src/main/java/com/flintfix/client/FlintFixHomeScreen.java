@@ -1,6 +1,6 @@
 package com.flintfix.client;
 
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import java.util.Locale;
 import net.minecraft.client.gui.GuiGraphics;
@@ -155,7 +155,7 @@ public final class FlintFixHomeScreen extends FlintFixScreen {
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (closing) return true;
-        if (keyCode == GLFW.GLFW_KEY_ESCAPE || FlintFixClient.isSettingsKey(keyCode, scanCode)) {
+        if (keyCode == InputConstants.KEY_ESCAPE || FlintFixClient.isSettingsKey(keyCode, scanCode)) {
             onClose();
             return true;
         }

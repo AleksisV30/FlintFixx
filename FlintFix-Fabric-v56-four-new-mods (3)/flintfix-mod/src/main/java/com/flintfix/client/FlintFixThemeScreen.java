@@ -1,9 +1,9 @@
 package com.flintfix.client;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
 
 /** Small palette picker opened from the FlintFix sidebar. */
 public final class FlintFixThemeScreen extends FlintFixScreen {
@@ -107,7 +107,7 @@ public final class FlintFixThemeScreen extends FlintFixScreen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+        if (keyCode == InputConstants.KEY_ESCAPE) {
             closeToParent();
             return true;
         }

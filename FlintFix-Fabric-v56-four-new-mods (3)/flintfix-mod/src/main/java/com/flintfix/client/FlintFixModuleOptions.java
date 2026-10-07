@@ -139,7 +139,9 @@ final class FlintFixModuleOptions {
                 "Numbers float up from mobs and players when their health changes.", List.of(
                     new Toggle("Show damage numbers", () -> c().damageNumbersEnabled, v -> c().damageNumbersEnabled = v),
                     new Toggle("Show healing too", () -> c().damageNumbersHealing, v -> c().damageNumbersHealing = v),
-                    new Info("Uses health the server already sends", "Some servers hide health; then nothing shows.")),
+                    FlintFixCompat.WORLD_RENDER_SUPPORTED
+                        ? new Info("Uses health the server already sends", "Some servers hide health; then nothing shows.")
+                        : new Info("Not drawn on this Minecraft version yet", "In-world overlays work on Minecraft 1.20.1 to 26.1.2.")),
                 () -> c().damageNumbersHealing = true, false);
             case "weather" -> new FlintFixOptionsScreen(parent, id, "No Weather",
                 "Hides rain, snow and thunder for you only.", List.of(
@@ -177,7 +179,9 @@ final class FlintFixModuleOptions {
                         v -> c().showHandHeight = v, v -> String.format(Locale.ROOT, "%+.2f", v)),
                     new Slider("Hand depth", -0.20f, 0.20f, 0.01f, () -> c().showHandDepth,
                         v -> c().showHandDepth = v, v -> String.format(Locale.ROOT, "%+.2f", v)),
-                    new Info("If the hand looks turned the wrong way", "Change Arm turn; it updates right away.")),
+                    FlintFixCompat.SHOW_HAND_SUPPORTED
+                        ? new Info("If the hand looks turned the wrong way", "Change Arm turn; it updates right away.")
+                        : new Info("Not drawn on this Minecraft version yet", "Show Hand works on Minecraft 1.20.1 to 26.2.")),
                 () -> {
                     c().showHandTurn = 2;
                     c().showHandHeight = 0.10f;
@@ -188,7 +192,10 @@ final class FlintFixModuleOptions {
                     new Toggle("Enable waypoints", () -> c().waypointsEnabled, v -> c().waypointsEnabled = v),
                     new FlintFixOptionsScreen.Action("Your waypoints", "MANAGE",
                         () -> Minecraft.getInstance().setScreen(new FlintFixWaypointScreen(Minecraft.getInstance().screen))),
-                    new Toggle("Light beams", () -> c().waypointsBeams, v -> c().waypointsBeams = v),
+                    FlintFixCompat.WORLD_RENDER_SUPPORTED
+                        ? new Toggle("Light beams", () -> c().waypointsBeams, v -> c().waypointsBeams = v)
+                        : new Info("Beams and labels in the world aren't drawn on this version yet",
+                            "The compass bar and saved waypoints still work."),
                     new Toggle("Show distance", () -> c().waypointsDistance, v -> c().waypointsDistance = v),
                     new Toggle("Show on compass bar", () -> c().waypointsCompass, v -> c().waypointsCompass = v),
                     new Toggle("Mark where you die", () -> c().waypointsDeath, v -> c().waypointsDeath = v),

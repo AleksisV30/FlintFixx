@@ -27,6 +27,9 @@ public final class FlintFixBlockOutline {
 
     /** Fabric BEFORE_BLOCK_OUTLINE callback: returns false after drawing, which skips vanilla's outline. */
     public static boolean render(WorldRenderContext context, HitResult hit) {
+        //? if >=26.2 {
+        /*return true;
+        *///?} else {
         FlintFixConfig config = FlintFixClient.CONFIG;
         if (config == null || !config.blockOutlineEnabled) return true;
         if (!(hit instanceof BlockHitResult blockHit) || hit.getType() != HitResult.Type.BLOCK) return true;
@@ -64,6 +67,7 @@ public final class FlintFixBlockOutline {
         });
         matrices.popPose();
         return false;
+        //?}
     }
 
     /** Nudges a point slightly toward the camera so the outline never z-fights with the block. */

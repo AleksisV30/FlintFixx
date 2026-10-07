@@ -1,6 +1,6 @@
 package com.flintfix.client;
 
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -250,20 +250,20 @@ public final class FlintFixProfileScreen extends FlintFixScreen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+        if (keyCode == InputConstants.KEY_ESCAPE) {
             if (editMode != null) cancelEdit();
             else closeToParent();
             return true;
         }
         if (editMode != null && nameFocused) {
-            if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) finishEdit();
-            else if (keyCode == GLFW.GLFW_KEY_BACKSPACE && !editText.isEmpty()) editText = editText.substring(0, editText.length() - 1);
+            if (keyCode == InputConstants.KEY_RETURN || keyCode == InputConstants.KEY_NUMPADENTER) finishEdit();
+            else if (keyCode == InputConstants.KEY_BACKSPACE && !editText.isEmpty()) editText = editText.substring(0, editText.length() - 1);
             return true;
         }
         if (searchFocused) {
-            if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) searchFocused = false;
-            else if (keyCode == GLFW.GLFW_KEY_BACKSPACE && !search.isEmpty()) search = search.substring(0, search.length() - 1);
-            else if (keyCode == GLFW.GLFW_KEY_DELETE) search = "";
+            if (keyCode == InputConstants.KEY_RETURN || keyCode == InputConstants.KEY_NUMPADENTER) searchFocused = false;
+            else if (keyCode == InputConstants.KEY_BACKSPACE && !search.isEmpty()) search = search.substring(0, search.length() - 1);
+            else if (keyCode == InputConstants.KEY_DELETE) search = "";
             scroll = 0;
             return true;
         }

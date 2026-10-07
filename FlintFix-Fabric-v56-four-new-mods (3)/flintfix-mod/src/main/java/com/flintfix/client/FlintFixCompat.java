@@ -4,7 +4,9 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
+//? if <26.2 {
 import com.mojang.blaze3d.vertex.Tesselator;
+//?}
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 //? if >=1.21.9 {
@@ -29,7 +31,6 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.attribute.EnvironmentAttributes;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.phys.shapes.Shapes;
-import net.minecraft.client.renderer.ShapeRenderer;
 *///?} else {
 import net.minecraft.client.Camera;
 import net.minecraft.client.renderer.DimensionSpecialEffects;
@@ -69,6 +70,9 @@ import com.mojang.blaze3d.platform.CompareOp;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.vertex.BufferUploader;
 //?}
+//? if >=1.21.11 <26.2 {
+/*import net.minecraft.client.renderer.ShapeRenderer;
+*///?}
 //? if >=1.21.11 {
 /*import com.mojang.blaze3d.textures.FilterMode;
 *///?} else if >=1.21.2 {
@@ -473,7 +477,9 @@ public final class FlintFixCompat {
     /** Box wireframe for {@link #linesType()}. */
     public static void drawBoxOutline(PoseStack matrices, VertexConsumer lines, AABB box,
                                       float r, float g, float b, float a) {
-        //? if >=1.21.11 {
+        //? if >=26.2 {
+        /*// Not ported: 26.2 removed ShapeRenderer, and nothing draws outlines there yet.
+        *///?} else if >=1.21.11 {
         /*int color = ((int) (a * 255) << 24) | ((int) (r * 255) << 16) | ((int) (g * 255) << 8) | (int) (b * 255);
         ShapeRenderer.renderShape(matrices, lines, Shapes.create(box), 0.0, 0.0, 0.0, color,
             Minecraft.getInstance().getWindow().getAppropriateLineWidth());
@@ -496,8 +502,6 @@ public final class FlintFixCompat {
 
     /^* Render pipelines exist from 1.21.5; created on first use, not at class load. ^/
     private static final class Pipelines {
-        static final RenderType SKY = skyType("sky", BlendFunction.TRANSLUCENT);
-        static final RenderType SKY_GLOW = skyType("sky_glow", BlendFunction.LIGHTNING);
         static final RenderPipeline GUI_GLOW_PIPELINE = RenderPipeline.builder(RenderPipelines.GUI_TEXTURED_SNIPPET)
             .withLocation(id("flintfix", "pipeline/gui_glow"))
             //? if >=26.1 {
@@ -513,6 +517,13 @@ public final class FlintFixCompat {
                 .setTextureState(new RenderStateShard.TextureStateShard(texture, TriState.TRUE, false))
                 .createCompositeState(false)));
         ^///?}
+    }
+    *///?}
+
+    //? if >=1.21.5 <26.2 {
+    /*private static final class SkyPipelines {
+        static final RenderType SKY = skyType("sky", BlendFunction.TRANSLUCENT);
+        static final RenderType SKY_GLOW = skyType("sky_glow", BlendFunction.LIGHTNING);
 
         private static RenderType skyType(String name, BlendFunction blend) {
             RenderPipeline pipeline = RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
@@ -574,21 +585,35 @@ public final class FlintFixCompat {
         //?}
     }
 
-    public static BufferBuilder beginPositionColor(VertexFormat.Mode mode) {
-        //? if >=1.21 {
-        return Tesselator.getInstance().begin(mode, DefaultVertexFormat.POSITION_COLOR);
+    /** False where the in-world overlays (hitboxes, trajectory, waypoint beams, ...) have no renderer yet. */
+    public static final boolean WORLD_RENDER_SUPPORTED = /*? if >=26.2 {*/ /*false *//*?} else {*/ true /*?}*/;
+
+    /** False where Show Hand has no renderer yet (26.3 replaced ItemInHandRenderer). */
+    public static final boolean SHOW_HAND_SUPPORTED = /*? if >=26.3 {*/ /*false *//*?} else {*/ true /*?}*/;
+
+    /** False where the custom sky has no renderer yet (26.2 replaced the vertex buffer API). */
+    public static final boolean SKY_SUPPORTED = /*? if >=26.2 {*/ /*false *//*?} else {*/ true /*?}*/;
+
+    /** Position/color triangle buffer for the sky; draw it with {@link #drawBuffer}. */
+    public static BufferBuilder beginSkyBuffer() {
+        //? if >=26.2 {
+        /*throw new UnsupportedOperationException("The custom sky is not ported to 26.2 yet");
+        *///?} else if >=1.21 {
+        return Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
         //?} else {
         /*BufferBuilder buffer = Tesselator.getInstance().getBuilder();
-        buffer.begin(mode, DefaultVertexFormat.POSITION_COLOR);
+        buffer.begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
         return buffer;
         *///?}
     }
 
     /** Draws and releases a sky buffer from {@link #beginPositionColor}; empty buffers are skipped. */
     public static void drawBuffer(BufferBuilder buffer) {
-        //? if >=1.21.5 {
+        //? if >=26.2 {
+        /*// Not reached: SKY_SUPPORTED is false on 26.2.
+        *///?} else if >=1.21.5 {
         /*MeshData built = buffer.build();
-        if (built != null) (skyGlow ? Pipelines.SKY_GLOW : Pipelines.SKY).draw(built);
+        if (built != null) (skyGlow ? SkyPipelines.SKY_GLOW : SkyPipelines.SKY).draw(built);
         *///?} else if >=1.21 {
         MeshData built = buffer.build();
         if (built != null) BufferUploader.drawWithShader(built);

@@ -98,4 +98,76 @@ stonecutter parameters {
         replace("nameField\\.render\\(", "nameField.extractRenderState(")
         reverse("(?!)", "_")
     }
+
+    // 26.2 moved the current screen and overlay to Minecraft.gui and renamed getMainCamera.
+    replacements.regex(eval(current.version, ">=26.2")) {
+        replace("(?<![.\\w])(minecraft|client|Minecraft\\.getInstance\\(\\))\\.setScreen\\(", "$1.gui.setScreen(")
+        reverse("(?!)", "_")
+    }
+    replacements.regex(eval(current.version, ">=26.2")) {
+        replace("(?<![.\\w])(client|Minecraft\\.getInstance\\(\\))\\.screen\\b(?!\\()", "$1.gui.screen()")
+        reverse("(?!)", "_")
+    }
+    replacements.regex(eval(current.version, ">=26.2")) {
+        replace("\\.getMainCamera\\(\\)", ".mainCamera()")
+        reverse("(?!)", "_")
+    }
+    replacements.regex(eval(current.version, ">=26.2")) {
+        replace("client\\.getOverlay\\(\\)", "client.gui.overlay()")
+        reverse("(?!)", "_")
+    }
+    replacements.regex(eval(current.version, ">=26.2")) {
+        replace("client\\.options\\.hideGui", "client.gui.hud.isHidden()")
+        reverse("(?!)", "_")
+    }
+    replacements.regex(eval(current.version, ">=26.2")) {
+        replace("\\bGui\\.getMobEffectSprite", "net.minecraft.client.gui.Hud.getMobEffectSprite")
+        reverse("(?!)", "_")
+    }
+
+    // 26.2 renamed the held-item and fire-overlay methods (render -> submit).
+    replacements.regex(eval(current.version, ">=26.2")) {
+        replace("(?<=\")renderArmWithItem(?=\")", "submitArmWithItem")
+        reverse("(?!)", "_")
+    }
+    replacements.regex(eval(current.version, ">=26.2")) {
+        replace("(?<=\")renderFire(?=\")", "submitFire")
+        reverse("(?!)", "_")
+    }
+
+    // 26.3 moved the GPU pipeline, texture, buffer and vertex-format classes to renderpearl.
+    replacements.regex(eval(current.version, ">=26.3")) {
+        replace("com\\.mojang\\.blaze3d\\.pipeline\\.", "com.mojang.renderpearl.api.pipeline.")
+        reverse("(?!)", "_")
+    }
+    replacements.regex(eval(current.version, ">=26.3")) {
+        replace("com\\.mojang\\.blaze3d\\.textures\\.", "com.mojang.renderpearl.api.textures.")
+        reverse("(?!)", "_")
+    }
+    replacements.regex(eval(current.version, ">=26.3")) {
+        replace("com\\.mojang\\.blaze3d\\.buffers\\.", "com.mojang.renderpearl.api.buffers.")
+        reverse("(?!)", "_")
+    }
+    replacements.regex(eval(current.version, ">=26.3")) {
+        replace("com\\.mojang\\.blaze3d\\.vertex\\.VertexFormat;", "com.mojang.renderpearl.api.vertex.VertexFormat;")
+        reverse("(?!)", "_")
+    }
+    replacements.regex(eval(current.version, ">=26.3")) {
+        replace("com\\.mojang\\.blaze3d\\.platform\\.CompareOp;", "com.mojang.renderpearl.api.pipeline.CompareOp;")
+        reverse("(?!)", "_")
+    }
+
+    // 26.3: PoseStack.rotate replaces mulPose(Quaternion); KEYSYM -> KEYBOARD; KeyEvent.scancode -> keycode.
+    replacements.regex(eval(current.version, ">=26.3")) {
+        replace("\\.mulPose\\((?=Axis\\.|new Quaternionf)", ".rotate(")
+        reverse("(?!)", "_")
+    }
+    replacements.regex(eval(current.version, ">=26.3")) {
+        replace("InputConstants\\.Type\\.KEYSYM", "InputConstants.Type.KEYBOARD")
+        reverse("(?!)", "_")
+    }
+    replacements.regex(eval(current.version, ">=26.3")) {
+        replace("event\\.scancode\\(\\)", "event.keycode()")
+        reverse("(?!)", "_")
+    }
 }

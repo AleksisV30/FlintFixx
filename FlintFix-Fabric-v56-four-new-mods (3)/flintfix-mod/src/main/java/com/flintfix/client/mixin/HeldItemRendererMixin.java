@@ -5,8 +5,14 @@ import com.flintfix.client.FlintFixHand;
 import com.flintfix.client.FlintFixInspect;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.player.AbstractClientPlayer;
+//? if >=26.3 {
+/*import net.minecraft.client.renderer.FirstPersonHandsAndItemsRenderer;
+*///?} else {
 import net.minecraft.client.renderer.ItemInHandRenderer;
+//?}
+//? if <26.2 {
 import net.minecraft.client.renderer.MultiBufferSource;
+//?}
 //? if >=1.21.9 {
 /*import net.minecraft.client.renderer.SubmitNodeCollector;
 *///?}
@@ -20,8 +26,15 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+//? if >=26.3 {
+/*@Mixin(FirstPersonHandsAndItemsRenderer.class)
+*///?} else {
 @Mixin(ItemInHandRenderer.class)
+//?}
 public abstract class HeldItemRendererMixin {
+    //? if >=26.3 {
+    /*// Show Hand is not ported to 26.3 yet (ItemInHandRenderer was replaced).
+    *///?} else {
     @Unique private boolean flintfix$pushed;
     @Unique private boolean flintfix$inspecting;
     @Unique private boolean flintfix$drawArm;
@@ -114,4 +127,5 @@ public abstract class HeldItemRendererMixin {
             flintfix$drawArm = false;
         }
     }
+    //?}
 }

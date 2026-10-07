@@ -1,9 +1,9 @@
 package com.flintfix.client;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
 
 /** Picks the custom sky preset and chooses which sky effects are drawn. */
 public final class FlintFixSkyScreen extends FlintFixScreen {
@@ -245,7 +245,7 @@ public final class FlintFixSkyScreen extends FlintFixScreen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+        if (keyCode == InputConstants.KEY_ESCAPE) {
             closeToParent();
             return true;
         }

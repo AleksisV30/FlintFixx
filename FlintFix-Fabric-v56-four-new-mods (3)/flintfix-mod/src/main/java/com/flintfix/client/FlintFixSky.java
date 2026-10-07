@@ -136,6 +136,7 @@ public final class FlintFixSky {
     public static boolean shouldRender(Camera camera, boolean thickFog) {
         Minecraft client = Minecraft.getInstance();
         ClientLevel world = client.level;
+        if (!FlintFixCompat.SKY_SUPPORTED) return false;
         if (FlintFixClient.CONFIG == null || !FlintFixClient.CONFIG.skyEnabled || world == null || thickFog) return false;
         if (!FlintFixCompat.hasOverworldSky(world)) return false;
         if (camera.getFluidInCamera() != FogType.NONE) return false;
@@ -256,7 +257,7 @@ public final class FlintFixSky {
     }
 
     private static BufferBuilder begin() {
-        return FlintFixCompat.beginPositionColor(VertexFormat.Mode.TRIANGLES);
+        return FlintFixCompat.beginSkyBuffer();
     }
 
     private static void draw(BufferBuilder buffer) {

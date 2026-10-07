@@ -1,5 +1,6 @@
 package com.flintfix.client.mixin;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.flintfix.client.FlintFixClient;
 import com.flintfix.client.FlintFixZoom;
 import net.minecraft.client.Minecraft;
@@ -7,7 +8,6 @@ import net.minecraft.client.MouseHandler;
 //? if >=1.21.9 {
 /*import net.minecraft.client.input.MouseButtonInfo;
 *///?}
-import org.lwjgl.glfw.GLFW;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -23,7 +23,7 @@ public abstract class MouseMixin {
     @Inject(method = "onPress", at = @At("HEAD"))
     private void flintfix$recordMouseClick(long window, int button, int action, int mods, CallbackInfo ci) {
     //?}
-        if (action != GLFW.GLFW_PRESS) return;
+        if (action != InputConstants.PRESS) return;
         Minecraft client = Minecraft.getInstance();
         if (client.screen == null) {
             FlintFixClient.recordClick(button);

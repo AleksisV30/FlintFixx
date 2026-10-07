@@ -1,6 +1,6 @@
 package com.flintfix.client;
 
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -569,30 +569,30 @@ public final class FlintFixSettingsScreen extends FlintFixScreen {
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (closing) return true;
         if (profileSearchFocused) {
-            if (keyCode == GLFW.GLFW_KEY_ESCAPE || keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+            if (keyCode == InputConstants.KEY_ESCAPE || keyCode == InputConstants.KEY_RETURN || keyCode == InputConstants.KEY_NUMPADENTER) {
                 profileSearchFocused = false;
                 return true;
             }
-            if (keyCode == GLFW.GLFW_KEY_BACKSPACE && !profileSearch.isEmpty()) {
+            if (keyCode == InputConstants.KEY_BACKSPACE && !profileSearch.isEmpty()) {
                 profileSearch = profileSearch.substring(0, profileSearch.length() - 1);
                 return true;
             }
-            if (keyCode == GLFW.GLFW_KEY_DELETE) {
+            if (keyCode == InputConstants.KEY_DELETE) {
                 profileSearch = "";
                 return true;
             }
         }
         if (searchFocused) {
-            if (keyCode == GLFW.GLFW_KEY_ESCAPE || keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+            if (keyCode == InputConstants.KEY_ESCAPE || keyCode == InputConstants.KEY_RETURN || keyCode == InputConstants.KEY_NUMPADENTER) {
                 searchFocused = false;
                 return true;
             }
-            if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+            if (keyCode == InputConstants.KEY_BACKSPACE) {
                 if (!searchText.isEmpty()) searchText = searchText.substring(0, searchText.length() - 1);
                 scroll = 0;
                 return true;
             }
-            if (keyCode == GLFW.GLFW_KEY_DELETE) {
+            if (keyCode == InputConstants.KEY_DELETE) {
                 searchText = "";
                 scroll = 0;
                 return true;

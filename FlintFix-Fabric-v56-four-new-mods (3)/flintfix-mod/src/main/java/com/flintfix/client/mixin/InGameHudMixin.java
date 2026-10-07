@@ -10,7 +10,11 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /** Custom crosshair: draws FlintFix's crosshair in place of vanilla's when enabled. */
+//? if >=26.2 {
+/*@Mixin(net.minecraft.client.gui.Hud.class)
+*///?} else {
 @Mixin(Gui.class)
+//?}
 public abstract class InGameHudMixin {
     //? if >=26.1 {
     /*@Inject(method = "extractCrosshair", at = @At("HEAD"), cancellable = true, require = 0)

@@ -43,7 +43,10 @@ public abstract class WorldRendererSkyMixin {
     ^///?} else {
     @Inject(method = "method_62215", at = @At("HEAD"), cancellable = true)
     //?}
-    //? if >=1.21.11 {
+    //? if >=26.2 {
+    /^private static void flintfix$renderCustomSky(GpuBufferSlice fog, SkyRenderState state, CallbackInfo ci) {
+        float tickDelta = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true);
+    ^///?} else if >=1.21.11 {
     /^private static void flintfix$renderCustomSky(GpuBufferSlice fog, SkyRenderState state, SkyRenderer skyRenderer,
                                                  CallbackInfo ci) {
         float tickDelta = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true);

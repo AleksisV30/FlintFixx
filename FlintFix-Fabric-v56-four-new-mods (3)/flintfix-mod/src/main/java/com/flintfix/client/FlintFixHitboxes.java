@@ -8,7 +8,9 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 //?}
 import net.minecraft.client.Minecraft;
+//? if <26.2 {
 import net.minecraft.client.renderer.MultiBufferSource;
+//?}
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -23,6 +25,9 @@ public final class FlintFixHitboxes {
     private FlintFixHitboxes() {}
 
     public static void render(WorldRenderContext context) {
+        //? if >=26.2 {
+        /*// In-world rendering is not ported to 26.2 yet (no MultiBufferSource/Tesselator).
+        *///?} else {
         if (FlintFixCompat.level(context) == null || FlintFixCompat.matrices(context) == null || context.consumers() == null) return;
         Vec3 camera = FlintFixCompat.cameraPos(context);
         AABB search = new AABB(camera, camera).inflate(RANGE);
@@ -46,6 +51,7 @@ public final class FlintFixHitboxes {
             }
         }
         matrices.popPose();
+        //?}
     }
 
     private static void drawBox(VertexConsumer lines, PoseStack.Pose matrix, AABB box, int color) {

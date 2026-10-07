@@ -1,9 +1,9 @@
 package com.flintfix.client;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
 
 /** Displays a one-time risk notice before the first Freecam activation. */
 final class FlintFixFreecamWarningScreen extends FlintFixScreen {
@@ -44,7 +44,7 @@ final class FlintFixFreecamWarningScreen extends FlintFixScreen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) return super.mouseClicked(mouseX, mouseY, button);
+        if (button != InputConstants.MOUSE_BUTTON_LEFT) return super.mouseClicked(mouseX, mouseY, button);
         int buttonY = panelY + 66;
         int buttonW = 70;
         int cancelX = width / 2 - buttonW - 5;

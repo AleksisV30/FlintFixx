@@ -6,7 +6,9 @@ package com.flintfix.client;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 //?}
 import net.minecraft.client.Minecraft;
+//? if <26.2 {
 import net.minecraft.client.renderer.MultiBufferSource;
+//?}
 import net.minecraft.core.Direction;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
@@ -39,6 +41,9 @@ public final class FlintFixTrajectory {
     private FlintFixTrajectory() {}
 
     public static void render(WorldRenderContext context) {
+        //? if >=26.2 {
+        /*// In-world rendering is not ported to 26.2 yet (no MultiBufferSource/Tesselator).
+        *///?} else {
         Minecraft client = Minecraft.getInstance();
         Player player = client.player;
         if (player == null || client.level == null || FlintFixCompat.matrices(context) == null || context.consumers() == null) return;
@@ -86,6 +91,7 @@ public final class FlintFixTrajectory {
             FlintFixCompat.drawBoxOutline(matrices, lines, box, 1.0f, 0.42f, 0.42f, 0.9f);
         }
         matrices.popPose();
+        //?}
     }
 
     private record Path(List<Vec3> points, Direction side, Entity entity) {}
