@@ -68,7 +68,7 @@ public final class FlintFixIcons {
         String name = ICONS.getOrDefault(id, "layout-grid");
         ResourceLocation texture = FlintFixCompat.id("flintfix", "textures/gui/icons/" + name + ".png");
         if (FILTERED.add(texture)) {
-            Minecraft.getInstance().getTextureManager().getTexture(texture).setFilter(true, false);
+            FlintFixCompat.smoothTexture(texture);
         }
         FlintFixCompat.drawTexture(context, texture, x, y, size, size, 0, 0, ICON_SIZE, ICON_SIZE, ICON_SIZE, ICON_SIZE,
             color);

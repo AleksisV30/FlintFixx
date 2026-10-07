@@ -67,10 +67,10 @@ public final class FlintFixHudEditorScreen extends FlintFixScreen {
         float t = Math.min(1.0f, (System.currentTimeMillis() - transitionStartedAt) / (float) TRANSITION_MS);
         float eased = t * t * (3.0f - 2.0f * t);
         float scale = 0.96f + 0.04f * eased;
-        c.pose().pushPose();
-        c.pose().translate(width / 2.0f, height / 2.0f + (1.0f - eased) * 4.0f, 0.0f);
-        c.pose().scale(scale, scale, 1.0f);
-        c.pose().translate(-width / 2.0f, -height / 2.0f, 0.0f);
+        FlintFixCompat.pushGui(c);
+        FlintFixCompat.translateGui(c, width / 2.0f, height / 2.0f + (1.0f - eased) * 4.0f);
+        FlintFixCompat.scaleGui(c, scale, scale);
+        FlintFixCompat.translateGui(c, -width / 2.0f, -height / 2.0f);
 
         int topW = Math.max(1, Math.min(280, width - 24));
         int topX = (width - topW) / 2;
@@ -111,7 +111,7 @@ public final class FlintFixHudEditorScreen extends FlintFixScreen {
         FlintFixUi.drawTrimmedExact(c, selected == null ? "SELECT A HUD" : selected.name(), bottomX + 9,
             FlintFixFont.centeredY(bottomY, 27, 6), Math.max(0, cancelX - bottomX - 14), 6,
             selected == null ? FlintFixUi.subtle() : FlintFixUi.accentBright(), true);
-        c.pose().popPose();
+        FlintFixCompat.popGui(c);
     }
 
     @Override

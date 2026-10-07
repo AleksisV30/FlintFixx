@@ -4,13 +4,16 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+//? if >=1.21.9 {
+/*import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+*///?} else {
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+//?}
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.renderer.LightTexture;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 
@@ -101,7 +104,7 @@ public final class FlintFixWaypoints {
     }
 
     public static String dimension(Minecraft client) {
-        return client.level == null ? "" : client.level.dimension().location().toString();
+        return client.level == null ? "" : FlintFixCompat.keyId(client.level.dimension()).toString();
     }
 
     /** All waypoints of the current world (every dimension). Never null. */
@@ -159,18 +162,18 @@ public final class FlintFixWaypoints {
 
     public static void render(WorldRenderContext context) {
         FlintFixConfig config = FlintFixClient.CONFIG;
-        if (config == null || !config.waypointsEnabled || context.matrixStack() == null || context.consumers() == null) return;
+        if (config == null || !config.waypointsEnabled || FlintFixCompat.matrices(context) == null || context.consumers() == null) return;
         Minecraft client = Minecraft.getInstance();
         List<Waypoint> waypoints = visibleHere(client);
         if (waypoints.isEmpty()) return;
-        Vec3 camera = context.camera().getPosition();
-        PoseStack matrices = context.matrixStack();
+        Vec3 camera = FlintFixCompat.cameraPos(context);
+        PoseStack matrices = FlintFixCompat.matrices(context);
 
         if (config.waypointsBeams) {
             matrices.pushPose();
             matrices.translate(-camera.x, -camera.y, -camera.z);
             Matrix4f matrix = matrices.last().pose();
-            VertexConsumer quads = context.consumers().getBuffer(RenderType.debugQuads());
+            VertexConsumer quads = context.consumers().getBuffer(FlintFixCompat.debugQuadsType());
             for (Waypoint waypoint : waypoints) {
                 Vec3 base = new Vec3(waypoint.x + 0.5, waypoint.y, waypoint.z + 0.5);
                 double distance = base.distanceTo(camera);
@@ -198,7 +201,7 @@ public final class FlintFixWaypoints {
 
             matrices.pushPose();
             matrices.translate(at.x - camera.x, at.y - camera.y, at.z - camera.z);
-            matrices.mulPose(context.camera().rotation());
+            matrices.mulPose(FlintFixCompat.cameraRotation(context));
             matrices.scale(scale, -scale, scale);
             float x = -text.width(label) / 2.0f;
             int background = 0x66000000;

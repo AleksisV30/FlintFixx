@@ -41,7 +41,10 @@ tasks.processResources {
     filesMatching(listOf("fabric.mod.json", "flintfix.mixins.json")) { expand(props) }
 }
 
-tasks.withType<JavaCompile>().configureEach { options.release = javaVersion }
+tasks.withType<JavaCompile>().configureEach {
+    options.release = javaVersion
+    options.compilerArgs.addAll(listOf("-Xmaxerrs", "2000"))
+}
 
 java {
     withSourcesJar()

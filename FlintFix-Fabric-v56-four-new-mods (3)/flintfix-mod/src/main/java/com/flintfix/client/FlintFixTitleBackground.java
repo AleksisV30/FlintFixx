@@ -46,7 +46,7 @@ public final class FlintFixTitleBackground {
     /** Soft additive glow centered on (cx, cy). */
     public static void glow(GuiGraphics c, float cx, float cy, float size, int rgb, float alpha) {
         if (!glowFiltered) {
-            Minecraft.getInstance().getTextureManager().getTexture(GLOW).setFilter(true, false);
+            FlintFixCompat.smoothTexture(GLOW);
             glowFiltered = true;
         }
         int s = Math.max(1, Math.round(size));

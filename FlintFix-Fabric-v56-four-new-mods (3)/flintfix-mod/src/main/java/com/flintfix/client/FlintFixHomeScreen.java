@@ -57,16 +57,16 @@ public final class FlintFixHomeScreen extends FlintFixScreen {
     public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
         layout();
         float visible = visibility();
-        blurBehind(delta);
+        blurBehind(context, delta);
         FlintFixUi.backdrop(context, width, height, visible);
 
         float scale = 0.96f + 0.04f * visible;
         float cx = panelX + panelW / 2.0f;
         float cy = panelY + panelH / 2.0f;
-        context.pose().pushPose();
-        context.pose().translate(cx, cy + (1.0f - visible) * 6.0f, 0);
-        context.pose().scale(scale, scale, 1.0f);
-        context.pose().translate(-cx, -cy, 0);
+        FlintFixCompat.pushGui(context);
+        FlintFixCompat.translateGui(context, cx, cy + (1.0f - visible) * 6.0f);
+        FlintFixCompat.scaleGui(context, scale, scale);
+        FlintFixCompat.translateGui(context, -cx, -cy);
 
         FlintFixUi.panelFrame(context, panelX, panelY, panelW, panelH);
 
@@ -77,11 +77,11 @@ public final class FlintFixHomeScreen extends FlintFixScreen {
         FlintFixUi.shadow(context, avatarX, avatarY, avatarSize, avatarSize, 0.6f);
         FlintFixUi.surface(context, avatarX, avatarY, avatarSize, avatarSize, FlintFixUi.raised(),
             FlintFixUi.blendColors(FlintFixUi.border(), FlintFixUi.accent(), 0.5f));
-        context.pose().pushPose();
-        context.pose().translate(avatarX + 4, avatarY + 4, 0);
-        context.pose().scale(2.0f, 2.0f, 1.0f);
+        FlintFixCompat.pushGui(context);
+        FlintFixCompat.translateGui(context, avatarX + 4, avatarY + 4);
+        FlintFixCompat.scaleGui(context, 2.0f, 2.0f);
         context.renderItem(FLINT, 0, 0);
-        context.pose().popPose();
+        FlintFixCompat.popGui(context);
 
         FlintFixFont.drawCenteredExact(context, "FlintFix Client", centerX, panelY + 62, 12, FlintFixUi.text(), true);
         String profile = "Profile  ·  " + FlintFixProfileStore.selectedName();
@@ -103,7 +103,7 @@ public final class FlintFixHomeScreen extends FlintFixScreen {
 
         context.fill(panelX - 1, panelY - 1, panelX + panelW + 1, panelY + panelH + 1,
             FlintFixUi.opacity(FlintFixUi.bg(), 1.0f - visible));
-        context.pose().popPose();
+        FlintFixCompat.popGui(context);
     }
 
     private void renderModsButton(GuiGraphics c, int mouseX, int mouseY) {

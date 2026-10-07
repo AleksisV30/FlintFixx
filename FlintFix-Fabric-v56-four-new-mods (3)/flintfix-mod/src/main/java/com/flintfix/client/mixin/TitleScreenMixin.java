@@ -127,7 +127,14 @@ public abstract class TitleScreenMixin extends Screen {
         }
     }
 
-    //? if >=1.20.5 {
+    //? if >=1.21.6 {
+    /*/^* From 1.21.6 the title screen draws its panorama in its own renderBackground. ^/
+    @Inject(method = "renderBackground", at = @At("HEAD"), cancellable = true)
+    private void flintfix$replacePanorama(GuiGraphics context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+        FlintFixTitleBackground.render(context, this.width, this.height);
+        ci.cancel();
+    }
+    *///?} else if >=1.20.5 {
     @Inject(method = "renderPanorama", at = @At("HEAD"), cancellable = true)
     private void flintfix$replacePanorama(GuiGraphics context, float delta, CallbackInfo ci) {
         FlintFixTitleBackground.render(context, this.width, this.height);

@@ -2,10 +2,13 @@ package com.flintfix.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+//? if >=1.21.9 {
+/*import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+*///?} else {
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+//?}
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -20,17 +23,17 @@ public final class FlintFixHitboxes {
     private FlintFixHitboxes() {}
 
     public static void render(WorldRenderContext context) {
-        if (context.world() == null || context.camera() == null || context.matrixStack() == null || context.consumers() == null) return;
-        Vec3 camera = context.camera().getPosition();
+        if (FlintFixCompat.level(context) == null || FlintFixCompat.matrices(context) == null || context.consumers() == null) return;
+        Vec3 camera = FlintFixCompat.cameraPos(context);
         AABB search = new AABB(camera, camera).inflate(RANGE);
-        PoseStack matrices = context.matrixStack();
+        PoseStack matrices = FlintFixCompat.matrices(context);
         MultiBufferSource consumers = context.consumers();
         matrices.pushPose();
         matrices.translate(-camera.x, -camera.y, -camera.z);
         PoseStack.Pose entry = matrices.last();
-        VertexConsumer lines = consumers.getBuffer(RenderType.lines());
+        VertexConsumer lines = consumers.getBuffer(FlintFixCompat.linesType());
         Entity localPlayer = Minecraft.getInstance().player;
-        for (Entity entity : context.world().getEntities(null, search)) {
+        for (Entity entity : FlintFixCompat.level(context).getEntities(null, search)) {
             if (entity == localPlayer) continue;
             int color = entity instanceof Player ? 0xFF72D6FF
                 : entity instanceof ItemEntity ? 0xFFFFD27A

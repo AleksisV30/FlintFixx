@@ -5,7 +5,12 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+//? if >=1.21.9 {
+/*import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
+import net.minecraft.client.input.KeyEvent;
+*///?} else {
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+//?}
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
@@ -21,7 +26,6 @@ import net.minecraft.client.gui.screens.options.VideoSettingsScreen;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.renderer.debug.ChunkBorderRenderer;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionResult;
@@ -77,42 +81,12 @@ public final class FlintFixClient implements ClientModInitializer {
             }
         });
 
-        settingsKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
-            "key.flintfix.open_client",
-            InputConstants.Type.KEYSYM,
-            GLFW.GLFW_KEY_RIGHT_SHIFT,
-            "category.flintfix"
-        ));
-        freecamKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
-            "key.flintfix.freecam",
-            InputConstants.Type.KEYSYM,
-            GLFW.GLFW_KEY_G,
-            "category.flintfix"
-        ));
-        zoomKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
-            "key.flintfix.zoom",
-            InputConstants.Type.KEYSYM,
-            GLFW.GLFW_KEY_C,
-            "category.flintfix"
-        ));
-        lookAroundKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
-            "key.flintfix.look_around",
-            InputConstants.Type.KEYSYM,
-            GLFW.GLFW_KEY_V,
-            "category.flintfix"
-        ));
-        inspectKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
-            "key.flintfix.inspect",
-            InputConstants.Type.KEYSYM,
-            GLFW.GLFW_KEY_I,
-            "category.flintfix"
-        ));
-        waypointKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
-            "key.flintfix.waypoint",
-            InputConstants.Type.KEYSYM,
-            GLFW.GLFW_KEY_B,
-            "category.flintfix"
-        ));
+        settingsKey = KeyBindingHelper.registerKeyBinding(key("key.flintfix.open_client", GLFW.GLFW_KEY_RIGHT_SHIFT));
+        freecamKey = KeyBindingHelper.registerKeyBinding(key("key.flintfix.freecam", GLFW.GLFW_KEY_G));
+        zoomKey = KeyBindingHelper.registerKeyBinding(key("key.flintfix.zoom", GLFW.GLFW_KEY_C));
+        lookAroundKey = KeyBindingHelper.registerKeyBinding(key("key.flintfix.look_around", GLFW.GLFW_KEY_V));
+        inspectKey = KeyBindingHelper.registerKeyBinding(key("key.flintfix.inspect", GLFW.GLFW_KEY_I));
+        waypointKey = KeyBindingHelper.registerKeyBinding(key("key.flintfix.waypoint", GLFW.GLFW_KEY_B));
         FlintFixShulkerPreview.register();
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> FlintFixProfileStore.onJoinServer(client));
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> client.execute(FlintFixProfileStore::onLeaveServer));
@@ -186,17 +160,31 @@ public final class FlintFixClient implements ClientModInitializer {
         WorldRenderEvents.AFTER_ENTITIES.register(context -> {
             if (CONFIG == null) return;
             if (CONFIG.chunksEnabled && context.consumers() != null) {
-                var cameraPos = context.camera().getPosition();
-                chunkBorderRenderer.render(context.matrixStack(), context.consumers(),
+                var cameraPos = FlintFixCompat.cameraPos(context);
+                //? if >=1.21.11 {
+                /*// 1.21.11 draws chunk borders as gizmos; ChunkBorderGizmoMixin emits them each frame.
+                *///?} else if >=1.21.9 {
+                /*// The debug-value and frustum arguments are unused by the chunk border renderer.
+                chunkBorderRenderer.render(FlintFixCompat.matrices(context), context.consumers(),
+                    cameraPos.x, cameraPos.y, cameraPos.z, null, null);
+                *///?} else {
+                chunkBorderRenderer.render(FlintFixCompat.matrices(context), context.consumers(),
                     cameraPos.x, cameraPos.y, cameraPos.z);
+                //?}
             }
             if (CONFIG.trajectoryEnabled) FlintFixTrajectory.render(context);
             if (CONFIG.hitboxesEnabled) FlintFixHitboxes.render(context);
             if (CONFIG.damageNumbersEnabled) FlintFixDamageNumbers.render(context);
             if (CONFIG.waypointsEnabled) FlintFixWaypoints.render(context);
         });
+        //? if >=1.21.9 {
+        /*WorldRenderEvents.BEFORE_BLOCK_OUTLINE.register((context, outline) ->
+            FlintFixBlockOutline.render(context, Minecraft.getInstance().hitResult));
+        WorldRenderEvents.END_MAIN.register(context -> FlintFixMotionBlur.render());
+        *///?} else {
         WorldRenderEvents.BEFORE_BLOCK_OUTLINE.register(FlintFixBlockOutline::render);
         WorldRenderEvents.END.register(context -> FlintFixMotionBlur.render());
+        //?}
         // Client-side hits drive the crosshair hit marker.
         AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (world.isClientSide()) FlintFixCrosshair.onHit();
@@ -210,6 +198,16 @@ public final class FlintFixClient implements ClientModInitializer {
      * onto its target (a wrong target fails here instead of mid-game), log the
      * result and quit.
      */
+    //? if >=1.21.11 {
+    /*/^* Emits the chunk border gizmos while the frame's gizmos are being collected. ^/
+    public static void emitChunkBorders() {
+        if (CONFIG == null || !CONFIG.chunksEnabled || chunkBorderRenderer == null) return;
+        var cameraPos = FlintFixCompat.cameraPos(Minecraft.getInstance().gameRenderer.getMainCamera());
+        // The chunk border renderer only reads the camera position.
+        chunkBorderRenderer.emitGizmos(cameraPos.x, cameraPos.y, cameraPos.z, null, null, 0.0f);
+    }
+
+    *///?}
     private static void registerMixinAudit() {
         java.util.concurrent.atomic.AtomicBoolean done = new java.util.concurrent.atomic.AtomicBoolean();
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
@@ -228,13 +226,29 @@ public final class FlintFixClient implements ClientModInitializer {
         });
     }
 
+    //? if >=1.21.9 {
+    /*private static final KeyMapping.Category KEY_CATEGORY = KeyMapping.Category.register(FlintFixCompat.id("flintfix", "main"));
+    *///?}
+
+    private static KeyMapping key(String name, int defaultKey) {
+        //? if >=1.21.9 {
+        /*return new KeyMapping(name, InputConstants.Type.KEYSYM, defaultKey, KEY_CATEGORY);
+        *///?} else {
+        return new KeyMapping(name, InputConstants.Type.KEYSYM, defaultKey, "category.flintfix");
+        //?}
+    }
+
     public static String getSettingsKeyLabel() {
         return settingsKey == null ? "RSHIFT" : settingsKey.getTranslatedKeyMessage().getString();
     }
 
     /** Key bindings don't fire while a screen is open, so FlintFix screens check the settings key themselves. */
     public static boolean isSettingsKey(int keyCode, int scanCode) {
+        //? if >=1.21.9 {
+        /*return settingsKey != null && settingsKey.matches(new KeyEvent(keyCode, scanCode, 0));
+        *///?} else {
         return settingsKey != null && settingsKey.matches(keyCode, scanCode);
+        //?}
     }
 
     public static KeyMapping getFreecamKeyBinding() {
@@ -283,8 +297,13 @@ public final class FlintFixClient implements ClientModInitializer {
             if (entry == null) {
                 String playerName = client.player.getName().getString();
                 for (PlayerInfo candidate : client.getConnection().getOnlinePlayers()) {
+                    //? if >=1.21.9 {
+                    /*if (candidate.getProfile().id().equals(client.player.getUUID()) ||
+                        candidate.getProfile().name().equalsIgnoreCase(playerName)) {
+                    *///?} else {
                     if (candidate.getProfile().getId().equals(client.player.getUUID()) ||
                         candidate.getProfile().getName().equalsIgnoreCase(playerName)) {
+                    //?}
                         entry = candidate;
                         break;
                     }
@@ -399,7 +418,7 @@ public final class FlintFixClient implements ClientModInitializer {
         String biome = "Plains";
         if (client.player != null && client.level != null) {
             String key = client.level.getBiome(client.player.blockPosition()).unwrapKey()
-                .map(registryKey -> registryKey.location().getPath())
+                .map(registryKey -> FlintFixCompat.keyId(registryKey).getPath())
                 .orElse("unknown");
             biome = titleCase(key.replace('_', ' '));
         }
@@ -593,8 +612,7 @@ public final class FlintFixClient implements ClientModInitializer {
         for (int i = 0; i < effects.size(); i++) {
             MobEffectInstance effect = effects.get(i);
             int rowY = 2 + i * rowH;
-            TextureAtlasSprite sprite = client.getMobEffectTextures().get(effect.getEffect());
-            FlintFixCompat.drawSprite(context, 4, rowY + (rowH - 18) / 2, 18, 18, sprite);
+            FlintFixCompat.drawEffectIcon(context, effect, 4, rowY + (rowH - 18) / 2, 18);
             int nameY = rowY + Math.max(0, (rowH - FlintFixFont.lineHeight(7) - FlintFixFont.lineHeight(LABEL)) / 2);
             FlintFixFont.drawExact(context, FlintFixFont.trim(names[i], textW, 7, true), textX, nameY, 7,
                 FlintFixUi.text(), true, shadow);
@@ -647,7 +665,7 @@ public final class FlintFixClient implements ClientModInitializer {
         int rawHeight = valueLine + PAD_Y * 2 + 3;
         float scale = CONFIG.compassScale;
         HudPlacement p = placement(client, CONFIG.compassX, CONFIG.compassY, rawWidth, rawHeight, scale);
-        float yaw = client.gameRenderer == null || client.player == null ? 180.0f : client.gameRenderer.getMainCamera().getYRot();
+        float yaw = client.gameRenderer == null || client.player == null ? 180.0f : FlintFixCompat.cameraYaw(client.gameRenderer.getMainCamera());
         // Minecraft yaw is 0 toward +Z (south); a compass bearing is 0 toward north.
         float bearing = Mth.wrapDegrees(yaw + 180.0f);
         float range = 75.0f;
@@ -789,13 +807,13 @@ public final class FlintFixClient implements ClientModInitializer {
     }
 
     private static void beginWidget(GuiGraphics context, HudPlacement p, float scale) {
-        context.pose().pushPose();
-        context.pose().translate(p.x, p.y, 0);
-        context.pose().scale(scale, scale, 1.0f);
+        FlintFixCompat.pushGui(context);
+        FlintFixCompat.translateGui(context, p.x, p.y);
+        FlintFixCompat.scaleGui(context, scale, scale);
     }
 
     private static void endWidget(GuiGraphics context) {
-        context.pose().popPose();
+        FlintFixCompat.popGui(context);
     }
 
     /** The editor always shows a panel so widgets stay visible while they are arranged. */

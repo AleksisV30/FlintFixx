@@ -20,7 +20,9 @@
     "InGameOverlayRendererMixin",
     "GameRendererTotemMixin",
     "WorldWeatherMixin",
-    "MinecraftClientMixin"
+    "MinecraftClientMixin",
+    "ChunkBorderGizmoMixin",
+    "AbstractTextureAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -11,7 +11,6 @@ import java.util.Random;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.renderer.DimensionSpecialEffects;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.material.FogType;
@@ -140,7 +139,7 @@ public final class FlintFixSky {
         if (FlintFixClient.CONFIG == null || !FlintFixClient.CONFIG.skyEnabled || world == null || thickFog) return false;
         if (!FlintFixCompat.hasOverworldSky(world)) return false;
         if (camera.getFluidInCamera() != FogType.NONE) return false;
-        if (camera.getEntity() instanceof LivingEntity living
+        if (FlintFixCompat.cameraEntity(camera) instanceof LivingEntity living
             && (living.hasEffect(MobEffects.BLINDNESS) || living.hasEffect(MobEffects.DARKNESS))) {
             return false;
         }
@@ -151,7 +150,7 @@ public final class FlintFixSky {
     public static float[] fogColor(Camera camera, ClientLevel world, float tickDelta) {
         if (world == null || !FlintFixClient.CONFIG.skyFogTint || !shouldRender(camera, false)) return null;
         // Fade the effect out underground so caves keep their dark fog.
-        double depth = world.getSeaLevel() - 8 - camera.getPosition().y;
+        double depth = world.getSeaLevel() - 8 - FlintFixCompat.cameraPos(camera).y;
         float strength = 0.8f * (float) Math.max(0.0, Math.min(1.0, 1.0 - depth / 24.0));
         if (strength <= 0.0f) return null;
         Preset preset = preset();
@@ -221,7 +220,7 @@ public final class FlintFixSky {
         }
         float moonUp = smooth((-sunDir[1] + 0.07f) / 0.09f);
         if (moonUp > 0.0f && clear > 0.0f) {
-            draw(moon(celestial, preset, clear * moonUp, world.getMoonPhase(), config.skySunGlow, config.skyMoonPhases));
+            draw(moon(celestial, preset, clear * moonUp, FlintFixCompat.moonPhase(world), config.skySunGlow, config.skyMoonPhases));
         }
         matrices.popPose();
 
@@ -245,7 +244,7 @@ public final class FlintFixSky {
             case 1 -> 0.0f;
             case 2 -> 0.22f;
             case 3 -> 0.5f;
-            default -> world.getTimeOfDay(tickDelta);
+            default -> FlintFixCompat.timeOfDay(world, tickDelta);
         };
     }
 

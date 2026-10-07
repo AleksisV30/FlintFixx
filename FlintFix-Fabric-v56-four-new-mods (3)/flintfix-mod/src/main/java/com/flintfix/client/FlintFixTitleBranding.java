@@ -17,11 +17,11 @@ public final class FlintFixTitleBranding {
 
         // Flint icon with a breathing glow behind it.
         FlintFixTitleBackground.glow(context, centerX, y + 18, 84 + pulse * 10, 0x8A6BFF, 0.42f + pulse * 0.12f);
-        context.pose().pushPose();
-        context.pose().translate(centerX - 16, y + 2 + (float) Math.sin(t * 1.1f) * 1.5f, 0);
-        context.pose().scale(2.0f, 2.0f, 1.0f);
+        FlintFixCompat.pushGui(context);
+        FlintFixCompat.translateGui(context, centerX - 16, y + 2 + (float) Math.sin(t * 1.1f) * 1.5f);
+        FlintFixCompat.scaleGui(context, 2.0f, 2.0f);
         context.renderItem(FLINT, 0, 0);
-        context.pose().popPose();
+        FlintFixCompat.popGui(context);
 
         String title = "FlintFix";
         int titleSize = 24;

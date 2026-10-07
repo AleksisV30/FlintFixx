@@ -131,16 +131,16 @@ public final class FlintFixSettingsScreen extends FlintFixScreen {
     public void render(GuiGraphics c, int mouseX, int mouseY, float delta) {
         layout();
         float visibility = visibility();
-        blurBehind(delta);
+        blurBehind(c, delta);
         FlintFixUi.backdrop(c, width, height, visibility);
 
         float scale = 0.965f + 0.035f * visibility;
         float centerX = x + w / 2.0f;
         float centerY = y + h / 2.0f;
-        c.pose().pushPose();
-        c.pose().translate(centerX, centerY + (1.0f - visibility) * 5.0f, 0);
-        c.pose().scale(scale, scale, 1.0f);
-        c.pose().translate(-centerX, -centerY, 0);
+        FlintFixCompat.pushGui(c);
+        FlintFixCompat.translateGui(c, centerX, centerY + (1.0f - visibility) * 5.0f);
+        FlintFixCompat.scaleGui(c, scale, scale);
+        FlintFixCompat.translateGui(c, -centerX, -centerY);
 
         FlintFixUi.panelFrame(c, x, y, w, h);
         FlintFixUi.roundedRaw(c, x + 1, y + 1, sidebarW - 1, h - 2, 2, FlintFixUi.panel());
@@ -168,7 +168,7 @@ public final class FlintFixSettingsScreen extends FlintFixScreen {
 
         // Fade the whole window in and out with the open/close transition.
         c.fill(x - 1, y - 1, x + w + 1, y + h + 1, FlintFixUi.opacity(FlintFixUi.bg(), 1.0f - visibility));
-        c.pose().popPose();
+        FlintFixCompat.popGui(c);
     }
 
     private float visibility() {

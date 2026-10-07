@@ -5,23 +5,36 @@ Goal: ship the FlintFix in-game client (Fabric mod in
 versions as Lunar Client, and have the launcher use a prebuilt jar per version.
 
 ## Current state (branch `claude/clever-johnson-wumk7u`)
-- Stonecutter 0.7.11 multi-version build (Gradle 8.14.3 wrapper, Loom 1.10.1,
-  Kotlin DSL). One shared `src/`, per-version settings in
+- Stonecutter 0.7.11 multi-version build (Gradle 9.7.1 wrapper, Loom 1.18.3 via
+  `net.fabricmc.fabric-loom-remap`, Mojang mappings, Kotlin DSL). Gradle itself
+  must run on JDK 25. One shared `src/`, per-version settings in
   `flintfix-mod/versions/<mc>/gradle.properties`. Active (editable) version: 1.21.1.
-- Group 1 done except 1.21.5+: **1.20.1, 1.20.4, 1.20.6, 1.21.1, 1.21.4** all
-  compile and pass a runtime mixin audit (`./gradlew :<mc>:runAudit` starts the
-  game, force-applies every mixin, logs `FLINTFIX_AUDIT_OK`/`FAILED`, quits).
-  1.20.1/1.20.4 build for Java 17, the rest for Java 21.
+- Group 1 done: **1.20.1, 1.20.2, 1.20.4, 1.20.6, 1.21.1, 1.21.3, 1.21.4,
+  1.21.5, 1.21.6, 1.21.8, 1.21.10, 1.21.11** all compile and pass a runtime
+  mixin audit (`./gradlew :<mc>:runAudit` starts the game, force-applies every
+  mixin, logs `FLINTFIX_AUDIT_OK`/`FAILED`, quits). Each jar also covers its
+  neighbours (1.21.8 jar = 1.21.7-1.21.8, 1.21.10 jar = 1.21.9-1.21.10, see
+  `mc_dep`). 1.20.1/1.20.2/1.20.4 build for Java 17, the rest for Java 21.
 - Version differences live in `FlintFixCompat` (rendering/API shims),
-  `FlintFixScreen` (Screen API: blur, scroll) and `//? if` blocks in the mixins.
-  Not yet checked by hand in-game on every version: custom sky look on 1.21.4
-  (new frame-graph sky pass), title glow on 1.21.4, motion blur on 1.21.4.
+  `FlintFixScreen` (Screen API: blur, scroll, 1.21.9 input events) and `//? if`
+  blocks in the mixins. 1.21.11 renames (ResourceLocation -> Identifier,
+  GraphicsStatus -> GraphicsPreset) are Stonecutter string replacements in
+  `stonecutter.gradle.kts`.
+- Known gaps: motion blur is off on 1.21.5+ (no post-effect hook yet); the Show
+  Hand option uses vanilla first-person transforms on 1.21.5+. Visuals (sky,
+  title glow, outlines, chunk borders) are only audited, not playtested, on
+  1.21.2+.
 - Build: `./gradlew buildAll` -> `build/libs/all/flintfix-client-mod-<ver>+<mc>.jar`;
   one version: `./gradlew :1.20.1:build` or `build-mod.ps1 -MinecraftVersion 1.20.1`.
-- Launcher (`minecraft/fabric.js`, `renderer.js`) now enables FlintFix for every
-  version in its supported list and builds the matching jar locally.
+- Launcher (`minecraft/fabric.js` `FLINTFIX_TARGETS`, `renderer.js`
+  `FLINTFIX_GAME_VERSIONS`) maps every supported game version to its jar.
 - GitHub Actions workflow builds all versions (`buildAll`), but the user's GitHub
   account is billing-locked for Actions, so builds run in the Claude session.
+
+## Next: 26.x
+26.1+ ships unobfuscated: use the `net.fabricmc.fabric-loom` (no-remap) plugin,
+no mappings line, `implementation` instead of `modImplementation`, Java 25.
+Fabric API: 26.1.2 -> 0.155.3, 26.2 -> 0.161.0, 26.3 -> 0.162.0.
 
 ## Target versions (Lunar's list)
 1. Group 1 (first): 1.20.1, 1.20.4, 1.20.6, 1.21.1, 1.21.4, then 1.21.5+

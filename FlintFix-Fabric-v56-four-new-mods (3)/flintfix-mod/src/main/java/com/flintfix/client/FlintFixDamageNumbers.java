@@ -1,6 +1,10 @@
 package com.flintfix.client;
 
+//? if >=1.21.9 {
+/*import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+*///?} else {
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+//?}
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.renderer.LightTexture;
@@ -81,11 +85,11 @@ public final class FlintFixDamageNumbers {
     }
 
     public static void render(WorldRenderContext context) {
-        if (POPUPS.isEmpty() || context.matrixStack() == null || context.consumers() == null) return;
+        if (POPUPS.isEmpty() || FlintFixCompat.matrices(context) == null || context.consumers() == null) return;
         Minecraft client = Minecraft.getInstance();
         Font text = client.font;
-        Vec3 camera = context.camera().getPosition();
-        PoseStack matrices = context.matrixStack();
+        Vec3 camera = FlintFixCompat.cameraPos(context);
+        PoseStack matrices = FlintFixCompat.matrices(context);
         long now = System.currentTimeMillis();
         Iterator<Popup> iterator = POPUPS.iterator();
         while (iterator.hasNext()) {
@@ -107,7 +111,7 @@ public final class FlintFixDamageNumbers {
 
             matrices.pushPose();
             matrices.translate(at.x - camera.x, at.y - camera.y, at.z - camera.z);
-            matrices.mulPose(context.camera().rotation());
+            matrices.mulPose(FlintFixCompat.cameraRotation(context));
             matrices.scale(scale, -scale, scale);
             int color = (a << 24) | (popup.color() & 0x00FFFFFF);
             float x = -text.width(popup.text()) / 2.0f;

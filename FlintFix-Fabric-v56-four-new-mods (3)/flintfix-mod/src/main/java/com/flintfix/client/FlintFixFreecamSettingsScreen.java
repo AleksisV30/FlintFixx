@@ -47,7 +47,7 @@ public final class FlintFixFreecamSettingsScreen extends FlintFixScreen {
     public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
         layout();
         float intro = FlintFixUi.openProgress(openedAt);
-        blurBehind(delta);
+        blurBehind(context, delta);
         FlintFixUi.backdrop(context, width, height, intro);
         FlintFixUi.pushPanelIntro(context, x, y, w, h, intro);
         FlintFixUi.panelFrame(context, x, y, w, h);
@@ -163,7 +163,7 @@ public final class FlintFixFreecamSettingsScreen extends FlintFixScreen {
         if (keyCode == GLFW.GLFW_KEY_BACKSPACE || keyCode == GLFW.GLFW_KEY_DELETE) {
             bind(InputConstants.UNKNOWN);
         } else {
-            bind(InputConstants.getKey(keyCode, scanCode));
+            bind(FlintFixCompat.inputKey(keyCode, scanCode));
         }
         listening = false;
         return true;

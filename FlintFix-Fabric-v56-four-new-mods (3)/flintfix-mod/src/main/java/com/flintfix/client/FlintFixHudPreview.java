@@ -22,12 +22,12 @@ public final class FlintFixHudPreview {
         float oldX = getX(widget);
         float oldY = getY(widget);
         setPosition(widget, 0.5f, 0.5f);
-        context.pose().pushPose();
+        FlintFixCompat.pushGui(context);
         try {
-            context.pose().translate(x + width / 2.0f, y + height / 2.0f, 0);
-            context.pose().scale(FIT_SCALE, FIT_SCALE, 1.0f);
-            context.pose().translate(-client.getWindow().getGuiScaledWidth() / 2.0f,
-                -client.getWindow().getGuiScaledHeight() / 2.0f, 0);
+            FlintFixCompat.translateGui(context, x + width / 2.0f, y + height / 2.0f);
+            FlintFixCompat.scaleGui(context, FIT_SCALE, FIT_SCALE);
+            FlintFixCompat.translateGui(context, -client.getWindow().getGuiScaledWidth() / 2.0f,
+                -client.getWindow().getGuiScaledHeight() / 2.0f);
             switch (widget) {
                 case FPS -> FlintFixClient.renderFpsHud(context, client, false, false, true);
                 case CPS -> FlintFixClient.renderCpsHud(context, client, false, false, true);
@@ -38,7 +38,7 @@ public final class FlintFixHudPreview {
                 case CHUNKS -> { }
             }
         } finally {
-            context.pose().popPose();
+            FlintFixCompat.popGui(context);
             setPosition(widget, oldX, oldY);
         }
     }

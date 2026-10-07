@@ -2,10 +2,13 @@ package com.flintfix.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+//? if >=1.21.9 {
+/*import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+*///?} else {
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+//?}
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
@@ -29,19 +32,19 @@ public final class FlintFixBlockOutline {
         if (!(hit instanceof BlockHitResult blockHit) || hit.getType() != HitResult.Type.BLOCK) return true;
         Minecraft client = Minecraft.getInstance();
         ClientLevel world = client.level;
-        if (world == null || context.matrixStack() == null || context.consumers() == null) return true;
+        if (world == null || FlintFixCompat.matrices(context) == null || context.consumers() == null) return true;
         BlockPos pos = blockHit.getBlockPos();
         BlockState state = world.getBlockState(pos);
         if (state.isAir() || !world.getWorldBorder().isWithinBounds(pos)) return true;
         VoxelShape shape = state.getShape(world, pos, CollisionContext.of(client.getCameraEntity()));
         if (shape.isEmpty()) return true;
 
-        Vec3 camera = context.camera().getPosition();
-        PoseStack matrices = context.matrixStack();
+        Vec3 camera = FlintFixCompat.cameraPos(context);
+        PoseStack matrices = FlintFixCompat.matrices(context);
         matrices.pushPose();
         matrices.translate(-camera.x, -camera.y, -camera.z);
         Matrix4f matrix = matrices.last().pose();
-        VertexConsumer quads = context.consumers().getBuffer(RenderType.debugQuads());
+        VertexConsumer quads = context.consumers().getBuffer(FlintFixCompat.debugQuadsType());
         int color = config.blockOutlineRainbow ? FlintFixWorldDraw.rainbow(0.0) : config.blockOutlineColor;
         double distance = Math.max(1.0, Vec3.atCenterOf(pos).distanceTo(camera));
         // Constant on-screen thickness: wider lines farther away.

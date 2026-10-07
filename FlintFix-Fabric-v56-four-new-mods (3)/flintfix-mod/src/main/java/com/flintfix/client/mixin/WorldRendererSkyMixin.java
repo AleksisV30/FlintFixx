@@ -8,11 +8,23 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+//? if >=1.21.9 {
+/*import net.minecraft.client.renderer.state.SkyRenderState;
+*///?}
+//? if >=1.21.6 {
+/*import com.mojang.blaze3d.buffers.GpuBufferSlice;
+*///?} else if >=1.21.2 {
+/*import net.minecraft.client.renderer.FogParameters;
+*///?}
 //? if >=1.21.2 {
 /*import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.DimensionSpecialEffects;
-import net.minecraft.client.renderer.FogParameters;
+*///?}
+//? if >=1.21.2 <1.21.9 {
+/*import net.minecraft.client.renderer.DimensionSpecialEffects;
+*///?}
+//? if >=1.21.11 {
+/*import net.minecraft.client.renderer.SkyRenderer;
 *///?} else if <1.20.5 {
 /*import com.mojang.blaze3d.vertex.PoseStack;
 *///?}
@@ -27,8 +39,20 @@ public abstract class WorldRendererSkyMixin {
      * identity matrix.
      ^/
     @Inject(method = "method_62215", at = @At("HEAD"), cancellable = true)
+    //? if >=1.21.11 {
+    /^private static void flintfix$renderCustomSky(GpuBufferSlice fog, SkyRenderState state, SkyRenderer skyRenderer,
+                                                 CallbackInfo ci) {
+        float tickDelta = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true);
+    ^///?} else if >=1.21.9 {
+    /^private void flintfix$renderCustomSky(GpuBufferSlice fog, SkyRenderState state, CallbackInfo ci) {
+        float tickDelta = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true);
+    ^///?} else if >=1.21.6 {
+    /^private void flintfix$renderCustomSky(GpuBufferSlice fog, DimensionSpecialEffects.SkyType skyType, float tickDelta,
+                                          DimensionSpecialEffects effects, CallbackInfo ci) {
+    ^///?} else {
     private void flintfix$renderCustomSky(FogParameters fog, DimensionSpecialEffects.SkyType skyType, float tickDelta,
                                           DimensionSpecialEffects effects, CallbackInfo ci) {
+    //?}
         Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
         if (!FlintFixSky.shouldRender(camera, false)) return;
         RenderSystem.setShaderFog(fog);

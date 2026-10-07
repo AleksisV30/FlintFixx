@@ -6,7 +6,11 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.block.model.ItemTransform;
+//? if >=1.21.9 {
+/*import net.minecraft.client.renderer.SubmitNodeCollector;
+*///?} else {
 import net.minecraft.client.renderer.entity.player.PlayerRenderer;
+//?}
 //? if >=1.21.4 {
 /*import net.minecraft.client.renderer.item.ItemStackRenderState;
 *///?} else {
@@ -45,10 +49,18 @@ public final class FlintFixHand {
      * HeldItemRenderer#renderItem). visible slides the arm in from below (0..1).
      */
     public static void renderGrippingArm(AbstractClientPlayer player, ItemStack stack, HumanoidArm arm, float visible,
+                                         //? if >=1.21.9 {
+                                         /*PoseStack matrices, SubmitNodeCollector consumers, int light) {
+                                         *///?} else {
                                          PoseStack matrices, MultiBufferSource consumers, int light) {
+                                         //?}
         Minecraft client = Minecraft.getInstance();
+        //? if >=1.21.9 {
+        /*var playerRenderer = client.getEntityRenderDispatcher().getPlayerRenderer(player);
+        *///?} else {
         Object renderer = client.getEntityRenderDispatcher().getRenderer(player);
         if (!(renderer instanceof PlayerRenderer playerRenderer)) return;
+        //?}
 
         boolean right = arm == HumanoidArm.RIGHT;
         float side = right ? 1.0f : -1.0f;
@@ -69,7 +81,11 @@ public final class FlintFixHand {
         // Put the fist center on the origin, which is now the grip.
         matrices.translate(-HAND_X * side, -HAND_Y, 0.0f);
         //? if >=1.21.2 {
-        /*var skin = player.getSkin().texture();
+        /*//? if >=1.21.9 {
+        /^var skin = player.getSkin().body().texturePath();
+        ^///?} else {
+        var skin = player.getSkin().texture();
+        //?}
         if (right) playerRenderer.renderRightHand(matrices, consumers, light, skin,
             player.isModelPartShown(net.minecraft.world.entity.player.PlayerModelPart.RIGHT_SLEEVE));
         else playerRenderer.renderLeftHand(matrices, consumers, light, skin,

@@ -3,7 +3,11 @@ package com.flintfix.client.mixin;
 import com.flintfix.client.FlintFixSky;
 import net.minecraft.client.Camera;
 import net.minecraft.client.multiplayer.ClientLevel;
+//? if >=1.21.6 {
+/*import net.minecraft.client.renderer.fog.FogRenderer;
+*///?} else {
 import net.minecraft.client.renderer.FogRenderer;
+//?}
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -21,8 +25,16 @@ public abstract class BackgroundRendererMixin {
     //? if >=1.21.2 {
     /*/^* Pulls the horizon fog toward the custom sky so terrain fades into it. The returned color also clears the frame. ^/
     @Inject(method = "computeFogColor", at = @At("RETURN"))
+    //? if >=1.21.11 {
+    /^private void flintfix$tintFogForSky(Camera camera, float tickDelta, ClientLevel world, int viewDistance,
+                                        float skyDarkness, CallbackInfoReturnable<Vector4f> cir) {
+    ^///?} else if >=1.21.6 {
+    /^private void flintfix$tintFogForSky(Camera camera, float tickDelta, ClientLevel world, int viewDistance,
+                                        float skyDarkness, boolean thickFog, CallbackInfoReturnable<Vector4f> cir) {
+    ^///?} else {
     private static void flintfix$tintFogForSky(Camera camera, float tickDelta, ClientLevel world,
                                                int viewDistance, float skyDarkness, CallbackInfoReturnable<Vector4f> cir) {
+    //?}
         float[] sky = FlintFixSky.fogColor(camera, world, tickDelta);
         if (sky == null) return;
         Vector4f color = cir.getReturnValue();

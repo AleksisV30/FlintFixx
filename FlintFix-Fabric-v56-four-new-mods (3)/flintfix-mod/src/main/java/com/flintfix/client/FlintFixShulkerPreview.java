@@ -53,9 +53,8 @@ public final class FlintFixShulkerPreview {
         panelY = Math.max(4, Math.min(panelY, screen.height - PANEL_HEIGHT - 4));
 
         Minecraft client = Minecraft.getInstance();
-        var matrices = context.pose();
-        matrices.pushPose();
-        matrices.translate(0.0, 0.0, 500.0);
+        // Above the screen's items and tooltip.
+        FlintFixCompat.pushGuiOverlay(context);
         try {
             FlintFixUi.rounded(context, panelX + 2, panelY + 3, PANEL_WIDTH, PANEL_HEIGHT, 5, 0x88000000);
             FlintFixUi.rounded(context, panelX, panelY, PANEL_WIDTH, PANEL_HEIGHT, 5, 0xFF515A65);
@@ -83,7 +82,7 @@ public final class FlintFixShulkerPreview {
             context.drawString(client.font, Component.literal(count), panelX + PANEL_WIDTH - 7 - client.font.width(count),
                 panelY + PANEL_HEIGHT - 9, 0xFF9BA4B0, false);
         } finally {
-            matrices.popPose();
+            FlintFixCompat.popGui(context);
         }
     }
 

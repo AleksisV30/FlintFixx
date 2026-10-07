@@ -7,6 +7,9 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.ItemInHandRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
+//? if >=1.21.9 {
+/*import net.minecraft.client.renderer.SubmitNodeCollector;
+*///?}
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.item.ItemStack;
@@ -30,7 +33,11 @@ public abstract class HeldItemRendererMixin {
     @Inject(method = "renderArmWithItem", at = @At("HEAD"))
     private void flintfix$beginHand(AbstractClientPlayer player, float tickDelta, float pitch, InteractionHand hand,
                                     float swingProgress, ItemStack item, float equipProgress,
+                                    //? if >=1.21.9 {
+                                    /*PoseStack matrices, SubmitNodeCollector vertexConsumers, int light,
+                                    *///?} else {
                                     PoseStack matrices, MultiBufferSource vertexConsumers, int light,
+                                    //?}
                                     CallbackInfo ci) {
         flintfix$pushed = false;
         flintfix$inspecting = false;
@@ -59,7 +66,10 @@ public abstract class HeldItemRendererMixin {
      * draw the arm there so its fist closes around the item's grip and follows
      * every swing, then apply the inspect flip to the item alone.
      */
-    //? if >=1.21.5 {
+    //? if >=1.21.9 {
+    /*@Inject(method = "renderArmWithItem", at = @At(value = "INVOKE",
+        target = "Lnet/minecraft/client/renderer/ItemInHandRenderer;renderItem(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemDisplayContext;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;I)V"))
+    *///?} else if >=1.21.5 {
     /*@Inject(method = "renderArmWithItem", at = @At(value = "INVOKE",
         target = "Lnet/minecraft/client/renderer/ItemInHandRenderer;renderItem(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemDisplayContext;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V"))
     *///?} else {
@@ -68,7 +78,11 @@ public abstract class HeldItemRendererMixin {
     //?}
     private void flintfix$holdItem(AbstractClientPlayer player, float tickDelta, float pitch, InteractionHand hand,
                                    float swingProgress, ItemStack item, float equipProgress,
+                                   //? if >=1.21.9 {
+                                   /*PoseStack matrices, SubmitNodeCollector vertexConsumers, int light,
+                                   *///?} else {
                                    PoseStack matrices, MultiBufferSource vertexConsumers, int light,
+                                   //?}
                                    CallbackInfo ci) {
         if (!flintfix$drawArm || player.isInvisible()) {
             if (flintfix$inspecting) FlintFixInspect.applyItem(matrices, player, item, player.getMainArm() == HumanoidArm.RIGHT);
@@ -87,7 +101,11 @@ public abstract class HeldItemRendererMixin {
     @Inject(method = "renderArmWithItem", at = @At("RETURN"))
     private void flintfix$endHand(AbstractClientPlayer player, float tickDelta, float pitch, InteractionHand hand,
                                   float swingProgress, ItemStack item, float equipProgress,
+                                  //? if >=1.21.9 {
+                                  /*PoseStack matrices, SubmitNodeCollector vertexConsumers, int light,
+                                  *///?} else {
                                   PoseStack matrices, MultiBufferSource vertexConsumers, int light,
+                                  //?}
                                   CallbackInfo ci) {
         if (flintfix$pushed) {
             matrices.popPose();

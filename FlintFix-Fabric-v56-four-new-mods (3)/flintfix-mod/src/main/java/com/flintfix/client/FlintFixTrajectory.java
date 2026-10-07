@@ -1,9 +1,12 @@
 package com.flintfix.client;
 
+//? if >=1.21.9 {
+/*import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+*///?} else {
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+//?}
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.Direction;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
@@ -38,7 +41,7 @@ public final class FlintFixTrajectory {
     public static void render(WorldRenderContext context) {
         Minecraft client = Minecraft.getInstance();
         Player player = client.player;
-        if (player == null || client.level == null || context.matrixStack() == null || context.consumers() == null) return;
+        if (player == null || client.level == null || FlintFixCompat.matrices(context) == null || context.consumers() == null) return;
 
         ItemStack held = player.getMainHandItem();
         Shot shot = shotFor(held, player);
@@ -61,15 +64,15 @@ public final class FlintFixTrajectory {
         Path path = simulate(client, player, start, velocity, shot.gravity, shot.size);
         if (path.points.size() < 2) return;
 
-        PoseStack matrices = context.matrixStack();
+        PoseStack matrices = FlintFixCompat.matrices(context);
         MultiBufferSource consumers = context.consumers();
-        Vec3 camera = context.camera().getPosition();
+        Vec3 camera = FlintFixCompat.cameraPos(context);
         matrices.pushPose();
         matrices.translate(-camera.x, -camera.y, -camera.z);
         Matrix4f matrix = matrices.last().pose();
         float time = (System.currentTimeMillis() % 100_000L) / 1000.0f;
 
-        VertexConsumer quads = consumers.getBuffer(RenderType.debugQuads());
+        VertexConsumer quads = consumers.getBuffer(FlintFixCompat.debugQuadsType());
         drawRibbon(quads, matrix, path.points, camera, shot.color, time);
         int markerColor = path.entity != null ? 0xFFFF6B6B : shot.color;
         Vec3 end = path.points.get(path.points.size() - 1);
@@ -78,7 +81,7 @@ public final class FlintFixTrajectory {
         }
 
         if (path.entity != null) {
-            VertexConsumer lines = consumers.getBuffer(RenderType.lines());
+            VertexConsumer lines = consumers.getBuffer(FlintFixCompat.linesType());
             AABB box = path.entity.getBoundingBox().inflate(0.05);
             FlintFixCompat.drawBoxOutline(matrices, lines, box, 1.0f, 0.42f, 0.42f, 0.9f);
         }

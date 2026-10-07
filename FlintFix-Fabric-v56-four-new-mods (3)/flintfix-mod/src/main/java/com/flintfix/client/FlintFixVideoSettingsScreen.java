@@ -85,7 +85,7 @@ public final class FlintFixVideoSettingsScreen extends FlintFixScreen {
         layout();
         float intro = FlintFixUi.openProgress(openedAt);
         if (minecraft != null && minecraft.level != null) {
-            blurBehind(delta);
+            blurBehind(c, delta);
             FlintFixUi.backdrop(c, width, height, intro);
         } else {
             FlintFixTitleBackground.render(c, width, height);
@@ -182,12 +182,12 @@ public final class FlintFixVideoSettingsScreen extends FlintFixScreen {
         int rowTop = rowTop();
         int step = rowStep(settings.length);
         float slide = ease(clamp01((System.currentTimeMillis() - tabChangedAt) / (float) TAB_ANIMATION_MS));
-        c.pose().pushPose();
-        c.pose().translate((1.0f - slide) * 8.0f, 0.0f, 0.0f);
+        FlintFixCompat.pushGui(c);
+        FlintFixCompat.translateGui(c, (1.0f - slide) * 8.0f, 0.0f);
         for (int i = 0; i < settings.length; i++) {
             renderSettingRow(c, settings[i], rowTop + i * step, step - 4, mouseX, mouseY);
         }
-        c.pose().popPose();
+        FlintFixCompat.popGui(c);
         if (slide < 1.0f) {
             // Fade the incoming rows in by covering them with the card color.
             c.fill(rightX + 1, rowTop - 2, rightX + rightW - 1, bodyBottom - 1,

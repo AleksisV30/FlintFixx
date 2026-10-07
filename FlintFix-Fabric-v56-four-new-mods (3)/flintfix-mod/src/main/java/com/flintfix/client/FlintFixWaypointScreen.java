@@ -52,7 +52,7 @@ public final class FlintFixWaypointScreen extends FlintFixScreen {
     public void render(GuiGraphics c, int mouseX, int mouseY, float delta) {
         layout();
         float intro = FlintFixUi.openProgress(openedAt);
-        blurBehind(delta);
+        blurBehind(c, delta);
         FlintFixUi.backdrop(c, width, height, intro);
         FlintFixUi.panelFrame(c, x, y, w, h);
         Minecraft mc = Minecraft.getInstance();

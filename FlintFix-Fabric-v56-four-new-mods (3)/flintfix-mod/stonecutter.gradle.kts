@@ -11,3 +11,17 @@ tasks.register("buildAll") {
     group = "build"
     dependsOn(stonecutter.tasks.named("collectJar"))
 }
+
+stonecutter parameters {
+    // 1.21.11 renamed ResourceLocation to Identifier and turned the graphics
+    // mode into a preset (same FAST/FANCY values; setting one applies it).
+    replacements.string(eval(current.version, ">=1.21.11")) {
+        replace("ResourceLocation", "Identifier")
+    }
+    replacements.string(eval(current.version, ">=1.21.11")) {
+        replace("GraphicsStatus", "GraphicsPreset")
+    }
+    replacements.string(eval(current.version, ">=1.21.11")) {
+        replace("graphicsMode()", "graphicsPreset()")
+    }
+}

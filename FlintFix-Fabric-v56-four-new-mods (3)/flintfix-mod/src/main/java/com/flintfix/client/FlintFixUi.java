@@ -157,15 +157,15 @@ public final class FlintFixUi {
         float scale = 0.975f + 0.025f * progress;
         float cx = x + w / 2.0f;
         float cy = y + h / 2.0f;
-        c.pose().pushPose();
-        c.pose().translate(cx, cy + (1.0f - progress) * 4.0f, 0);
-        c.pose().scale(scale, scale, 1.0f);
-        c.pose().translate(-cx, -cy, 0);
+        FlintFixCompat.pushGui(c);
+        FlintFixCompat.translateGui(c, cx, cy + (1.0f - progress) * 4.0f);
+        FlintFixCompat.scaleGui(c, scale, scale);
+        FlintFixCompat.translateGui(c, -cx, -cy);
     }
 
     public static void finishPanelIntro(GuiGraphics c, int x, int y, int w, int h, float progress) {
         c.fill(x, y, x + w, y + h, opacity(0xFF000000, (1.0f - progress) * 0.28f));
-        c.pose().popPose();
+        FlintFixCompat.popGui(c);
     }
 
     public static void outlinedBox(GuiGraphics c, int x, int y, int w, int h, int radius,
@@ -509,11 +509,10 @@ public final class FlintFixUi {
 
     private static void ensureCornerFiltering() {
         if (cornerFilteringApplied) return;
-        var textures = Minecraft.getInstance().getTextureManager();
-        textures.getTexture(CORNER_TL).setFilter(true, false);
-        textures.getTexture(CORNER_TR).setFilter(true, false);
-        textures.getTexture(CORNER_BL).setFilter(true, false);
-        textures.getTexture(CORNER_BR).setFilter(true, false);
+        FlintFixCompat.smoothTexture(CORNER_TL);
+        FlintFixCompat.smoothTexture(CORNER_TR);
+        FlintFixCompat.smoothTexture(CORNER_BL);
+        FlintFixCompat.smoothTexture(CORNER_BR);
         cornerFilteringApplied = true;
     }
 

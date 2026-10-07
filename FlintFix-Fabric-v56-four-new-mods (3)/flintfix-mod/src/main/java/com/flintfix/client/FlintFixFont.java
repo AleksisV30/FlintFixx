@@ -38,13 +38,13 @@ public final class FlintFixFont {
 
         Font renderer = Minecraft.getInstance().font;
         float scale = scaleFor(renderer, size);
-        context.pose().pushPose();
-        context.pose().translate(x, y, 0.0f);
-        context.pose().scale(scale, scale, 1.0f);
+        FlintFixCompat.pushGui(context);
+        FlintFixCompat.translateGui(context, x, y);
+        FlintFixCompat.scaleGui(context, scale, scale);
         // Render once at the intended scale. A sub-pixel duplicate pass
         // softened every regular label and made this screen look out of focus.
         context.drawString(renderer, styled(text, bold), 0, 0, color, shadow);
-        context.pose().popPose();
+        FlintFixCompat.popGui(context);
     }
 
     /**
@@ -87,11 +87,11 @@ public final class FlintFixFont {
         color = FlintFixUi.themedText(color);
         Font renderer = Minecraft.getInstance().font;
         float scale = crispScaleFor(renderer, size);
-        context.pose().pushPose();
-        context.pose().translate(x, y, 0.0f);
-        context.pose().scale(scale, scale, 1.0f);
+        FlintFixCompat.pushGui(context);
+        FlintFixCompat.translateGui(context, x, y);
+        FlintFixCompat.scaleGui(context, scale, scale);
         context.drawString(renderer, styled(text, bold), 0, 0, color, false);
-        context.pose().popPose();
+        FlintFixCompat.popGui(context);
     }
 
     public static int widthCrisp(String text, int size, boolean bold) {
@@ -147,7 +147,7 @@ public final class FlintFixFont {
         // Use a real bold face instead of Minecraft synthesizing bold from
         // the regular TTF. Synthetic bold made small UI labels look doubled
         // and fuzzy in the atlas.
-        text.setStyle(Style.EMPTY.withFont(FlintFixCompat.id("flintfix", bold ? "ui_bold" : "ui")));
+        text.setStyle(FlintFixCompat.fontStyle(bold ? "ui_bold" : "ui"));
         return text;
     }
 

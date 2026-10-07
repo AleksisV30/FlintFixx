@@ -30,7 +30,7 @@ public final class FlintFixThemeScreen extends FlintFixScreen {
     public void render(GuiGraphics c, int mouseX, int mouseY, float delta) {
         layout();
         float intro = FlintFixUi.openProgress(openedAt);
-        blurBehind(delta);
+        blurBehind(c, delta);
         FlintFixUi.backdrop(c, width, height, intro);
         FlintFixUi.pushPanelIntro(c, x, y, w, h, intro);
         FlintFixUi.panelFrame(c, x, y, w, h);

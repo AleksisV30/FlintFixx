@@ -4,7 +4,11 @@ import com.flintfix.client.FlintFixFreecam;
 import com.flintfix.client.FlintFixLookAround;
 import net.minecraft.client.Camera;
 import net.minecraft.world.entity.Entity;
+//? if >=1.21.11 {
+/*import net.minecraft.world.level.Level;
+*///?} else {
 import net.minecraft.world.level.BlockGetter;
+//?}
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -21,11 +25,19 @@ public abstract class CameraMixin {
     @Shadow protected abstract void setPosition(double x, double y, double z);
     @Shadow protected abstract void setRotation(float yaw, float pitch);
 
+    //? if >=1.21.11 {
+    /*@Inject(
+        method = "setup(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/entity/Entity;ZZF)V",
+        at = @At("TAIL")
+    )
+    private void flintfix$applyCameraModes(Level area, Entity focusedEntity,
+    *///?} else {
     @Inject(
         method = "setup(Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/world/entity/Entity;ZZF)V",
         at = @At("TAIL")
     )
     private void flintfix$applyCameraModes(BlockGetter area, Entity focusedEntity,
+    //?}
                                            boolean thirdPerson, boolean inverseView,
                                            float tickDelta, CallbackInfo ci) {
         if (FlintFixFreecam.isActive()) {
