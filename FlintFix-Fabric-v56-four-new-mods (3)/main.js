@@ -1056,6 +1056,8 @@ async function findSystemBuildJdk() {
 }
 
 async function ensureBuildJdk(emit) {
+    // Installed builds ship prebuilt mod jars (see minecraft/fabric.js), so no compiler is needed.
+    if (app.isPackaged && fs.existsSync(path.join(process.resourcesPath, "flintfix-mods"))) return null;
     const systemJdk = await findSystemBuildJdk();
     if (systemJdk) {
         emit?.({ stage: "fabric", phase: "jdk", message: `Using existing system JDK ${BUILD_JDK_MAJOR}.` });

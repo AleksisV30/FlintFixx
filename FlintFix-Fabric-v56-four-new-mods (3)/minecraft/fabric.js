@@ -135,6 +135,12 @@ function runPowerShell(scriptPath, cwd, javaExecutable, args = []) {
 
 async function ensureModJar(projectRoot, gameVersion, javaExecutable, emit) {
     const target = FLINTFIX_TARGETS[gameVersion];
+    // The installed client ships prebuilt jars (resources/flintfix-mods), so players never compile.
+    const bundledDir = process.resourcesPath ? path.join(process.resourcesPath, "flintfix-mods") : null;
+    if (bundledDir && fs.existsSync(bundledDir)) {
+        const bundled = fs.readdirSync(bundledDir).find(file => file.endsWith(`+${target}.jar`));
+        if (bundled) return path.join(bundledDir, bundled);
+    }
     const modRoot = path.join(projectRoot, "flintfix-mod");
     const libs = path.join(modRoot, "versions", target, "build", "libs");
     const sourceRoot = path.join(modRoot, "src");
