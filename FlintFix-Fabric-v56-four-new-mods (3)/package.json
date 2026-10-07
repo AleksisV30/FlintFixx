@@ -37,7 +37,9 @@
       "!flintfix-mod/versions/**/.gradle/**",
       "!flintfix-mod/versions/**/run/**",
       "!release/**",
-      "!dist/**"
+      "!dist/**",
+      "!release*/**",
+      "!release-out/**"
     ],
     "asarUnpack": [
       "flintfix-mod/**",
@@ -75,7 +77,7 @@
       }
     ],
     "directories": {
-      "output": "release"
+      "output": "release-out"
     }
   }
 }
