@@ -1,18 +1,18 @@
 package com.flintfix.client;
 
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.text.Text;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 /** Small palette picker opened from the FlintFix sidebar. */
-public final class FlintFixThemeScreen extends Screen {
+public final class FlintFixThemeScreen extends FlintFixScreen {
     private final Screen parent;
     private final long openedAt = System.currentTimeMillis();
     private int x, y, w, h, listTop;
 
     public FlintFixThemeScreen(Screen parent) {
-        super(Text.literal("FlintFix Themes"));
+        super(Component.literal("FlintFix Themes"));
         this.parent = parent;
     }
 
@@ -27,10 +27,10 @@ public final class FlintFixThemeScreen extends Screen {
     @Override protected void init() { layout(); }
 
     @Override
-    public void render(DrawContext c, int mouseX, int mouseY, float delta) {
+    public void render(GuiGraphics c, int mouseX, int mouseY, float delta) {
         layout();
         float intro = FlintFixUi.openProgress(openedAt);
-        applyBlur(delta);
+        blurBehind(c, delta);
         FlintFixUi.backdrop(c, width, height, intro);
         FlintFixUi.pushPanelIntro(c, x, y, w, h, intro);
         FlintFixUi.panelFrame(c, x, y, w, h);
@@ -69,7 +69,7 @@ public final class FlintFixThemeScreen extends Screen {
     }
 
     /** A tiny window drawn in the theme's own colors. */
-    private static void renderSwatch(DrawContext c, FlintFixTheme theme, int sx, int sy) {
+    private static void renderSwatch(GuiGraphics c, FlintFixTheme theme, int sx, int sy) {
         int sw = 38;
         int sh = 15;
         FlintFixUi.roundedRaw(c, sx, sy, sw, sh, 2, theme.border());
@@ -107,7 +107,7 @@ public final class FlintFixThemeScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+        if (keyCode == InputConstants.KEY_ESCAPE) {
             closeToParent();
             return true;
         }
@@ -115,8 +115,8 @@ public final class FlintFixThemeScreen extends Screen {
     }
 
     private void closeToParent() {
-        if (client != null) client.setScreen(parent);
+        if (minecraft != null) minecraft.setScreen(parent);
     }
 
-    @Override public boolean shouldPause() { return false; }
+    @Override public boolean isPauseScreen() { return false; }
 }

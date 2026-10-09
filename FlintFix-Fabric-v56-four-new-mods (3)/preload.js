@@ -54,6 +54,43 @@ contextBridge.exposeInMainWorld("flintfix", {
     updateInstanceMod: (instanceId, fileName, options) => ipcRenderer.invoke("mods:update", instanceId, fileName, options),
     getMinecraftFlintIcon: versionId => ipcRenderer.invoke("minecraft:getFlintIcon", versionId),
 
+    searchResourcePacks: options => ipcRenderer.invoke("packs:search", options),
+    getResourcePackDetails: (projectId, options) => ipcRenderer.invoke("packs:details", projectId, options),
+    listResourcePacks: () => ipcRenderer.invoke("packs:list"),
+    installResourcePack: options => ipcRenderer.invoke("packs:install", options),
+    setResourcePackEnabled: (fileName, enabled) => ipcRenderer.invoke("packs:setEnabled", fileName, enabled),
+    removeResourcePack: fileName => ipcRenderer.invoke("packs:remove", fileName),
+    openResourcePacksFolder: () => ipcRenderer.invoke("packs:openFolder"),
+    pingServer: address => ipcRenderer.invoke("servers:ping", address),
+    listSkins: () => ipcRenderer.invoke("skins:list"),
+    importSkins: variant => ipcRenderer.invoke("skins:import", variant),
+    getCurrentSkin: () => ipcRenderer.invoke("skins:current"),
+    saveCurrentSkin: () => ipcRenderer.invoke("skins:saveCurrent"),
+    applySkin: id => ipcRenderer.invoke("skins:apply", id),
+    updateSkin: (id, changes) => ipcRenderer.invoke("skins:update", id, changes),
+    deleteSkin: id => ipcRenderer.invoke("skins:delete", id),
+    resetSkin: () => ipcRenderer.invoke("skins:reset"),
+    getNews: () => ipcRenderer.invoke("news:get"),
+    getAppVersion: () => ipcRenderer.invoke("app:version"),
+    checkForUpdates: () => ipcRenderer.invoke("update:check"),
+    installUpdate: () => ipcRenderer.invoke("update:install"),
+    onUpdateStatus: callback => {
+        const listener = (_event, data) => callback(data);
+        ipcRenderer.on("update:status", listener);
+        return () => ipcRenderer.removeListener("update:status", listener);
+    },
+    installPerformanceMods: (instanceId, options) => ipcRenderer.invoke("mods:performance", instanceId, options),
+    onPerformanceProgress: callback => {
+        const listener = (_event, data) => callback(data);
+        ipcRenderer.on("mods:performance:progress", listener);
+        return () => ipcRenderer.removeListener("mods:performance:progress", listener);
+    },
+    onResourcePackProgress: callback => {
+        const listener = (_event, data) => callback(data);
+        ipcRenderer.on("packs:progress", listener);
+        return () => ipcRenderer.removeListener("packs:progress", listener);
+    },
+
     getDiscordPresenceStatus: () => ipcRenderer.invoke("discord:presence:status"),
     setDiscordPresenceEnabled: (enabled, context = {}) => ipcRenderer.invoke("discord:presence:setEnabled", enabled, context),
     updateDiscordLauncherPresence: (context = {}) => ipcRenderer.invoke("discord:presence:updateLauncher", context),

@@ -1,12 +1,12 @@
 package com.flintfix.client;
 
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.text.Text;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 /** Picks the custom sky preset and chooses which sky effects are drawn. */
-public final class FlintFixSkyScreen extends Screen {
+public final class FlintFixSkyScreen extends FlintFixScreen {
     private static final String[] EFFECTS = {
         "Stars", "Milky Way", "Shooting stars", "Aurora", "Nebula clouds",
         "Sun & moon glow", "Sun rays", "Moon phases", "Horizon glow", "Matching fog"
@@ -20,7 +20,7 @@ public final class FlintFixSkyScreen extends Screen {
     private int presetStep, presetH, effectStep, effectH;
 
     public FlintFixSkyScreen(Screen parent) {
-        super(Text.literal("Custom Sky"));
+        super(Component.literal("Custom Sky"));
         this.parent = parent;
     }
 
@@ -47,10 +47,10 @@ public final class FlintFixSkyScreen extends Screen {
     @Override protected void init() { layout(); }
 
     @Override
-    public void render(DrawContext c, int mouseX, int mouseY, float delta) {
+    public void render(GuiGraphics c, int mouseX, int mouseY, float delta) {
         layout();
         float intro = FlintFixUi.openProgress(openedAt);
-        if (client != null && client.world != null) applyBlur(delta);
+        if (minecraft != null && minecraft.level != null) blurBehind(c, delta);
         FlintFixUi.backdrop(c, width, height, intro);
         FlintFixUi.pushPanelIntro(c, x, y, w, h, intro);
         FlintFixUi.panelFrame(c, x, y, w, h);
@@ -81,7 +81,7 @@ public final class FlintFixSkyScreen extends Screen {
     }
 
     /** Segmented control that pins the sky to a time of day for viewing. */
-    private void renderTimeModes(DrawContext c, int mouseX, int mouseY) {
+    private void renderTimeModes(GuiGraphics c, int mouseX, int mouseY) {
         FlintFixFont.drawExact(c, "Sky time", x + 14, FlintFixFont.centeredY(timeY, 18, 7), 7, FlintFixUi.text(), true);
         int segX = timeSegX();
         int segW = timeSegW();
@@ -102,7 +102,7 @@ public final class FlintFixSkyScreen extends Screen {
     private int timeSegW() { return Math.max(34, Math.min(64, (w - 24 - 70 - 4) / FlintFixSky.TIME_MODES.length)); }
     private int timeSegX() { return x + w - 12 - (timeSegW() * FlintFixSky.TIME_MODES.length + 4); }
 
-    private void renderPresets(DrawContext c, int mouseX, int mouseY) {
+    private void renderPresets(GuiGraphics c, int mouseX, int mouseY) {
         FlintFixUi.sectionLabel(c, "PRESETS", leftX + 2, columnsTop);
         FlintFixSky.Preset current = FlintFixSky.preset();
         FlintFixSky.Preset[] presets = FlintFixSky.Preset.values();
@@ -139,7 +139,7 @@ public final class FlintFixSkyScreen extends Screen {
         }
     }
 
-    private void renderEffects(DrawContext c, int mouseX, int mouseY) {
+    private void renderEffects(GuiGraphics c, int mouseX, int mouseY) {
         FlintFixUi.sectionLabel(c, "EFFECTS", rightX + 2, columnsTop);
         for (int i = 0; i < EFFECTS.length; i++) {
             int rowY = effectY(i);
@@ -191,7 +191,7 @@ public final class FlintFixSkyScreen extends Screen {
     }
 
     /** Day sky on the left half, night sky with stars on the right half. */
-    private static void renderSwatch(DrawContext c, FlintFixSky.Preset preset, int sx, int sy, int sw, int sh) {
+    private static void renderSwatch(GuiGraphics c, FlintFixSky.Preset preset, int sx, int sy, int sw, int sh) {
         if (sh < 4) return;
         int half = sw / 2;
         c.fillGradient(sx, sy, sx + half, sy + sh, preset.day().zenith(), preset.day().horizon());
@@ -245,7 +245,7 @@ public final class FlintFixSkyScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+        if (keyCode == InputConstants.KEY_ESCAPE) {
             closeToParent();
             return true;
         }
@@ -253,8 +253,8 @@ public final class FlintFixSkyScreen extends Screen {
     }
 
     private void closeToParent() {
-        if (client != null) client.setScreen(parent);
+        if (minecraft != null) minecraft.setScreen(parent);
     }
 
-    @Override public boolean shouldPause() { return false; }
+    @Override public boolean isPauseScreen() { return false; }
 }

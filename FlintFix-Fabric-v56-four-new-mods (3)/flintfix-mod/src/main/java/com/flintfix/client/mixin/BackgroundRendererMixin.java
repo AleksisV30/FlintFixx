@@ -1,32 +1,79 @@
 package com.flintfix.client.mixin;
 
 import com.flintfix.client.FlintFixSky;
-import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.render.BackgroundRenderer;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.world.ClientWorld;
+import net.minecraft.client.Camera;
+import net.minecraft.client.multiplayer.ClientLevel;
+//? if >=1.21.6 {
+/*import net.minecraft.client.renderer.fog.FogRenderer;
+*///?} else {
+import net.minecraft.client.renderer.FogRenderer;
+//?}
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+//? if >=26.1 {
+/*import org.joml.Vector4f;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+*///?} else if >=1.21.2 {
+/*import org.joml.Vector4f;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+*///?} else {
+import com.mojang.blaze3d.systems.RenderSystem;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+//?}
 
-@Mixin(BackgroundRenderer.class)
+@Mixin(FogRenderer.class)
 public abstract class BackgroundRendererMixin {
-    @Shadow private static float red;
-    @Shadow private static float green;
-    @Shadow private static float blue;
+    //? if >=26.1 {
+    /*/^* Pulls the horizon fog toward the custom sky so terrain fades into it. The computed color also clears the frame. ^/
+    @Inject(method = "computeFogColor", at = @At("TAIL"))
+    private void flintfix$tintFogForSky(Camera camera, float tickDelta, ClientLevel world, int viewDistance,
+                                        float skyDarkness, Vector4f color, CallbackInfo ci) {
+        float[] sky = FlintFixSky.fogColor(camera, world, tickDelta);
+        if (sky == null) return;
+        float amount = sky[3];
+        color.x += (sky[0] - color.x) * amount;
+        color.y += (sky[1] - color.y) * amount;
+        color.z += (sky[2] - color.z) * amount;
+    }
+    *///?} else if >=1.21.2 {
+    /*/^* Pulls the horizon fog toward the custom sky so terrain fades into it. The returned color also clears the frame. ^/
+    @Inject(method = "computeFogColor", at = @At("RETURN"))
+    //? if >=1.21.11 {
+    /^private void flintfix$tintFogForSky(Camera camera, float tickDelta, ClientLevel world, int viewDistance,
+                                        float skyDarkness, CallbackInfoReturnable<Vector4f> cir) {
+    ^///?} else if >=1.21.6 {
+    /^private void flintfix$tintFogForSky(Camera camera, float tickDelta, ClientLevel world, int viewDistance,
+                                        float skyDarkness, boolean thickFog, CallbackInfoReturnable<Vector4f> cir) {
+    ^///?} else {
+    private static void flintfix$tintFogForSky(Camera camera, float tickDelta, ClientLevel world,
+                                               int viewDistance, float skyDarkness, CallbackInfoReturnable<Vector4f> cir) {
+    //?}
+        float[] sky = FlintFixSky.fogColor(camera, world, tickDelta);
+        if (sky == null) return;
+        Vector4f color = cir.getReturnValue();
+        float amount = sky[3];
+        color.x += (sky[0] - color.x) * amount;
+        color.y += (sky[1] - color.y) * amount;
+        color.z += (sky[2] - color.z) * amount;
+    }
+    *///?} else {
+    @Shadow private static float fogRed;
+    @Shadow private static float fogGreen;
+    @Shadow private static float fogBlue;
 
     /** Pulls the horizon fog toward the custom sky so terrain fades into it. */
-    @Inject(method = "render", at = @At("TAIL"))
-    private static void flintfix$tintFogForSky(Camera camera, float tickDelta, ClientWorld world,
+    @Inject(method = "setupColor", at = @At("TAIL"))
+    private static void flintfix$tintFogForSky(Camera camera, float tickDelta, ClientLevel world,
                                                int viewDistance, float skyDarkness, CallbackInfo ci) {
         float[] sky = FlintFixSky.fogColor(camera, world, tickDelta);
         if (sky == null) return;
         float amount = sky[3];
-        red += (sky[0] - red) * amount;
-        green += (sky[1] - green) * amount;
-        blue += (sky[2] - blue) * amount;
-        RenderSystem.clearColor(red, green, blue, 0.0f);
+        fogRed += (sky[0] - fogRed) * amount;
+        fogGreen += (sky[1] - fogGreen) * amount;
+        fogBlue += (sky[2] - fogBlue) * amount;
+        RenderSystem.clearColor(fogRed, fogGreen, fogBlue, 0.0f);
     }
+    //?}
 }

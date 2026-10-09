@@ -1,27 +1,31 @@
 package com.flintfix.client.mixin;
 
 import com.flintfix.client.FlintFixUi;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.TitleScreen;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.client.gui.widget.PressableWidget;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractButton;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(PressableWidget.class)
-public abstract class TitleButtonMixin extends ClickableWidget {
-    protected TitleButtonMixin(int x, int y, int width, int height, Text message) {
+@Mixin(AbstractButton.class)
+public abstract class TitleButtonMixin extends AbstractWidget {
+    protected TitleButtonMixin(int x, int y, int width, int height, Component message) {
         super(x, y, width, height, message);
     }
 
+    //? if >=26.1 {
+    /*@Inject(method = "extractWidgetRenderState", at = @At("HEAD"), cancellable = true)
+    *///?} else {
     @Inject(method = "renderWidget", at = @At("HEAD"), cancellable = true)
-    private void flintfix$renderTitleButton(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
-        if (!(MinecraftClient.getInstance().currentScreen instanceof TitleScreen)) return;
+    //?}
+    private void flintfix$renderTitleButton(GuiGraphics context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+        if (!(Minecraft.getInstance().screen instanceof TitleScreen)) return;
         if (this.getWidth() < 90 || this.getHeight() < 18) return;
 
         ci.cancel();
@@ -32,7 +36,7 @@ public abstract class TitleButtonMixin extends ClickableWidget {
         int h = this.getHeight();
         boolean selected = this.isHovered() || this.isFocused();
 
-        float widgetAlpha = MathHelper.clamp(this.alpha, 0.0F, 1.0F);
+        float widgetAlpha = Mth.clamp(this.alpha, 0.0F, 1.0F);
         // Glassy panel over the animated background; hover slides in a violet edge.
         float hoverT = FlintFixUi.hoverProgress("title-button:" + x + ":" + y, selected && this.active);
         int accent = 0xFF8A72FF;
@@ -54,8 +58,8 @@ public abstract class TitleButtonMixin extends ClickableWidget {
                 withAlpha(FlintFixUi.opacity(accent, hoverT), widgetAlpha));
         }
 
-        context.drawCenteredTextWithShadow(
-            MinecraftClient.getInstance().textRenderer,
+        context.drawCenteredString(
+            Minecraft.getInstance().font,
             this.getMessage(),
             x + w / 2,
             y + (h - 8) / 2,
@@ -65,7 +69,7 @@ public abstract class TitleButtonMixin extends ClickableWidget {
 
     private static int withAlpha(int argb, float multiplier) {
         int alpha = (argb >>> 24) & 0xFF;
-        alpha = MathHelper.clamp(Math.round(alpha * multiplier), 0, 255);
+        alpha = Mth.clamp(Math.round(alpha * multiplier), 0, 255);
         return (argb & 0x00FFFFFF) | (alpha << 24);
     }
 }

@@ -1,12 +1,12 @@
 package com.flintfix.client;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 /** Compact live-rendered FPS settings screen in the same FlintFix visual style. */
-public final class FlintFixFpsSettingsScreen extends Screen {
+public final class FlintFixFpsSettingsScreen extends FlintFixScreen {
     private final Screen parent;
 
     private int x, y, w, h;
@@ -24,7 +24,7 @@ public final class FlintFixFpsSettingsScreen extends Screen {
     private static final int CONTENT_H = 150;
 
     public FlintFixFpsSettingsScreen(Screen parent) {
-        super(Text.literal("FPS Display Settings"));
+        super(Component.literal("FPS Display Settings"));
         this.parent = parent;
     }
 
@@ -53,10 +53,10 @@ public final class FlintFixFpsSettingsScreen extends Screen {
     }
 
     @Override
-    public void render(DrawContext c, int mouseX, int mouseY, float delta) {
+    public void render(GuiGraphics c, int mouseX, int mouseY, float delta) {
         layout();
         float intro = FlintFixUi.openProgress(openedAt);
-        applyBlur(delta);
+        blurBehind(c, delta);
         FlintFixUi.backdrop(c, width, height, intro);
         FlintFixUi.pushPanelIntro(c, x, y, w, h, intro);
         FlintFixUi.panelFrame(c, x, y, w, h);
@@ -89,7 +89,7 @@ public final class FlintFixFpsSettingsScreen extends Screen {
         FlintFixUi.finishPanelIntro(c, x, y, w, h, intro);
     }
 
-    private void optionRow(DrawContext c, int rowY, String label, boolean enabled, int mouseX, int mouseY) {
+    private void optionRow(GuiGraphics c, int rowY, String label, boolean enabled, int mouseX, int mouseY) {
         boolean hover = mouseY >= listTop && mouseY <= listBottom
             && FlintFixUi.inside(mouseX, mouseY, leftX, rowY, leftW, 24);
         float t = FlintFixUi.hoverProgress("fps-row:" + label, hover);
@@ -99,7 +99,7 @@ public final class FlintFixFpsSettingsScreen extends Screen {
         FlintFixUi.switchToggle(c, "fps:" + label, leftX + leftW - 28, rowY + 7, enabled);
     }
 
-    private void sliderRow(DrawContext c, int rowY, String label, float value, float min, float max,
+    private void sliderRow(GuiGraphics c, int rowY, String label, float value, float min, float max,
                            String valueText, boolean dragging) {
         FlintFixUi.surface(c, leftX, rowY, leftW, 26, FlintFixUi.card(), FlintFixUi.border());
         FlintFixFont.drawExact(c, label, leftX + 8, rowY + 5, 7, FlintFixUi.text(), true);
@@ -108,7 +108,7 @@ public final class FlintFixFpsSettingsScreen extends Screen {
         FlintFixUi.slider(c, leftX + 8, rowY + 17, leftW - 16, (value - min) / (max - min), dragging);
     }
 
-    private void renderPreview(DrawContext c) {
+    private void renderPreview(GuiGraphics c) {
         FlintFixUi.surface(c, rightX, listTop, rightW, 68, FlintFixUi.panel(), FlintFixUi.border());
         FlintFixUi.sectionLabel(c, "PREVIEW", rightX + 7, listTop + 7);
         boolean active = FlintFixClient.CONFIG.fpsEnabled;
@@ -119,12 +119,12 @@ public final class FlintFixFpsSettingsScreen extends Screen {
         int previewW = Math.max(1, rightW - 8);
         int previewH = 43;
         c.enableScissor(previewX, previewY, previewX + previewW, previewY + previewH);
-        FlintFixHudPreview.render(c, MinecraftClient.getInstance(), FlintFixHudPreview.Widget.FPS,
+        FlintFixHudPreview.render(c, Minecraft.getInstance(), FlintFixHudPreview.Widget.FPS,
             previewX, previewY, previewW, previewH);
         c.disableScissor();
     }
 
-    private void renderScrollbar(DrawContext c) {
+    private void renderScrollbar(GuiGraphics c) {
         FlintFixUi.scrollbar(c, leftX + leftW + 3, listTop, listBottom - listTop, scroll, maxScroll);
     }
 
@@ -144,7 +144,7 @@ public final class FlintFixFpsSettingsScreen extends Screen {
         if (button != 0) return super.mouseClicked(mouseX, mouseY, button);
 
         if (FlintFixUi.inside(mouseX, mouseY, x + 10, y + 9, 16, 16)) {
-            close();
+            onClose();
             return true;
         }
 
@@ -179,7 +179,7 @@ public final class FlintFixFpsSettingsScreen extends Screen {
 
         int footerY = y + h - 24;
         if (FlintFixUi.inside(mouseX, mouseY, leftX, footerY, 55, 16)) {
-            if (client != null) client.setScreen(new FlintFixHudEditorScreen(this));
+            if (minecraft != null) minecraft.setScreen(new FlintFixHudEditorScreen(this));
             return true;
         }
         if (FlintFixUi.inside(mouseX, mouseY, leftX + 61, footerY, 42, 16)) {
@@ -228,15 +228,15 @@ public final class FlintFixFpsSettingsScreen extends Screen {
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 
     @Override
-    public void close() {
+    public void onClose() {
         FlintFixClient.CONFIG.save();
-        if (client != null) {
-            client.setScreen(parent instanceof FlintFixSettingsScreen ? parent : new FlintFixSettingsScreen(null));
+        if (minecraft != null) {
+            minecraft.setScreen(parent instanceof FlintFixSettingsScreen ? parent : new FlintFixSettingsScreen(null));
         }
     }
 }

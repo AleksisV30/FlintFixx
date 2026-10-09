@@ -34,6 +34,11 @@ public final class FlintFixConfig {
     public String skyPreset = "AURORA";
     public boolean itemInspectEnabled = true;
     public boolean showHandEnabled = false;
+    /** Quarter turns of the arm around its own length (0-3); 2 shows the outside of the hand. */
+    public int showHandTurn = 2;
+    /** How far the view model is lifted / moved toward the camera while Show Hand is on. */
+    public float showHandHeight = 0.10f;
+    public float showHandDepth = 0.02f;
     public boolean fullbrightEnabled = false;
     /** 0 follow world, 1 day, 2 sunset, 3 night. Only changes how the custom sky looks. */
     public int skyTimeMode = 0;
@@ -85,6 +90,74 @@ public final class FlintFixConfig {
     public float armorScale = 1.0f;
     public float armorX = 0.018f;
     public float armorY = 0.25f;
+
+    public boolean potionsEnabled = false;
+    public boolean potionsBackground = true;
+    public float potionsBackgroundOpacity = 0.45f;
+    public float potionsScale = 1.0f;
+    public float potionsX = 0.98f;
+    public float potionsY = 0.08f;
+
+    public boolean speedEnabled = false;
+    public boolean speedBackground = true;
+    public float speedBackgroundOpacity = 0.45f;
+    public float speedScale = 1.0f;
+    public float speedX = 0.018f;
+    public float speedY = 0.42f;
+    /** 0 blocks per second, 1 km/h. */
+    public int speedUnit = 0;
+
+    public boolean compassEnabled = false;
+    public boolean compassBackground = true;
+    public float compassBackgroundOpacity = 0.45f;
+    public float compassScale = 1.0f;
+    public float compassX = 0.5f;
+    public float compassY = 0.0f;
+    public boolean compassDeathMarker = true;
+
+    public boolean blockOutlineEnabled = false;
+    public int blockOutlineColor = 0xFFFFFFFF;
+    public float blockOutlineWidth = 2.0f;
+    public boolean blockOutlineFill = false;
+    public float blockOutlineFillOpacity = 0.15f;
+    public boolean blockOutlineRainbow = false;
+
+    public boolean crosshairEnabled = false;
+    /** 0 cross, 1 dot, 2 circle, 3 cross with dot, 4 x. */
+    public int crosshairStyle = 0;
+    public int crosshairColor = 0xFFFFFFFF;
+    public float crosshairSize = 5.0f;
+    public float crosshairGap = 2.0f;
+    public float crosshairThickness = 1.0f;
+    public boolean crosshairOutline = true;
+    public boolean crosshairHitMarker = true;
+
+    public boolean lowOverlaysEnabled = false;
+    public boolean lowFire = true;
+    public float lowFireAmount = 0.35f;
+    public boolean lowShield = true;
+    public float lowShieldAmount = 0.25f;
+    public boolean lowTotem = true;
+    public float totemSize = 0.5f;
+
+    public boolean damageNumbersEnabled = false;
+    public boolean damageNumbersHealing = true;
+
+    public boolean hideWeatherEnabled = false;
+
+    public boolean motionBlurEnabled = false;
+    public float motionBlurStrength = 0.5f;
+
+    public boolean waypointsEnabled = true;
+    public boolean waypointsBeams = true;
+    public boolean waypointsDistance = true;
+    public boolean waypointsDeath = true;
+    public boolean waypointsCompass = true;
+
+    public boolean teammateGlowEnabled = false;
+    public int teammateGlowColor = 0xFF5CFFB0;
+    public boolean teammateGlowFriends = true;
+    public boolean teammateGlowTeam = true;
 
     public static FlintFixConfig load() {
         if (!Files.exists(PATH)) {
@@ -206,6 +279,12 @@ public final class FlintFixConfig {
         keystrokesY = 0.70f;
         armorX = 0.018f;
         armorY = 0.25f;
+        potionsX = 0.98f;
+        potionsY = 0.08f;
+        speedX = 0.018f;
+        speedY = 0.42f;
+        compassX = 0.5f;
+        compassY = 0.0f;
         sanitize();
     }
 
@@ -213,6 +292,9 @@ public final class FlintFixConfig {
         theme = FlintFixTheme.fromId(theme).id();
         skyPreset = FlintFixSky.Preset.fromId(skyPreset).name();
         skyTimeMode = Math.max(0, Math.min(3, skyTimeMode));
+        showHandTurn = Math.floorMod(showHandTurn, 4);
+        showHandHeight = clamp(showHandHeight, -0.10f, 0.30f);
+        showHandDepth = clamp(showHandDepth, -0.20f, 0.20f);
         freecamSpeed = clamp(freecamSpeed, 0.10f, 2.00f);
         fpsBackgroundOpacity = clamp(fpsBackgroundOpacity, 0.0f, 1.0f);
         fpsScale = clamp(fpsScale, 0.25f, 2.0f);
@@ -243,9 +325,39 @@ public final class FlintFixConfig {
         armorScale = clamp(armorScale, 0.25f, 2.0f);
         armorX = clamp(armorX, 0.0f, 1.0f);
         armorY = clamp(armorY, 0.0f, 1.0f);
+
+        potionsBackgroundOpacity = clamp(potionsBackgroundOpacity, 0.0f, 1.0f);
+        potionsScale = clamp(potionsScale, 0.25f, 2.0f);
+        potionsX = clamp(potionsX, 0.0f, 1.0f);
+        potionsY = clamp(potionsY, 0.0f, 1.0f);
+        speedBackgroundOpacity = clamp(speedBackgroundOpacity, 0.0f, 1.0f);
+        speedScale = clamp(speedScale, 0.25f, 2.0f);
+        speedX = clamp(speedX, 0.0f, 1.0f);
+        speedY = clamp(speedY, 0.0f, 1.0f);
+        speedUnit = Math.max(0, Math.min(1, speedUnit));
+        compassBackgroundOpacity = clamp(compassBackgroundOpacity, 0.0f, 1.0f);
+        compassScale = clamp(compassScale, 0.25f, 2.0f);
+        compassX = clamp(compassX, 0.0f, 1.0f);
+        compassY = clamp(compassY, 0.0f, 1.0f);
+
+        blockOutlineColor |= 0xFF000000;
+        blockOutlineWidth = clamp(blockOutlineWidth, 1.0f, 6.0f);
+        blockOutlineFillOpacity = clamp(blockOutlineFillOpacity, 0.0f, 0.6f);
+        crosshairStyle = Math.max(0, Math.min(4, crosshairStyle));
+        crosshairColor |= 0xFF000000;
+        crosshairSize = clamp(crosshairSize, 1.0f, 12.0f);
+        crosshairGap = clamp(crosshairGap, 0.0f, 8.0f);
+        crosshairThickness = clamp(crosshairThickness, 1.0f, 3.0f);
+        lowFireAmount = clamp(lowFireAmount, 0.0f, 0.6f);
+        lowShieldAmount = clamp(lowShieldAmount, 0.0f, 0.5f);
+        totemSize = clamp(totemSize, 0.2f, 1.0f);
+        motionBlurStrength = clamp(motionBlurStrength, 0.1f, 0.9f);
+        teammateGlowColor |= 0xFF000000;
     }
 
     private static float clamp(float value, float min, float max) {
+        // A hand-edited "NaN" would slip through min/max and break HUD placement.
+        if (Float.isNaN(value)) return min;
         return Math.max(min, Math.min(max, value));
     }
 }

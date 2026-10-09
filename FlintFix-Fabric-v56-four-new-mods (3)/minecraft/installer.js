@@ -333,7 +333,7 @@ function download(
                         headers: {
 
                             "User-Agent":
-                                "FlintFix-Client/0.56"
+                                "FlintFix-Client/1.0"
                         }
                     },
 

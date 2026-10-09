@@ -1,17 +1,18 @@
+# Builds the FlintFix mod with the bundled Gradle wrapper.
+#   build-mod.ps1 -MinecraftVersion 1.21.1   -> versions/1.21.1/build/libs/flintfix-client-mod-<ver>+1.21.1.jar
+#   build-mod.ps1                            -> every supported version, also copied to build/libs/all
+param([string]$MinecraftVersion = "")
+
 $ErrorActionPreference = "Stop"
-$GradleVersion = "8.14.3"
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$Local = Join-Path $Root ".gradle-local"
-$Zip = Join-Path $Local "gradle-$GradleVersion-bin.zip"
-$GradleHome = Join-Path $Local "gradle-$GradleVersion"
-$GradleBat = Join-Path $GradleHome "bin\gradle.bat"
+Set-Location $Root
 
-New-Item -ItemType Directory -Force -Path $Local | Out-Null
-if (-not (Test-Path $GradleBat)) {
-    Write-Host "Downloading Gradle $GradleVersion..."
-    Invoke-WebRequest -UseBasicParsing "https://services.gradle.org/distributions/gradle-$GradleVersion-bin.zip" -OutFile $Zip
-    Expand-Archive -Force $Zip $Local
+if ($MinecraftVersion) {
+    if (-not (Test-Path (Join-Path $Root "versions\$MinecraftVersion\gradle.properties"))) {
+        throw "FlintFix does not support Minecraft $MinecraftVersion."
+    }
+    & (Join-Path $Root "gradlew.bat") --no-daemon ":${MinecraftVersion}:build"
+} else {
+    & (Join-Path $Root "gradlew.bat") --no-daemon buildAll
 }
-
-& $GradleBat --no-daemon --parallel build
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

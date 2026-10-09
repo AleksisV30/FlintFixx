@@ -1,22 +1,27 @@
 package com.flintfix.client;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.option.CloudRenderMode;
-import net.minecraft.client.option.GameOptions;
-import net.minecraft.client.option.GraphicsMode;
-import net.minecraft.client.option.ParticlesMode;
-import net.minecraft.text.Text;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
+import com.flintfix.client.mixin.ScreenInvoker;
 import org.lwjgl.opengl.GL11;
 
 import java.util.Locale;
 import java.util.function.DoubleConsumer;
 import java.util.function.DoubleSupplier;
+import net.minecraft.client.CloudStatus;
+import net.minecraft.client.GraphicsStatus;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Options;
+//? if >=1.21.2 {
+/*import net.minecraft.server.level.ParticleStatus;
+*///?} else {
+import net.minecraft.client.ParticleStatus;
+//?}
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 /** FlintFix-styled video controls with transparent hardware-based recommendations. */
-public final class FlintFixVideoSettingsScreen extends Screen {
+public final class FlintFixVideoSettingsScreen extends FlintFixScreen {
     private static final int PERFORMANCE_TAB = 0;
     private static final int VISUAL_TAB = 1;
     private static final long TAB_ANIMATION_MS = 220L;
@@ -42,7 +47,7 @@ public final class FlintFixVideoSettingsScreen extends Screen {
     private int draggingSlider = -1;
 
     public FlintFixVideoSettingsScreen(Screen parent) {
-        super(Text.literal("FlintFix Video Settings"));
+        super(Component.literal("FlintFix Video Settings"));
         this.parent = parent;
     }
 
@@ -76,11 +81,11 @@ public final class FlintFixVideoSettingsScreen extends Screen {
     // ------------------------------------------------------------------
 
     @Override
-    public void render(DrawContext c, int mouseX, int mouseY, float delta) {
+    public void render(GuiGraphics c, int mouseX, int mouseY, float delta) {
         layout();
         float intro = FlintFixUi.openProgress(openedAt);
-        if (client != null && client.world != null) {
-            applyBlur(delta);
+        if (minecraft != null && minecraft.level != null) {
+            blurBehind(c, delta);
             FlintFixUi.backdrop(c, width, height, intro);
         } else {
             FlintFixTitleBackground.render(c, width, height);
@@ -108,7 +113,7 @@ public final class FlintFixVideoSettingsScreen extends Screen {
 
     private int pcCardHeight() { return Math.max(60, bodyBottom - bodyTop - presetBlockHeight() - 8); }
 
-    private void renderPcCheck(DrawContext c, int mouseX, int mouseY) {
+    private void renderPcCheck(GuiGraphics c, int mouseX, int mouseY) {
         int cardH = pcCardHeight();
         FlintFixUi.surface(c, leftX, bodyTop, leftW, cardH, FlintFixUi.panel(), FlintFixUi.border());
         FlintFixUi.sectionLabel(c, "PC CHECK", leftX + 8, bodyTop + 8);
@@ -135,7 +140,7 @@ public final class FlintFixVideoSettingsScreen extends Screen {
         drawStat(c, "GRAPHICS", renderer, y + statStep * 2);
     }
 
-    private void drawStat(DrawContext c, String label, String value, int y) {
+    private void drawStat(GuiGraphics c, String label, String value, int y) {
         if (y + 16 > bodyTop + pcCardHeight()) return;
         FlintFixFont.drawExact(c, label, leftX + 8, y, 6, FlintFixUi.subtle(), true);
         FlintFixUi.drawTrimmedExact(c, value, leftX + 8, y + 8, leftW - 16, 7, FlintFixUi.text(), true);
@@ -149,7 +154,7 @@ public final class FlintFixVideoSettingsScreen extends Screen {
         };
     }
 
-    private void renderPresets(DrawContext c, int mouseX, int mouseY) {
+    private void renderPresets(GuiGraphics c, int mouseX, int mouseY) {
         int y = bodyTop + pcCardHeight() + 8;
         FlintFixUi.sectionLabel(c, "QUICK PRESETS", leftX + 2, y);
         String recommended = recommendedPresetName();
@@ -169,7 +174,7 @@ public final class FlintFixVideoSettingsScreen extends Screen {
         return bodyTop + pcCardHeight() + 8 + 12 + index * 20;
     }
 
-    private void renderSettings(DrawContext c, int mouseX, int mouseY) {
+    private void renderSettings(GuiGraphics c, int mouseX, int mouseY) {
         FlintFixUi.surface(c, rightX, bodyTop, rightW, bodyBottom - bodyTop, FlintFixUi.panel(), FlintFixUi.border());
         renderTabs(c, mouseX, mouseY);
 
@@ -177,12 +182,12 @@ public final class FlintFixVideoSettingsScreen extends Screen {
         int rowTop = rowTop();
         int step = rowStep(settings.length);
         float slide = ease(clamp01((System.currentTimeMillis() - tabChangedAt) / (float) TAB_ANIMATION_MS));
-        c.getMatrices().push();
-        c.getMatrices().translate((1.0f - slide) * 8.0f, 0.0f, 0.0f);
+        FlintFixCompat.pushGui(c);
+        FlintFixCompat.translateGui(c, (1.0f - slide) * 8.0f, 0.0f);
         for (int i = 0; i < settings.length; i++) {
             renderSettingRow(c, settings[i], rowTop + i * step, step - 4, mouseX, mouseY);
         }
-        c.getMatrices().pop();
+        FlintFixCompat.popGui(c);
         if (slide < 1.0f) {
             // Fade the incoming rows in by covering them with the card color.
             c.fill(rightX + 1, rowTop - 2, rightX + rightW - 1, bodyBottom - 1,
@@ -200,7 +205,7 @@ public final class FlintFixVideoSettingsScreen extends Screen {
         return Math.max(20, Math.min(34, available / Math.max(1, count)));
     }
 
-    private void renderTabs(DrawContext c, int mouseX, int mouseY) {
+    private void renderTabs(GuiGraphics c, int mouseX, int mouseY) {
         int tx = tabsX(), ty = tabsY(), tw = tabsW();
         int segW = tw / 2;
         FlintFixUi.surface(c, tx, ty, tw, 18, FlintFixUi.bg(), FlintFixUi.border());
@@ -217,7 +222,7 @@ public final class FlintFixVideoSettingsScreen extends Screen {
         }
     }
 
-    private void renderSettingRow(DrawContext c, Setting setting, int y, int h, int mouseX, int mouseY) {
+    private void renderSettingRow(GuiGraphics c, Setting setting, int y, int h, int mouseX, int mouseY) {
         int rowX = rightX + 8;
         int rowW = rightW - 16;
         boolean hover = FlintFixUi.inside(mouseX, mouseY, rowX, y, rowW, h);
@@ -275,7 +280,7 @@ public final class FlintFixVideoSettingsScreen extends Screen {
     }
 
     /** Label and value on top, full-width slider underneath; compact rows put the slider on the right. */
-    private void renderSliderRow(DrawContext c, Setting setting, int rowX, int y, int rowW, int h, String current,
+    private void renderSliderRow(GuiGraphics c, Setting setting, int rowX, int y, int rowW, int h, String current,
                                  int mouseX, int mouseY) {
         Slider slider = setting.slider;
         int[] track = sliderTrack(y, h);
@@ -324,7 +329,7 @@ public final class FlintFixVideoSettingsScreen extends Screen {
         setStatus(setting.label + " set to " + setting.current.get() + ".");
     }
 
-    private void renderFooter(DrawContext c, int mouseX, int mouseY) {
+    private void renderFooter(GuiGraphics c, int mouseX, int mouseY) {
         int applyW = 122;
         int applyX = panelX + panelW - 14 - applyW;
         int backX = applyX - 6 - 52;
@@ -346,39 +351,39 @@ public final class FlintFixVideoSettingsScreen extends Screen {
 
     private Setting[] performanceSettings() {
         return new Setting[] {
-            slider("Render distance", () -> options().getViewDistance().getValue() + " chunks",
-                new Slider(2, 32, 1, () -> options().getViewDistance().getValue(),
-                    v -> options().getViewDistance().setValue((int) v), () -> recommendation().renderDistance)),
-            slider("Simulation distance", () -> options().getSimulationDistance().getValue() + " chunks",
-                new Slider(5, 32, 1, () -> options().getSimulationDistance().getValue(),
-                    v -> options().getSimulationDistance().setValue((int) v), () -> recommendation().simulationDistance)),
-            new Setting("Graphics", () -> title(options().getGraphicsMode().getValue().name()),
+            slider("Render distance", () -> options().renderDistance().get() + " chunks",
+                new Slider(2, 32, 1, () -> options().renderDistance().get(),
+                    v -> options().renderDistance().set((int) v), () -> recommendation().renderDistance)),
+            slider("Simulation distance", () -> options().simulationDistance().get() + " chunks",
+                new Slider(5, 32, 1, () -> options().simulationDistance().get(),
+                    v -> options().simulationDistance().set((int) v), () -> recommendation().simulationDistance)),
+            new Setting("Graphics", () -> title(options().graphicsMode().get().name()),
                 () -> title(recommendation().graphics.name()), this::cycleGraphics, false, null, null),
-            slider("Max frame rate", () -> fpsLabel(options().getMaxFps().getValue()),
-                new Slider(10, 260, 10, () -> options().getMaxFps().getValue(),
-                    v -> options().getMaxFps().setValue((int) v), () -> recommendation().maxFps)),
-            new Setting("Vertical sync", () -> onOff(options().getEnableVsync().getValue()),
+            slider("Max frame rate", () -> fpsLabel(options().framerateLimit().get()),
+                new Slider(10, 260, 10, () -> options().framerateLimit().get(),
+                    v -> options().framerateLimit().set((int) v), () -> recommendation().maxFps)),
+            new Setting("Vertical sync", () -> onOff(options().enableVsync().get()),
                 () -> onOff(recommendation().verticalSync), this::cycleVsync, true, null, null)
         };
     }
 
     private Setting[] visualSettings() {
         return new Setting[] {
-            new Setting("Particles", () -> title(options().getParticles().getValue().name()),
+            new Setting("Particles", () -> title(options().particles().get().name()),
                 () -> title(recommendation().particles.name()), this::cycleParticles, false, null, null),
-            new Setting("Clouds", () -> title(options().getCloudRenderMode().getValue().name()),
+            new Setting("Clouds", () -> title(options().cloudStatus().get().name()),
                 () -> title(recommendation().clouds.name()), this::cycleClouds, false, null, null),
-            new Setting("Ambient occlusion", () -> onOff(options().getAo().getValue()),
+            new Setting("Ambient occlusion", () -> onOff(options().ambientOcclusion().get()),
                 () -> onOff(recommendation().ambientOcclusion), this::cycleAo, true, null, null),
-            slider("Entity distance", () -> Math.round(options().getEntityDistanceScaling().getValue() * 100) + "%",
-                new Slider(0.5, 5.0, 0.25, () -> options().getEntityDistanceScaling().getValue(),
-                    v -> options().getEntityDistanceScaling().setValue(v), () -> recommendation().entityDistance)),
-            slider("Field of view", () -> Integer.toString(options().getFov().getValue()),
-                new Slider(30, 110, 1, () -> options().getFov().getValue(),
-                    v -> options().getFov().setValue((int) v), null)),
+            slider("Entity distance", () -> Math.round(options().entityDistanceScaling().get() * 100) + "%",
+                new Slider(0.5, 5.0, 0.25, () -> options().entityDistanceScaling().get(),
+                    v -> options().entityDistanceScaling().set(v), () -> recommendation().entityDistance)),
+            slider("Field of view", () -> Integer.toString(options().fov().get()),
+                new Slider(30, 110, 1, () -> options().fov().get(),
+                    v -> options().fov().set((int) v), null)),
             slider("Brightness", this::brightnessLabel,
-                new Slider(0.0, 1.0, 0.05, () -> options().getGamma().getValue(),
-                    v -> options().getGamma().setValue(v), null)),
+                new Slider(0.0, 1.0, 0.05, () -> options().gamma().get(),
+                    v -> options().gamma().set(v), null)),
             new Setting("Custom sky", this::skyLabel, null, this::cycleSky, false, "FlintFix sky presets", null)
         };
     }
@@ -391,7 +396,7 @@ public final class FlintFixVideoSettingsScreen extends Screen {
     }
 
     private String brightnessLabel() {
-        double gamma = options().getGamma().getValue();
+        double gamma = options().gamma().get();
         if (gamma <= 0.001) return "Moody";
         if (gamma >= 0.999) return "Bright";
         return Math.round(gamma * 100) + "%";
@@ -428,20 +433,20 @@ public final class FlintFixVideoSettingsScreen extends Screen {
     private Recommendation recommendation() {
         return switch (tier) {
             case "Performance" -> preset("Performance");
-            case "High headroom" -> new Recommendation(16, 10, ParticlesMode.DECREASED, CloudRenderMode.FAST,
-                true, 0.9, 240, false, GraphicsMode.FAST);
+            case "High headroom" -> new Recommendation(16, 10, ParticleStatus.DECREASED, CloudStatus.FAST,
+                true, 1.0, 240, false, GraphicsStatus.FAST);
             default -> preset("Balanced");
         };
     }
 
     private static Recommendation preset(String name) {
         return switch (name) {
-            case "Performance" -> new Recommendation(8, 5, ParticlesMode.MINIMAL, CloudRenderMode.OFF,
-                false, 0.5, 120, false, GraphicsMode.FAST);
-            case "Quality" -> new Recommendation(16, 10, ParticlesMode.ALL, CloudRenderMode.FANCY,
-                true, 1.0, 240, false, GraphicsMode.FANCY);
-            default -> new Recommendation(12, 8, ParticlesMode.DECREASED, CloudRenderMode.FAST,
-                false, 0.75, 180, false, GraphicsMode.FAST);
+            case "Performance" -> new Recommendation(8, 5, ParticleStatus.MINIMAL, CloudStatus.OFF,
+                false, 0.5, 120, false, GraphicsStatus.FAST);
+            case "Quality" -> new Recommendation(16, 10, ParticleStatus.ALL, CloudStatus.FANCY,
+                true, 1.0, 240, false, GraphicsStatus.FANCY);
+            default -> new Recommendation(12, 8, ParticleStatus.DECREASED, CloudStatus.FAST,
+                false, 0.75, 180, false, GraphicsStatus.FAST);
         };
     }
 
@@ -454,17 +459,17 @@ public final class FlintFixVideoSettingsScreen extends Screen {
     }
 
     private void apply(Recommendation r, String message) {
-        GameOptions options = options();
-        options.getViewDistance().setValue(r.renderDistance);
-        options.getSimulationDistance().setValue(r.simulationDistance);
-        options.getGraphicsMode().setValue(r.graphics);
-        options.getParticles().setValue(r.particles);
-        options.getCloudRenderMode().setValue(r.clouds);
-        options.getAo().setValue(r.ambientOcclusion);
-        options.getEntityDistanceScaling().setValue(r.entityDistance);
-        options.getMaxFps().setValue(r.maxFps);
-        options.getEnableVsync().setValue(r.verticalSync);
-        options.write();
+        Options options = options();
+        options.renderDistance().set(r.renderDistance);
+        options.simulationDistance().set(r.simulationDistance);
+        options.graphicsMode().set(r.graphics);
+        options.particles().set(r.particles);
+        options.cloudStatus().set(r.clouds);
+        options.ambientOcclusion().set(r.ambientOcclusion);
+        options.entityDistanceScaling().set(r.entityDistance);
+        options.framerateLimit().set(r.maxFps);
+        options.enableVsync().set(r.verticalSync);
+        options.save();
         setStatus(message);
         lastChangedLabel = "";
         lastChangedAt = System.currentTimeMillis();
@@ -475,46 +480,46 @@ public final class FlintFixVideoSettingsScreen extends Screen {
     }
 
     private void cycleRenderDistance(boolean forward) {
-        options().getViewDistance().setValue(stepped(options().getViewDistance().getValue(), 2, 32, forward ? 2 : -2));
+        options().renderDistance().set(stepped(options().renderDistance().get(), 2, 32, forward ? 2 : -2));
     }
 
     private void cycleSimulationDistance(boolean forward) {
-        options().getSimulationDistance().setValue(stepped(options().getSimulationDistance().getValue(), 5, 32, forward ? 1 : -1));
+        options().simulationDistance().set(stepped(options().simulationDistance().get(), 5, 32, forward ? 1 : -1));
     }
 
     private void cycleGraphics(boolean forward) {
         // Keep Fabulous behind Minecraft's native confirmation flow; this page
         // intentionally cycles only the safe Fast/Fancy choices.
-        GraphicsMode[] values = {GraphicsMode.FAST, GraphicsMode.FANCY};
-        options().getGraphicsMode().setValue(next(values, options().getGraphicsMode().getValue(), forward));
+        GraphicsStatus[] values = {GraphicsStatus.FAST, GraphicsStatus.FANCY};
+        options().graphicsMode().set(next(values, options().graphicsMode().get(), forward));
     }
 
     private void cycleParticles(boolean forward) {
-        ParticlesMode[] values = {ParticlesMode.MINIMAL, ParticlesMode.DECREASED, ParticlesMode.ALL};
-        options().getParticles().setValue(next(values, options().getParticles().getValue(), forward));
+        ParticleStatus[] values = {ParticleStatus.MINIMAL, ParticleStatus.DECREASED, ParticleStatus.ALL};
+        options().particles().set(next(values, options().particles().get(), forward));
     }
 
     private void cycleClouds(boolean forward) {
-        CloudRenderMode[] values = {CloudRenderMode.OFF, CloudRenderMode.FAST, CloudRenderMode.FANCY};
-        options().getCloudRenderMode().setValue(next(values, options().getCloudRenderMode().getValue(), forward));
+        CloudStatus[] values = {CloudStatus.OFF, CloudStatus.FAST, CloudStatus.FANCY};
+        options().cloudStatus().set(next(values, options().cloudStatus().get(), forward));
     }
 
     private void cycleAo(boolean ignored) {
-        options().getAo().setValue(!options().getAo().getValue());
+        options().ambientOcclusion().set(!options().ambientOcclusion().get());
     }
 
     private void cycleEntityDistance(boolean forward) {
         double[] values = {0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.25, 1.5};
-        options().getEntityDistanceScaling().setValue(next(values, options().getEntityDistanceScaling().getValue(), forward));
+        options().entityDistanceScaling().set(next(values, options().entityDistanceScaling().get(), forward));
     }
 
     private void cycleMaxFps(boolean forward) {
         int[] values = {30, 60, 90, 120, 144, 165, 180, 240, 260};
-        options().getMaxFps().setValue(next(values, options().getMaxFps().getValue(), forward));
+        options().framerateLimit().set(next(values, options().framerateLimit().get(), forward));
     }
 
     private void cycleVsync(boolean ignored) {
-        options().getEnableVsync().setValue(!options().getEnableVsync().getValue());
+        options().enableVsync().set(!options().enableVsync().get());
     }
 
     private String skyLabel() {
@@ -554,7 +559,7 @@ public final class FlintFixVideoSettingsScreen extends Screen {
         if (button != 0) return super.mouseClicked(mouseX, mouseY, button);
         layout();
         if (FlintFixUi.inside(mouseX, mouseY, closeX(), panelY + 13, 15, 15)) {
-            close();
+            onClose();
             return true;
         }
         int rescanX = leftX + leftW - 8 - 42;
@@ -573,7 +578,7 @@ public final class FlintFixVideoSettingsScreen extends Screen {
         int applyX = panelX + panelW - 14 - applyW;
         int backX = applyX - 6 - 52;
         if (FlintFixUi.inside(mouseX, mouseY, backX, footerY, 52, 18)) {
-            close();
+            onClose();
             return true;
         }
         if (FlintFixUi.inside(mouseX, mouseY, applyX, footerY, applyW, 18)) {
@@ -657,7 +662,7 @@ public final class FlintFixVideoSettingsScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == GLFW.GLFW_KEY_TAB) {
+        if (keyCode == InputConstants.KEY_TAB) {
             selectTab(selectedTab == PERFORMANCE_TAB ? VISUAL_TAB : PERFORMANCE_TAB);
             return true;
         }
@@ -665,18 +670,22 @@ public final class FlintFixVideoSettingsScreen extends Screen {
     }
 
     @Override
-    public void close() {
-        if (client == null) return;
-        client.options.write();
-        client.setScreen(parent);
+    public void onClose() {
+        if (minecraft == null) return;
+        minecraft.options.save();
+        minecraft.setScreen(parent);
+        // Since 1.21 a screen keeps its widgets when it is shown again, so the
+        // vanilla Video Settings page would still display (and later save back)
+        // the values from before this page changed them. Rebuild it.
+        if (parent != null) ((ScreenInvoker) parent).flintfix$clearAndInit();
     }
 
     // ------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------
 
-    private GameOptions options() {
-        return MinecraftClient.getInstance().options;
+    private Options options() {
+        return Minecraft.getInstance().options;
     }
 
     /** Greedy word wrap into at most maxLines lines; the last line is trimmed. */
@@ -750,14 +759,14 @@ public final class FlintFixVideoSettingsScreen extends Screen {
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
 
-    private record Recommendation(int renderDistance, int simulationDistance, ParticlesMode particles,
-                                  CloudRenderMode clouds, boolean ambientOcclusion,
+    private record Recommendation(int renderDistance, int simulationDistance, ParticleStatus particles,
+                                  CloudStatus clouds, boolean ambientOcclusion,
                                   double entityDistance, int maxFps, boolean verticalSync,
-                                  GraphicsMode graphics) {}
+                                  GraphicsStatus graphics) {}
 
     /** A row on the settings card. suggested may be null, in which case note is shown instead. */
     private record Setting(String label, Value current, Value suggested, Change change,

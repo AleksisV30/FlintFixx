@@ -3,15 +3,19 @@ package com.flintfix.client;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.fabricmc.loader.api.FabricLoader;
-
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.network.chat.Component;
 import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 /** Stores named copies of FlintFix settings and restores the active profile. */
@@ -20,6 +24,8 @@ public final class FlintFixProfileStore {
     private static final Path PATH = FabricLoader.getInstance().getConfigDir().resolve("flintfix-profiles.json");
     private static Store store;
     private static boolean loadingProfile;
+    /** Profile that was active before joining a server switched it; restored on leaving. */
+    private static String switchedFrom;
 
     private FlintFixProfileStore() {}
 
@@ -99,6 +105,71 @@ public final class FlintFixProfileStore {
         }
         write();
         return true;
+    }
+
+    // ------------------------------------------------------------------
+    // Server profiles: a server address can be linked to a profile, which
+    // becomes active while you play there.
+    // ------------------------------------------------------------------
+
+    public static boolean serverSwitchingEnabled() {
+        return store != null && store.serverSwitching;
+    }
+
+    public static void setServerSwitching(boolean enabled) {
+        if (store == null) return;
+        store.serverSwitching = enabled;
+        write();
+    }
+
+    public static Map<String, String> serverProfiles() {
+        if (store == null) return Map.of();
+        if (store.serverProfiles == null) store.serverProfiles = new LinkedHashMap<>();
+        return store.serverProfiles;
+    }
+
+    public static String profileForServer(String address) {
+        return address == null ? null : serverProfiles().get(normalizeAddress(address));
+    }
+
+    /** Links a server to a profile; null or an unknown profile removes the link. */
+    public static void setServerProfile(String address, String profile) {
+        if (store == null || address == null || address.isBlank()) return;
+        String key = normalizeAddress(address);
+        Profile target = find(profile);
+        if (target == null) serverProfiles().remove(key);
+        else serverProfiles().put(key, target.name);
+        write();
+    }
+
+    public static String currentServerAddress(Minecraft client) {
+        if (client == null || client.isLocalServer()) return null;
+        ServerData server = client.getCurrentServer();
+        return server == null || server.ip == null ? null : normalizeAddress(server.ip);
+    }
+
+    static void onJoinServer(Minecraft client) {
+        if (!serverSwitchingEnabled()) return;
+        String address = currentServerAddress(client);
+        String linked = profileForServer(address);
+        if (linked == null || find(linked) == null || linked.equalsIgnoreCase(store.selected)) return;
+        switchedFrom = store.selected;
+        select(linked);
+        if (client.player != null) {
+            FlintFixCompat.actionBar(client.player, Component.literal("FlintFix profile \"" + linked + "\" is active on this server"));
+        }
+    }
+
+    static void onLeaveServer() {
+        if (switchedFrom == null) return;
+        String previous = switchedFrom;
+        switchedFrom = null;
+        if (find(previous) != null) select(previous);
+    }
+
+    private static String normalizeAddress(String address) {
+        String value = address.trim().toLowerCase(Locale.ROOT);
+        return value.endsWith(":25565") ? value.substring(0, value.length() - 6) : value;
     }
 
     /** Called whenever config.save() runs so edits stay with the active profile. */
@@ -182,6 +253,8 @@ public final class FlintFixProfileStore {
     private static final class Store {
         String selected = "Default";
         List<Profile> profiles = new ArrayList<>();
+        boolean serverSwitching = true;
+        Map<String, String> serverProfiles = new LinkedHashMap<>();
     }
 
     private static final class Profile {

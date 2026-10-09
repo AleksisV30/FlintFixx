@@ -1,12 +1,11 @@
 package com.flintfix.client;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Style;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Style;
 
 /**
  * Small-size text helper for the FlintFix screens.
@@ -19,35 +18,59 @@ public final class FlintFixFont {
 
     public static int width(String text, int size, boolean bold) {
         if (text == null || text.isEmpty() || size <= 0) return 0;
-        TextRenderer renderer = MinecraftClient.getInstance().textRenderer;
-        return Math.round(renderer.getWidth(styled(text, bold)) * scaleFor(renderer, size));
+        Font renderer = Minecraft.getInstance().font;
+        return Math.round(renderer.width(styled(text, bold)) * scaleFor(renderer, size));
     }
 
-    public static void draw(DrawContext context, String text, int x, int y, int size, int color, boolean bold) {
+    public static void draw(GuiGraphics context, String text, int x, int y, int size, int color, boolean bold) {
         drawExact(context, text, x, y, size, FlintFixUi.themedText(color), bold);
     }
 
     /** Draws with the given color as-is, for colors already taken from the active theme. */
-    public static void drawExact(DrawContext context, String text, int x, int y, int size, int color, boolean bold) {
-        if (text == null || text.isEmpty() || size <= 0) return;
-
-        TextRenderer renderer = MinecraftClient.getInstance().textRenderer;
-        float scale = scaleFor(renderer, size);
-        context.getMatrices().push();
-        context.getMatrices().translate(x, y, 0.0f);
-        context.getMatrices().scale(scale, scale, 1.0f);
-        // Render once at the intended scale. A sub-pixel duplicate pass
-        // softened every regular label and made this screen look out of focus.
-        context.drawText(renderer, styled(text, bold), 0, 0, color, false);
-        context.getMatrices().pop();
+    public static void drawExact(GuiGraphics context, String text, int x, int y, int size, int color, boolean bold) {
+        drawExact(context, text, x, y, size, color, bold, false);
     }
 
-    public static void drawCentered(DrawContext context, String text, int centerX, int y, int size,
+    /** As {@link #drawExact(GuiGraphics, String, int, int, int, int, boolean)}, optionally with a drop shadow. */
+    public static void drawExact(GuiGraphics context, String text, int x, int y, int size, int color, boolean bold,
+                                 boolean shadow) {
+        if (text == null || text.isEmpty() || size <= 0) return;
+
+        Font renderer = Minecraft.getInstance().font;
+        float scale = scaleFor(renderer, size);
+        FlintFixCompat.pushGui(context);
+        FlintFixCompat.translateGui(context, x, y);
+        FlintFixCompat.scaleGui(context, scale, scale);
+        // Render once at the intended scale. A sub-pixel duplicate pass
+        // softened every regular label and made this screen look out of focus.
+        context.drawString(renderer, styled(text, bold), 0, 0, color, shadow);
+        FlintFixCompat.popGui(context);
+    }
+
+    /**
+     * Height in GUI pixels that a line of the given size really occupies. Small
+     * sizes are snapped to whole screen pixels, so this can be larger than size;
+     * layouts should use it instead of assuming the nominal size.
+     */
+    public static int lineHeight(int size) {
+        if (size <= 0) return 0;
+        Font renderer = Minecraft.getInstance().font;
+        return Math.max(1, Math.round(renderer.lineHeight * scaleFor(renderer, size)));
+    }
+
+    /** Height of capital letters and digits for the given size (no descender gap). */
+    public static int capHeight(int size) {
+        if (size <= 0) return 0;
+        Font renderer = Minecraft.getInstance().font;
+        return Math.max(1, Math.round(7.0f * scaleFor(renderer, size)));
+    }
+
+    public static void drawCentered(GuiGraphics context, String text, int centerX, int y, int size,
                                     int color, boolean bold) {
         draw(context, text, centerX - width(text, size, bold) / 2, y, size, color, bold);
     }
 
-    public static void drawCenteredExact(DrawContext context, String text, int centerX, int y, int size,
+    public static void drawCenteredExact(GuiGraphics context, String text, int centerX, int y, int size,
                                          int color, boolean bold) {
         drawExact(context, text, centerX - width(text, size, bold) / 2, y, size, color, bold);
     }
@@ -59,30 +82,30 @@ public final class FlintFixFont {
     }
 
     /** Draws the same bundled UI font without shrinking the glyph atlas below 1:1. */
-    public static void drawCrisp(DrawContext context, String text, int x, int y, int size, int color, boolean bold) {
+    public static void drawCrisp(GuiGraphics context, String text, int x, int y, int size, int color, boolean bold) {
         if (text == null || text.isEmpty() || size <= 0) return;
         color = FlintFixUi.themedText(color);
-        TextRenderer renderer = MinecraftClient.getInstance().textRenderer;
+        Font renderer = Minecraft.getInstance().font;
         float scale = crispScaleFor(renderer, size);
-        context.getMatrices().push();
-        context.getMatrices().translate(x, y, 0.0f);
-        context.getMatrices().scale(scale, scale, 1.0f);
-        context.drawText(renderer, styled(text, bold), 0, 0, color, false);
-        context.getMatrices().pop();
+        FlintFixCompat.pushGui(context);
+        FlintFixCompat.translateGui(context, x, y);
+        FlintFixCompat.scaleGui(context, scale, scale);
+        context.drawString(renderer, styled(text, bold), 0, 0, color, false);
+        FlintFixCompat.popGui(context);
     }
 
     public static int widthCrisp(String text, int size, boolean bold) {
         if (text == null || text.isEmpty() || size <= 0) return 0;
-        TextRenderer renderer = MinecraftClient.getInstance().textRenderer;
-        return Math.round(renderer.getWidth(styled(text, bold)) * crispScaleFor(renderer, size));
+        Font renderer = Minecraft.getInstance().font;
+        return Math.round(renderer.width(styled(text, bold)) * crispScaleFor(renderer, size));
     }
 
-    public static void drawCenteredCrisp(DrawContext context, String text, int centerX, int y, int size,
+    public static void drawCenteredCrisp(GuiGraphics context, String text, int centerX, int y, int size,
                                          int color, boolean bold) {
         drawCrisp(context, text, centerX - widthCrisp(text, size, bold) / 2, y, size, color, bold);
     }
 
-    public static void drawTrimmedCrisp(DrawContext context, String text, int x, int y, int maxWidth,
+    public static void drawTrimmedCrisp(GuiGraphics context, String text, int x, int y, int maxWidth,
                                         int size, int color, boolean bold) {
         drawCrisp(context, trimCrisp(text, maxWidth, size, bold), x, y, size, color, bold);
     }
@@ -119,23 +142,23 @@ public final class FlintFixFont {
         return out + ellipsis;
     }
 
-    private static MutableText styled(String value, boolean bold) {
-        MutableText text = Text.literal(value);
+    private static MutableComponent styled(String value, boolean bold) {
+        MutableComponent text = Component.literal(value);
         // Use a real bold face instead of Minecraft synthesizing bold from
         // the regular TTF. Synthetic bold made small UI labels look doubled
         // and fuzzy in the atlas.
-        text.setStyle(Style.EMPTY.withFont(Identifier.of("flintfix", bold ? "ui_bold" : "ui")));
+        text.setStyle(FlintFixCompat.fontStyle(bold ? "ui_bold" : "ui"));
         return text;
     }
 
-    private static float crispScaleFor(TextRenderer renderer, int size) {
-        return Math.max(1.0f, size / (float) Math.max(1, renderer.fontHeight));
+    private static float crispScaleFor(Font renderer, int size) {
+        return Math.max(1.0f, size / (float) Math.max(1, renderer.lineHeight));
     }
 
-    private static float scaleFor(TextRenderer renderer, int size) {
+    private static float scaleFor(Font renderer, int size) {
         // Avoid crushing the smallest labels into 2–4px glyphs. The TTF atlas
         // stays legible at a six-pixel minimum; width() uses the same scale.
-        return snapToPixels(Math.max(0.66f, size / (float) Math.max(1, renderer.fontHeight)));
+        return snapToPixels(Math.max(0.66f, size / (float) Math.max(1, renderer.lineHeight)));
     }
 
     /**
@@ -144,7 +167,7 @@ public final class FlintFixFont {
      * is what made small labels look soft with uneven stroke widths.
      */
     private static float snapToPixels(float scale) {
-        double guiScale = MinecraftClient.getInstance().getWindow().getScaleFactor();
+        double guiScale = Minecraft.getInstance().getWindow().getGuiScale();
         if (guiScale <= 0.0) return scale;
         double physical = scale * guiScale;
         double snapped = Math.max(1.0, Math.round(physical));

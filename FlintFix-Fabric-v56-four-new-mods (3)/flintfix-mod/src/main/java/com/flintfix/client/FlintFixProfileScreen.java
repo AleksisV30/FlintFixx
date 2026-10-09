@@ -1,16 +1,16 @@
 package com.flintfix.client;
 
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.text.Text;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 /** In-game profile manager opened from the FlintFix sidebar. */
-public final class FlintFixProfileScreen extends Screen {
+public final class FlintFixProfileScreen extends FlintFixScreen {
     private enum EditMode { CREATE, RENAME }
 
     private final Screen parent;
@@ -26,7 +26,7 @@ public final class FlintFixProfileScreen extends Screen {
     private EditMode editMode;
 
     public FlintFixProfileScreen(Screen parent) {
-        super(Text.literal("FlintFix Profiles"));
+        super(Component.literal("FlintFix Profiles"));
         this.parent = parent;
     }
 
@@ -60,10 +60,10 @@ public final class FlintFixProfileScreen extends Screen {
     }
 
     @Override
-    public void render(DrawContext c, int mouseX, int mouseY, float delta) {
+    public void render(GuiGraphics c, int mouseX, int mouseY, float delta) {
         layout();
         float intro = FlintFixUi.openProgress(openedAt);
-        applyBlur(delta);
+        blurBehind(c, delta);
         FlintFixUi.backdrop(c, width, height, intro);
         FlintFixUi.pushPanelIntro(c, x, y, w, h, intro);
         FlintFixUi.panelFrame(c, x, y, w, h);
@@ -106,13 +106,13 @@ public final class FlintFixProfileScreen extends Screen {
         FlintFixUi.finishPanelIntro(c, x, y, w, h, intro);
     }
 
-    private void profileButton(DrawContext c, String label, int bx, int by, int bw,
+    private void profileButton(GuiGraphics c, String label, int bx, int by, int bw,
                               int mouseX, int mouseY, FlintFixUi.ButtonStyle style) {
         boolean hover = editMode == null && FlintFixUi.inside(mouseX, mouseY, bx, by, bw, 14);
         FlintFixUi.actionButton(c, bx, by, bw, 14, label, hover, style);
     }
 
-    private void renderNameDialog(DrawContext c, int mouseX, int mouseY) {
+    private void renderNameDialog(GuiGraphics c, int mouseX, int mouseY) {
         int dw = Math.min(210, w - 24);
         int dh = 66;
         int dx = x + (w - dw) / 2;
@@ -250,20 +250,20 @@ public final class FlintFixProfileScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+        if (keyCode == InputConstants.KEY_ESCAPE) {
             if (editMode != null) cancelEdit();
             else closeToParent();
             return true;
         }
         if (editMode != null && nameFocused) {
-            if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) finishEdit();
-            else if (keyCode == GLFW.GLFW_KEY_BACKSPACE && !editText.isEmpty()) editText = editText.substring(0, editText.length() - 1);
+            if (keyCode == InputConstants.KEY_RETURN || keyCode == InputConstants.KEY_NUMPADENTER) finishEdit();
+            else if (keyCode == InputConstants.KEY_BACKSPACE && !editText.isEmpty()) editText = editText.substring(0, editText.length() - 1);
             return true;
         }
         if (searchFocused) {
-            if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) searchFocused = false;
-            else if (keyCode == GLFW.GLFW_KEY_BACKSPACE && !search.isEmpty()) search = search.substring(0, search.length() - 1);
-            else if (keyCode == GLFW.GLFW_KEY_DELETE) search = "";
+            if (keyCode == InputConstants.KEY_RETURN || keyCode == InputConstants.KEY_NUMPADENTER) searchFocused = false;
+            else if (keyCode == InputConstants.KEY_BACKSPACE && !search.isEmpty()) search = search.substring(0, search.length() - 1);
+            else if (keyCode == InputConstants.KEY_DELETE) search = "";
             scroll = 0;
             return true;
         }
@@ -281,12 +281,12 @@ public final class FlintFixProfileScreen extends Screen {
     }
 
     private void closeToParent() {
-        if (client != null) client.setScreen(parent);
+        if (minecraft != null) minecraft.setScreen(parent);
     }
 
     private static int clamp(int value, int min, int max) {
         return Math.max(min, Math.min(max, value));
     }
 
-    @Override public boolean shouldPause() { return false; }
+    @Override public boolean isPauseScreen() { return false; }
 }

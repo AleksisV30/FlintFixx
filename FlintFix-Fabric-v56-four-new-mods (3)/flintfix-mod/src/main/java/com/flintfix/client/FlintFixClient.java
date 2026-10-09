@@ -3,26 +3,43 @@ package com.flintfix.client;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+//? if >=26.1 {
+/*import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
+*///?} else {
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+//?}
+//? if >=1.21.9 {
+/*import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
+import net.minecraft.client.input.KeyEvent;
+*///?} else {
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+//?}
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.option.VideoOptionsScreen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.client.network.ServerInfo;
-import net.minecraft.client.render.debug.ChunkBorderDebugRenderer;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Item;
-import net.minecraft.item.Items;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.text.Text;
-import org.lwjgl.glfw.GLFW;
-
+import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+//? if >=1.21 {
+import net.minecraft.client.gui.screens.options.VideoSettingsScreen;
+//?} else {
+/*import net.minecraft.client.gui.screens.VideoSettingsScreen;
+*///?}
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.renderer.debug.ChunkBorderRenderer;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import com.mojang.blaze3d.platform.InputConstants;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -36,12 +53,13 @@ public final class FlintFixClient implements ClientModInitializer {
     public static final int SURFACE = 0xF20D0D10;
     public static FlintFixConfig CONFIG;
 
-    private static KeyBinding settingsKey;
-    private static KeyBinding freecamKey;
-    private static KeyBinding zoomKey;
-    private static KeyBinding lookAroundKey;
-    private static KeyBinding inspectKey;
-    private static ChunkBorderDebugRenderer chunkBorderRenderer;
+    private static KeyMapping settingsKey;
+    private static KeyMapping freecamKey;
+    private static KeyMapping zoomKey;
+    private static KeyMapping lookAroundKey;
+    private static KeyMapping inspectKey;
+    private static KeyMapping waypointKey;
+    private static ChunkBorderRenderer chunkBorderRenderer;
     private static final Deque<Long> LEFT_CLICKS = new ArrayDeque<>();
     private static final Deque<Long> RIGHT_CLICKS = new ArrayDeque<>();
 
@@ -50,127 +68,216 @@ public final class FlintFixClient implements ClientModInitializer {
         CONFIG = FlintFixConfig.load();
         FlintFixProfileStore.initialize();
         FlintFixUi.applyTheme();
-        chunkBorderRenderer = new ChunkBorderDebugRenderer(MinecraftClient.getInstance());
+        chunkBorderRenderer = new ChunkBorderRenderer(Minecraft.getInstance());
+
+        if (Boolean.getBoolean("flintfix.auditMixins")) registerMixinAudit();
 
         // Add a small, native entry point to the standard Minecraft video page.
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
-            if (screen instanceof VideoOptionsScreen) {
+            if (screen instanceof VideoSettingsScreen) {
                 int buttonWidth = 88;
                 int buttonX = Math.max(4, screen.width - buttonWidth - 8);
-                ButtonWidget videoButton = ButtonWidget.builder(Text.literal("FlintFix"), button ->
+                Button videoButton = Button.builder(Component.literal("FlintFix"), button ->
                     client.setScreen(new FlintFixVideoSettingsScreen(screen))
-                ).dimensions(buttonX, 5, buttonWidth, 20).build();
+                ).bounds(buttonX, 5, buttonWidth, 20).build();
                 Screens.getButtons(screen).add(videoButton);
             }
         });
 
-        settingsKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-            "key.flintfix.open_client",
-            InputUtil.Type.KEYSYM,
-            GLFW.GLFW_KEY_RIGHT_SHIFT,
-            "category.flintfix"
-        ));
-        freecamKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-            "key.flintfix.freecam",
-            InputUtil.Type.KEYSYM,
-            GLFW.GLFW_KEY_G,
-            "category.flintfix"
-        ));
-        zoomKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-            "key.flintfix.zoom",
-            InputUtil.Type.KEYSYM,
-            GLFW.GLFW_KEY_C,
-            "category.flintfix"
-        ));
-        lookAroundKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-            "key.flintfix.look_around",
-            InputUtil.Type.KEYSYM,
-            GLFW.GLFW_KEY_V,
-            "category.flintfix"
-        ));
-        inspectKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-            "key.flintfix.inspect",
-            InputUtil.Type.KEYSYM,
-            GLFW.GLFW_KEY_I,
-            "category.flintfix"
-        ));
+        settingsKey = KeyBindingHelper.registerKeyBinding(key("key.flintfix.open_client", InputConstants.KEY_RSHIFT));
+        freecamKey = KeyBindingHelper.registerKeyBinding(key("key.flintfix.freecam", InputConstants.KEY_G));
+        zoomKey = KeyBindingHelper.registerKeyBinding(key("key.flintfix.zoom", InputConstants.KEY_C));
+        lookAroundKey = KeyBindingHelper.registerKeyBinding(key("key.flintfix.look_around", InputConstants.KEY_V));
+        inspectKey = KeyBindingHelper.registerKeyBinding(key("key.flintfix.inspect", InputConstants.KEY_I));
+        waypointKey = KeyBindingHelper.registerKeyBinding(key("key.flintfix.waypoint", InputConstants.KEY_B));
         FlintFixShulkerPreview.register();
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> FlintFixProfileStore.onJoinServer(client));
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> client.execute(FlintFixProfileStore::onLeaveServer));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (client.currentScreen instanceof FlintFixFreecamSettingsScreen) {
-                while (freecamKey.wasPressed()) { /* key is being rebound in this screen */ }
+            if (client.screen instanceof FlintFixFreecamSettingsScreen) {
+                while (freecamKey.consumeClick()) { /* key is being rebound in this screen */ }
             } else {
-                while (freecamKey.wasPressed()) {
+                while (freecamKey.consumeClick()) {
                     if (FlintFixFreecam.isActive()) FlintFixFreecam.disable(client);
-                    else if (client.currentScreen == null) FlintFixFreecam.requestEnable(client, null);
+                    else if (client.screen == null) FlintFixFreecam.requestEnable(client, null);
                 }
             }
-            while (settingsKey.wasPressed()) {
-                if (client.currentScreen instanceof FlintFixHudEditorScreen editor) {
+            while (settingsKey.consumeClick()) {
+                if (client.screen instanceof FlintFixHudEditorScreen editor) {
                     editor.cancelToGame();
-                } else if (client.currentScreen instanceof FlintFixHomeScreen home) {
-                    home.close();
-                } else if (client.currentScreen instanceof FlintFixSettingsScreen settings) {
-                    settings.close();
+                } else if (client.screen instanceof FlintFixHomeScreen home) {
+                    home.onClose();
+                } else if (client.screen instanceof FlintFixSettingsScreen settings) {
+                    settings.onClose();
                 } else {
-                    client.setScreen(new FlintFixHomeScreen(client.currentScreen));
+                    client.setScreen(new FlintFixHomeScreen(client.screen));
                 }
             }
             FlintFixFreecam.tick(client);
-            boolean canUseCameraModes = client.currentScreen == null && client.player != null
+            boolean canUseCameraModes = client.screen == null && client.player != null
                 && !FlintFixFreecam.isActive();
-            FlintFixZoom.setActive(CONFIG.zoomEnabled && canUseCameraModes && zoomKey.isPressed());
-            boolean lookAroundActive = CONFIG.lookAroundEnabled && canUseCameraModes && lookAroundKey.isPressed();
+            FlintFixZoom.setActive(CONFIG.zoomEnabled && canUseCameraModes && zoomKey.isDown());
+            boolean lookAroundActive = CONFIG.lookAroundEnabled && canUseCameraModes && lookAroundKey.isDown();
             if (lookAroundActive) FlintFixLookAround.begin(client);
             else FlintFixLookAround.end(client);
-            while (inspectKey.wasPressed()) {
-                if (client.currentScreen == null) FlintFixInspect.start(client);
+            while (inspectKey.consumeClick()) {
+                if (client.screen == null) FlintFixInspect.start(client);
             }
             FlintFixInspect.tick(client);
+            while (waypointKey.consumeClick()) {
+                if (client.screen != null || client.player == null) continue;
+                if (!CONFIG.waypointsEnabled) {
+                    FlintFixCompat.actionBar(client.player, Component.literal("Waypoints are turned off in FlintFix"));
+                    continue;
+                }
+                FlintFixWaypoints.Waypoint added = FlintFixWaypoints.addHere(client, null);
+                FlintFixCompat.actionBar(client.player, Component.literal(added == null ? "This world already has 100 waypoints"
+                    : "Waypoint \"" + added.name + "\" added at " + added.x + ", " + added.y + ", " + added.z));
+            }
+            FlintFixWaypoints.tick(client);
             pruneClicks(System.currentTimeMillis());
             FlintFixSocialBridge.tick(client);
+            tickSpeed(client);
+            FlintFixDamageNumbers.tick(client);
+            FlintFixTeammates.tick(client);
         });
 
+        //? if >=26.1 {
+        /*HudElementRegistry.addLast(FlintFixCompat.id("flintfix", "hud"), (context, tickCounter) -> {
+        *///?} else {
         HudRenderCallback.EVENT.register((context, tickCounter) -> {
-            MinecraftClient client = MinecraftClient.getInstance();
-            if (client.currentScreen instanceof FlintFixHudEditorScreen) return;
+        //?}
+            Minecraft client = Minecraft.getInstance();
+            if (client.screen instanceof FlintFixHudEditorScreen) return;
+            // The callback still fires with the HUD hidden (F1), so respect it here.
+            if (client.options.hideGui) return;
             renderFpsHud(context, client, false, false);
             renderCpsHud(context, client, false, false);
             renderCoordinatesHud(context, client, false, false);
             renderPingHud(context, client, false, false);
             renderKeystrokesHud(context, client, false, false);
             renderArmorHud(context, client, false, false);
+            renderPotionsHud(context, client, false, false);
+            renderSpeedHud(context, client, false, false);
+            renderCompassHud(context, client, false, false);
             FlintFixSocialBridge.render(context, client);
         });
 
+        //? if >=26.1 {
+        /*WorldRenderEvents.AFTER_SOLID_FEATURES.register(context -> {
+        *///?} else {
         WorldRenderEvents.AFTER_ENTITIES.register(context -> {
+        //?}
             if (CONFIG == null) return;
+            //? if >=1.21.11 {
+            /*// 1.21.11 draws chunk borders as gizmos; ChunkBorderGizmoMixin emits them each frame.
+            *///?} else if >=1.21.9 {
+            /*if (CONFIG.chunksEnabled && context.consumers() != null) {
+                var cameraPos = FlintFixCompat.cameraPos(context);
+                // The debug-value and frustum arguments are unused by the chunk border renderer.
+                chunkBorderRenderer.render(FlintFixCompat.matrices(context), context.consumers(),
+                    cameraPos.x, cameraPos.y, cameraPos.z, null, null);
+            }
+            *///?} else {
             if (CONFIG.chunksEnabled && context.consumers() != null) {
-                var cameraPos = context.camera().getPos();
-                chunkBorderRenderer.render(context.matrixStack(), context.consumers(),
+                var cameraPos = FlintFixCompat.cameraPos(context);
+                chunkBorderRenderer.render(FlintFixCompat.matrices(context), context.consumers(),
                     cameraPos.x, cameraPos.y, cameraPos.z);
             }
+            //?}
             if (CONFIG.trajectoryEnabled) FlintFixTrajectory.render(context);
             if (CONFIG.hitboxesEnabled) FlintFixHitboxes.render(context);
+            if (CONFIG.damageNumbersEnabled) FlintFixDamageNumbers.render(context);
+            if (CONFIG.waypointsEnabled) FlintFixWaypoints.render(context);
+        });
+        //? if >=1.21.9 {
+        /*WorldRenderEvents.BEFORE_BLOCK_OUTLINE.register((context, outline) ->
+            FlintFixBlockOutline.render(context, Minecraft.getInstance().hitResult));
+        WorldRenderEvents.END_MAIN.register(context -> FlintFixMotionBlur.render());
+        *///?} else {
+        WorldRenderEvents.BEFORE_BLOCK_OUTLINE.register(FlintFixBlockOutline::render);
+        WorldRenderEvents.END.register(context -> FlintFixMotionBlur.render());
+        //?}
+        // Client-side hits drive the crosshair hit marker.
+        AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
+            if (world.isClientSide()) FlintFixCrosshair.onHit();
+            return InteractionResult.PASS;
         });
     }
 
-    public static String getSettingsKeyLabel() {
-        return settingsKey == null ? "RSHIFT" : settingsKey.getBoundKeyLocalizedText().getString();
+    /**
+     * Build check, enabled with -Dflintfix.auditMixins=true: once the first screen
+     * is up (title, or the first-launch accessibility screen), force every mixin
+     * onto its target (a wrong target fails here instead of mid-game), log the
+     * result and quit.
+     */
+    //? if >=1.21.11 {
+    /*/^* Emits the chunk border gizmos while the frame's gizmos are being collected. ^/
+    public static void emitChunkBorders() {
+        if (CONFIG == null || !CONFIG.chunksEnabled || chunkBorderRenderer == null) return;
+        var cameraPos = FlintFixCompat.cameraPos(Minecraft.getInstance().gameRenderer.getMainCamera());
+        // The chunk border renderer only reads the camera position.
+        chunkBorderRenderer.emitGizmos(cameraPos.x, cameraPos.y, cameraPos.z, null, null, 0.0f);
     }
 
-    public static KeyBinding getFreecamKeyBinding() {
+    *///?}
+    private static void registerMixinAudit() {
+        java.util.concurrent.atomic.AtomicBoolean done = new java.util.concurrent.atomic.AtomicBoolean();
+        ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
+            if (done.getAndSet(true)) return;
+            org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger("FlintFix");
+            try {
+                org.spongepowered.asm.mixin.MixinEnvironment.getCurrentEnvironment().audit();
+                log.info("FLINTFIX_AUDIT_OK");
+            } catch (Throwable error) {
+                log.error("FLINTFIX_AUDIT_FAILED", error);
+            }
+        });
+        // Quit once resource loading has finished; stopping mid-load can crash the GL driver on exit.
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if (done.get() && client.getOverlay() == null) client.stop();
+        });
+    }
+
+    //? if >=1.21.9 {
+    /*private static final KeyMapping.Category KEY_CATEGORY = KeyMapping.Category.register(FlintFixCompat.id("flintfix", "main"));
+    *///?}
+
+    private static KeyMapping key(String name, int defaultKey) {
+        //? if >=1.21.9 {
+        /*return new KeyMapping(name, InputConstants.Type.KEYSYM, defaultKey, KEY_CATEGORY);
+        *///?} else {
+        return new KeyMapping(name, InputConstants.Type.KEYSYM, defaultKey, "category.flintfix");
+        //?}
+    }
+
+    public static String getSettingsKeyLabel() {
+        return settingsKey == null ? "RSHIFT" : settingsKey.getTranslatedKeyMessage().getString();
+    }
+
+    /** Key bindings don't fire while a screen is open, so FlintFix screens check the settings key themselves. */
+    public static boolean isSettingsKey(int keyCode, int scanCode) {
+        //? if >=1.21.9 {
+        /*return settingsKey != null && settingsKey.matches(new KeyEvent(keyCode, scanCode, 0));
+        *///?} else {
+        return settingsKey != null && settingsKey.matches(keyCode, scanCode);
+        //?}
+    }
+
+    public static KeyMapping getFreecamKeyBinding() {
         return freecamKey;
     }
 
-    public static KeyBinding getZoomKeyBinding() { return zoomKey; }
-    public static KeyBinding getLookAroundKeyBinding() { return lookAroundKey; }
-    public static KeyBinding getInspectKeyBinding() { return inspectKey; }
+    public static KeyMapping getZoomKeyBinding() { return zoomKey; }
+    public static KeyMapping getLookAroundKeyBinding() { return lookAroundKey; }
+    public static KeyMapping getInspectKeyBinding() { return inspectKey; }
+    public static KeyMapping getWaypointKeyBinding() { return waypointKey; }
 
     public static synchronized void recordClick(int button) {
         long now = System.currentTimeMillis();
-        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) LEFT_CLICKS.addLast(now);
-        else if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) RIGHT_CLICKS.addLast(now);
+        if (button == InputConstants.MOUSE_BUTTON_LEFT) LEFT_CLICKS.addLast(now);
+        else if (button == InputConstants.MOUSE_BUTTON_RIGHT) RIGHT_CLICKS.addLast(now);
         pruneClicks(now);
     }
 
@@ -195,17 +302,22 @@ public final class FlintFixClient implements ClientModInitializer {
      * Player-list latency is preferred because it is the live in-game value.
      * For single-player there is no remote network hop, so 0 ms is shown.
      */
-    public static int getPing(MinecraftClient client) {
+    public static int getPing(Minecraft client) {
         if (client == null || client.player == null) return -1;
-        if (client.isInSingleplayer()) return 0;
+        if (client.isLocalServer()) return 0;
 
-        if (client.getNetworkHandler() != null) {
-            PlayerListEntry entry = client.getNetworkHandler().getPlayerListEntry(client.player.getUuid());
+        if (client.getConnection() != null) {
+            PlayerInfo entry = client.getConnection().getPlayerInfo(client.player.getUUID());
             if (entry == null) {
                 String playerName = client.player.getName().getString();
-                for (PlayerListEntry candidate : client.getNetworkHandler().getPlayerList()) {
-                    if (candidate.getProfile().getId().equals(client.player.getUuid()) ||
+                for (PlayerInfo candidate : client.getConnection().getOnlinePlayers()) {
+                    //? if >=1.21.9 {
+                    /*if (candidate.getProfile().id().equals(client.player.getUUID()) ||
+                        candidate.getProfile().name().equalsIgnoreCase(playerName)) {
+                    *///?} else {
+                    if (candidate.getProfile().getId().equals(client.player.getUUID()) ||
                         candidate.getProfile().getName().equalsIgnoreCase(playerName)) {
+                    //?}
                         entry = candidate;
                         break;
                     }
@@ -214,264 +326,450 @@ public final class FlintFixClient implements ClientModInitializer {
             if (entry != null && entry.getLatency() >= 0) return entry.getLatency();
         }
 
-        ServerInfo server = client.getCurrentServerEntry();
+        ServerData server = client.getCurrentServer();
         if (server != null && server.ping >= 0L && server.ping <= Integer.MAX_VALUE) {
             return (int) server.ping;
         }
         return -1;
     }
 
-    public static HudBounds renderFpsHud(DrawContext context, MinecraftClient client, boolean editor, boolean selected) {
+    // ------------------------------------------------------------------
+    // HUD widgets: simple flat tiles with a muted label and a bold value.
+    // Layouts are measured from the real rendered text size (FlintFixFont
+    // snaps small text to whole pixels, which changes with the GUI scale),
+    // so nothing overlaps at any scale.
+    // ------------------------------------------------------------------
+
+    private static final int PAD_X = 6;
+    private static final int PAD_Y = 4;
+    private static final int LABEL = 6;
+    private static final int VALUE = 8;
+    private static final int GOOD = 0xFF6FDC9A;
+    private static final int WARN = 0xFFF0C25E;
+    private static final int BAD = 0xFFF07373;
+
+    public static HudBounds renderFpsHud(GuiGraphics context, Minecraft client, boolean editor, boolean selected) {
         return renderFpsHud(context, client, editor, selected, false);
     }
 
-    static HudBounds renderFpsHud(DrawContext context, MinecraftClient client, boolean editor, boolean selected, boolean preview) {
+    static HudBounds renderFpsHud(GuiGraphics context, Minecraft client, boolean editor, boolean selected, boolean preview) {
         if (!CONFIG.fpsEnabled && !editor && !preview) return emptyBounds();
-
-        int fps = client.getCurrentFps();
-        String value = Integer.toString(fps);
-        String label = "FPS";
-        float scale = CONFIG.fpsScale;
-        int valueWidth = FlintFixFont.width(value, 13, true);
-        int labelWidth = FlintFixFont.width(label, 7, true);
-        int rawWidth = valueWidth + labelWidth + 32;
-        int rawHeight = 23;
-        HudPlacement p = placement(client, CONFIG.fpsX, CONFIG.fpsY, rawWidth, rawHeight, scale);
-
-        context.getMatrices().push();
-        context.getMatrices().translate(p.x, p.y, 0);
-        context.getMatrices().scale(scale, scale, 1.0f);
-
-        drawHudPanel(context, rawWidth, rawHeight, panelOpacity(CONFIG.fpsBackground, CONFIG.fpsBackgroundOpacity, editor));
-        FlintFixUi.roundedRaw(context, 4, 6, 2, 11, 1, FlintFixUi.accent());
-        if (CONFIG.fpsTextShadow) {
-            FlintFixFont.drawExact(context, value, 11, 6, 13, 0x66000000, true);
-        }
-        FlintFixFont.drawExact(context, value, 10, 5, 13, FlintFixUi.text(), true);
-        FlintFixFont.drawExact(context, label, 13 + valueWidth, 9, 7, FlintFixUi.accentBright(), true);
-        int status = fps >= 60 ? 0xFF7EE0A0 : (fps >= 30 ? 0xFFE8C46A : 0xFFE87878);
-        FlintFixUi.roundedRaw(context, rawWidth - 9, rawHeight / 2 - 2, 4, 4, 2, status);
-
-        context.getMatrices().pop();
-        return new HudBounds(p.x, p.y, p.width, p.height);
+        int fps = client.getFps();
+        return lineTile(context, client, editor, CONFIG.fpsX, CONFIG.fpsY, CONFIG.fpsScale,
+            CONFIG.fpsBackground, CONFIG.fpsBackgroundOpacity, CONFIG.fpsTextShadow,
+            "FPS", Integer.toString(fps), FlintFixUi.text());
     }
 
-    public static HudBounds renderCpsHud(DrawContext context, MinecraftClient client, boolean editor, boolean selected) {
+    public static HudBounds renderCpsHud(GuiGraphics context, Minecraft client, boolean editor, boolean selected) {
         return renderCpsHud(context, client, editor, selected, false);
     }
 
-    static HudBounds renderCpsHud(DrawContext context, MinecraftClient client, boolean editor, boolean selected, boolean preview) {
+    static HudBounds renderCpsHud(GuiGraphics context, Minecraft client, boolean editor, boolean selected, boolean preview) {
         if (!CONFIG.cpsEnabled && !editor && !preview) return emptyBounds();
         if (!editor && !preview && client.player == null) return emptyBounds();
-
-        int leftCps = getLeftCps();
-        int rightCps = getRightCps();
-        float scale = CONFIG.cpsScale;
-        int rawWidth = 74;
-        int rawHeight = 31;
-        HudPlacement p = placement(client, CONFIG.cpsX, CONFIG.cpsY, rawWidth, rawHeight, scale);
-
-        context.getMatrices().push();
-        context.getMatrices().translate(p.x, p.y, 0);
-        context.getMatrices().scale(scale, scale, 1.0f);
-        drawHudPanel(context, rawWidth, rawHeight, panelOpacity(CONFIG.cpsBackground, CONFIG.cpsBackgroundOpacity, editor));
-        int half = rawWidth / 2;
-        drawCpsColumn(context, 7, half - 12, "LMB", leftCps);
-        context.fill(half, 6, half + 1, rawHeight - 6, FlintFixUi.opacity(FlintFixUi.border(), 0.8f));
-        drawCpsColumn(context, half + 6, half - 12, "RMB", rightCps);
-        context.getMatrices().pop();
-        return new HudBounds(p.x, p.y, p.width, p.height);
+        return lineTile(context, client, editor, CONFIG.cpsX, CONFIG.cpsY, CONFIG.cpsScale,
+            CONFIG.cpsBackground, CONFIG.cpsBackgroundOpacity, true,
+            "CPS", getLeftCps() + " | " + getRightCps(), FlintFixUi.text());
     }
 
-    private static void drawCpsColumn(DrawContext context, int x, int width, String label, int cps) {
-        FlintFixFont.drawExact(context, label, x, 4, 6, FlintFixUi.muted(), true);
-        FlintFixFont.drawExact(context, Integer.toString(cps), x, 12, 11, FlintFixUi.text(), true);
-        int barY = 25;
-        FlintFixUi.roundedRaw(context, x, barY, width, 2, 1, FlintFixUi.opacity(FlintFixUi.raised(), 0.9f));
-        int fill = Math.round(width * Math.min(1.0f, cps / 15.0f));
-        if (fill > 0) FlintFixUi.roundedRaw(context, x, barY, fill, 2, 1, FlintFixUi.accent());
-    }
-
-    public static HudBounds renderCoordinatesHud(DrawContext context, MinecraftClient client, boolean editor, boolean selected) {
-        return renderCoordinatesHud(context, client, editor, selected, false);
-    }
-
-    static HudBounds renderCoordinatesHud(DrawContext context, MinecraftClient client, boolean editor, boolean selected, boolean preview) {
-        if (!CONFIG.coordinatesEnabled && !editor && !preview) return emptyBounds();
-        if (!editor && !preview && client.player == null) return emptyBounds();
-
-        int px = client.player == null ? 0 : (int)Math.floor(client.player.getX());
-        int py = client.player == null ? 64 : (int)Math.floor(client.player.getY());
-        int pz = client.player == null ? 0 : (int)Math.floor(client.player.getZ());
-        String facing = client.player == null ? "N" : client.player.getHorizontalFacing().asString().toUpperCase(Locale.ROOT);
-        String biome = "Plains";
-        if (client.player != null && client.world != null) {
-            String key = client.world.getBiome(client.player.getBlockPos()).getKey()
-                .map(registryKey -> registryKey.getValue().getPath())
-                .orElse("unknown");
-            biome = titleCase(key.replace('_', ' '));
-        }
-        String[] labels = {"X", "Y", "Z", "DIR", "BIOME"};
-        String[] values = {Integer.toString(px), Integer.toString(py), Integer.toString(pz), facing, biome};
-        float scale = CONFIG.coordinatesScale;
-        int rawWidth = 104;
-        int rawHeight = 47;
-        HudPlacement p = placement(client, CONFIG.coordinatesX, CONFIG.coordinatesY, rawWidth, rawHeight, scale);
-
-        context.getMatrices().push();
-        context.getMatrices().translate(p.x, p.y, 0);
-        context.getMatrices().scale(scale, scale, 1.0f);
-        drawHudPanel(context, rawWidth, rawHeight, panelOpacity(CONFIG.coordinatesBackground, CONFIG.coordinatesBackgroundOpacity, editor));
-        int[] axisColors = {0xFFE68C8C, 0xFF91D89A, 0xFF8CB2F4, FlintFixUi.accentBright(), FlintFixUi.accentBright()};
-        for (int line = 0; line < labels.length; line++) {
-            int lineY = 4 + line * 8;
-            FlintFixUi.roundedRaw(context, 5, lineY + 1, 2, 5, 1, axisColors[line]);
-            FlintFixFont.drawExact(context, labels[line], 10, lineY, 6, FlintFixUi.muted(), true);
-            FlintFixUi.drawTrimmedExact(context, values[line], 38, lineY, rawWidth - 44, 6, FlintFixUi.text(), true);
-            if (line < labels.length - 1) {
-                context.fill(10, lineY + 7, rawWidth - 6, lineY + 8, FlintFixUi.opacity(FlintFixUi.border(), 0.35f));
-            }
-        }
-        context.getMatrices().pop();
-        return new HudBounds(p.x, p.y, p.width, p.height);
-    }
-
-    public static HudBounds renderPingHud(DrawContext context, MinecraftClient client, boolean editor, boolean selected) {
+    public static HudBounds renderPingHud(GuiGraphics context, Minecraft client, boolean editor, boolean selected) {
         return renderPingHud(context, client, editor, selected, false);
     }
 
-    static HudBounds renderPingHud(DrawContext context, MinecraftClient client, boolean editor, boolean selected, boolean preview) {
+    static HudBounds renderPingHud(GuiGraphics context, Minecraft client, boolean editor, boolean selected, boolean preview) {
         if (!CONFIG.pingEnabled && !editor && !preview) return emptyBounds();
         if (!editor && !preview && client.player == null) return emptyBounds();
-
         int ping = getPing(client);
-        String text = ping < 0 ? "--" : Integer.toString(ping);
-        int signalColor = ping < 0 ? FlintFixUi.muted()
-            : (ping <= 80 ? 0xFF7EE0A0 : (ping <= 160 ? 0xFFE8C46A : 0xFFE87878));
-        float scale = CONFIG.pingScale;
-        int valueWidth = FlintFixFont.width(text, 11, true);
-        int rawWidth = Math.max(60, valueWidth + FlintFixFont.width("ms", 6, true) + 36);
-        int rawHeight = 26;
-        HudPlacement p = placement(client, CONFIG.pingX, CONFIG.pingY, rawWidth, rawHeight, scale);
+        String value = ping < 0 ? "--" : ping + " ms";
+        int color = ping < 0 ? FlintFixUi.muted() : statusColor(ping <= 80 ? GOOD : (ping <= 160 ? WARN : BAD));
+        return lineTile(context, client, editor, CONFIG.pingX, CONFIG.pingY, CONFIG.pingScale,
+            CONFIG.pingBackground, CONFIG.pingBackgroundOpacity, true, "PING", value, color);
+    }
 
-        context.getMatrices().push();
-        context.getMatrices().translate(p.x, p.y, 0);
-        context.getMatrices().scale(scale, scale, 1.0f);
-        drawHudPanel(context, rawWidth, rawHeight, panelOpacity(CONFIG.pingBackground, CONFIG.pingBackgroundOpacity, editor));
-        FlintFixFont.drawExact(context, "PING", 7, 4, 6, FlintFixUi.muted(), true);
-        FlintFixFont.drawExact(context, text, 7, 12, 11, FlintFixUi.text(), true);
-        FlintFixFont.drawExact(context, "ms", 9 + valueWidth, 15, 6, FlintFixUi.muted(), true);
-        int activeBars = ping < 0 ? 0 : (ping <= 60 ? 4 : (ping <= 110 ? 3 : (ping <= 180 ? 2 : 1)));
-        for (int bar = 0; bar < 4; bar++) {
-            int barHeight = 4 + bar * 3;
-            int barX = rawWidth - 24 + bar * 4;
-            int barY = 20 - barHeight;
-            FlintFixUi.roundedRaw(context, barX, barY, 3, barHeight, 1,
-                bar < activeBars ? signalColor : FlintFixUi.opacity(FlintFixUi.raised(), 0.9f));
-        }
-        context.getMatrices().pop();
+    /** One line: "LABEL value", e.g. "FPS 144". */
+    private static HudBounds lineTile(GuiGraphics context, Minecraft client, boolean editor, float nx, float ny,
+                                      float scale, boolean background, float backgroundOpacity, boolean textShadow,
+                                      String label, String value, int valueColor) {
+        int labelW = FlintFixFont.width(label, LABEL, true);
+        int valueW = FlintFixFont.width(value, VALUE, true);
+        int line = FlintFixFont.lineHeight(VALUE);
+        int rawWidth = PAD_X + labelW + 4 + valueW + PAD_X;
+        int rawHeight = line + PAD_Y * 2 - 1;
+        HudPlacement p = placement(client, nx, ny, rawWidth, rawHeight, scale);
+
+        beginWidget(context, p, scale);
+        int opacity = panelOpacity(background, backgroundOpacity, editor);
+        boolean shadow = textShadow && opacity < 110;
+        drawHudPanel(context, rawWidth, rawHeight, opacity);
+        int valueY = FlintFixFont.centeredY(0, rawHeight, VALUE);
+        int labelY = valueY + capBottom(VALUE) - capBottom(LABEL);
+        FlintFixFont.drawExact(context, label, PAD_X, labelY, LABEL, FlintFixUi.muted(), true, shadow);
+        FlintFixFont.drawExact(context, value, PAD_X + labelW + 4, valueY, VALUE, valueColor, true, shadow);
+        endWidget(context);
         return new HudBounds(p.x, p.y, p.width, p.height);
     }
 
-    public static HudBounds renderKeystrokesHud(DrawContext context, MinecraftClient client, boolean editor, boolean selected) {
+    public static HudBounds renderCoordinatesHud(GuiGraphics context, Minecraft client, boolean editor, boolean selected) {
+        return renderCoordinatesHud(context, client, editor, selected, false);
+    }
+
+    static HudBounds renderCoordinatesHud(GuiGraphics context, Minecraft client, boolean editor, boolean selected, boolean preview) {
+        if (!CONFIG.coordinatesEnabled && !editor && !preview) return emptyBounds();
+        if (!editor && !preview && client.player == null) return emptyBounds();
+
+        int px = client.player == null ? 0 : (int) Math.floor(client.player.getX());
+        int py = client.player == null ? 64 : (int) Math.floor(client.player.getY());
+        int pz = client.player == null ? 0 : (int) Math.floor(client.player.getZ());
+        String facing = "North";
+        if (client.player != null) {
+            switch (client.player.getDirection()) {
+                case SOUTH -> facing = "South";
+                case EAST -> facing = "East";
+                case WEST -> facing = "West";
+                default -> facing = "North";
+            }
+        }
+        String biome = "Plains";
+        if (client.player != null && client.level != null) {
+            String key = client.level.getBiome(client.player.blockPosition()).unwrapKey()
+                .map(registryKey -> FlintFixCompat.keyId(registryKey).getPath())
+                .orElse("unknown");
+            biome = titleCase(key.replace('_', ' '));
+        }
+        String[] labels = {"XYZ", "DIR", "BIOME"};
+        String[] values = {px + " " + py + " " + pz, facing, biome};
+
+        int labelW = 0;
+        for (String label : labels) labelW = Math.max(labelW, FlintFixFont.width(label, LABEL, true));
+        int valueW = 0;
+        for (String value : values) valueW = Math.max(valueW, FlintFixFont.width(value, VALUE, true));
+        valueW = Math.min(valueW, 120);
+        int rowH = FlintFixFont.lineHeight(VALUE) + 1;
+        int rawWidth = PAD_X + labelW + 5 + valueW + PAD_X;
+        int rawHeight = PAD_Y * 2 + rowH * labels.length - 1;
+        float scale = CONFIG.coordinatesScale;
+        HudPlacement p = placement(client, CONFIG.coordinatesX, CONFIG.coordinatesY, rawWidth, rawHeight, scale);
+
+        beginWidget(context, p, scale);
+        int opacity = panelOpacity(CONFIG.coordinatesBackground, CONFIG.coordinatesBackgroundOpacity, editor);
+        boolean shadow = opacity < 110;
+        drawHudPanel(context, rawWidth, rawHeight, opacity);
+        for (int line = 0; line < labels.length; line++) {
+            int valueY = PAD_Y + line * rowH;
+            int labelY = valueY + capBottom(VALUE) - capBottom(LABEL);
+            FlintFixFont.drawExact(context, labels[line], PAD_X, labelY, LABEL, FlintFixUi.muted(), true, shadow);
+            FlintFixFont.drawExact(context, FlintFixFont.trim(values[line], valueW, VALUE, true),
+                PAD_X + labelW + 5, valueY, VALUE, FlintFixUi.text(), true, shadow);
+        }
+        endWidget(context);
+        return new HudBounds(p.x, p.y, p.width, p.height);
+    }
+
+    public static HudBounds renderKeystrokesHud(GuiGraphics context, Minecraft client, boolean editor, boolean selected) {
         return renderKeystrokesHud(context, client, editor, selected, false);
     }
 
-    static HudBounds renderKeystrokesHud(DrawContext context, MinecraftClient client, boolean editor, boolean selected, boolean preview) {
+    static HudBounds renderKeystrokesHud(GuiGraphics context, Minecraft client, boolean editor, boolean selected, boolean preview) {
         if (!CONFIG.keystrokesEnabled && !editor && !preview) return emptyBounds();
         if (!editor && !preview && client.player == null) return emptyBounds();
 
-        int key = 18;
-        int gap = 3;
-        int pad = 4;
-        int rawWidth = key * 3 + gap * 2 + pad * 2;
-        int mouseH = CONFIG.keystrokesShowCps ? 18 : 14;
-        int rawHeight = key * 2 + gap + mouseH + gap + pad * 2;
-        int mouseW = (rawWidth - pad * 2 - gap) / 2;
+        int key = Math.max(17, FlintFixFont.lineHeight(VALUE) + 7);
+        int gap = 2;
+        int pad = 0;
+        int rawWidth = key * 3 + gap * 2;
+        int mouseH = CONFIG.keystrokesShowCps
+            ? Math.max(17, FlintFixFont.lineHeight(VALUE) + FlintFixFont.lineHeight(LABEL) + 2)
+            : key - 4;
+        int rawHeight = key * 2 + gap + mouseH + gap;
+        int mouseW = (rawWidth - gap) / 2;
         float scale = CONFIG.keystrokesScale;
         HudPlacement p = placement(client, CONFIG.keystrokesX, CONFIG.keystrokesY, rawWidth, rawHeight, scale);
+        // The keys are the panels here, so the background setting controls their fill.
+        float fill = editor ? 0.8f : (CONFIG.keystrokesBackground ? CONFIG.keystrokesBackgroundOpacity : 0.0f);
 
-        context.getMatrices().push();
-        context.getMatrices().translate(p.x, p.y, 0);
-        context.getMatrices().scale(scale, scale, 1.0f);
-
-        drawHudPanel(context, rawWidth, rawHeight,
-            panelOpacity(CONFIG.keystrokesBackground, CONFIG.keystrokesBackgroundOpacity, editor));
-        drawKey(context, pad + key + gap, pad, key, key, "W", client.options.forwardKey.isPressed());
-        drawKey(context, pad, pad + key + gap, key, key, "A", client.options.leftKey.isPressed());
-        drawKey(context, pad + key + gap, pad + key + gap, key, key, "S", client.options.backKey.isPressed());
-        drawKey(context, pad + (key + gap) * 2, pad + key + gap, key, key, "D", client.options.rightKey.isPressed());
-
+        beginWidget(context, p, scale);
+        drawKey(context, pad + key + gap, pad, key, key, "W", client.options.keyUp.isDown(), fill);
+        drawKey(context, pad, pad + key + gap, key, key, "A", client.options.keyLeft.isDown(), fill);
+        drawKey(context, pad + key + gap, pad + key + gap, key, key, "S", client.options.keyDown.isDown(), fill);
+        drawKey(context, pad + (key + gap) * 2, pad + key + gap, key, key, "D", client.options.keyRight.isDown(), fill);
         int mouseY = pad + (key + gap) * 2;
-        drawMouseKey(context, pad, mouseY, mouseW, mouseH, "LMB", getLeftCps(), client.options.attackKey.isPressed());
-        drawMouseKey(context, pad + mouseW + gap, mouseY, mouseW, mouseH, "RMB", getRightCps(), client.options.useKey.isPressed());
-
-        context.getMatrices().pop();
+        drawMouseKey(context, pad, mouseY, mouseW, mouseH, "LMB", getLeftCps(), client.options.keyAttack.isDown(), fill);
+        drawMouseKey(context, pad + mouseW + gap, mouseY, mouseW, mouseH, "RMB", getRightCps(), client.options.keyUse.isDown(), fill);
+        endWidget(context);
         return new HudBounds(p.x, p.y, p.width, p.height);
     }
 
-    public static HudBounds renderArmorHud(DrawContext context, MinecraftClient client, boolean editor, boolean selected) {
+    public static HudBounds renderArmorHud(GuiGraphics context, Minecraft client, boolean editor, boolean selected) {
         return renderArmorHud(context, client, editor, selected, false);
     }
 
-    static HudBounds renderArmorHud(DrawContext context, MinecraftClient client, boolean editor, boolean selected, boolean preview) {
+    /** One row per damageable piece: the item icon and its remaining durability, colored by condition. */
+    static HudBounds renderArmorHud(GuiGraphics context, Minecraft client, boolean editor, boolean selected, boolean preview) {
         if (!CONFIG.armorEnabled && !editor && !preview) return emptyBounds();
 
         List<ArmorHudItem> items = armorHudItems(client, editor || preview);
-        int rawWidth = 62;
-        int rawHeight = items.isEmpty() ? 24 : 4 + items.size() * 19;
+        int rowH = 17;
+        int textX = 3 + 16 + 3;
+        int valueW = 0;
+        for (ArmorHudItem item : items) valueW = Math.max(valueW, FlintFixFont.width(Integer.toString(item.remaining()), VALUE, true));
+        int rawWidth = items.isEmpty() ? FlintFixFont.width("NO ARMOR", LABEL, true) + PAD_X * 2 : textX + valueW + PAD_X;
+        int rawHeight = items.isEmpty() ? FlintFixFont.lineHeight(LABEL) + PAD_Y * 2 : 2 + items.size() * rowH;
         float scale = CONFIG.armorScale;
         HudPlacement p = placement(client, CONFIG.armorX, CONFIG.armorY, rawWidth, rawHeight, scale);
 
-        context.getMatrices().push();
-        context.getMatrices().translate(p.x, p.y, 0);
-        context.getMatrices().scale(scale, scale, 1.0f);
-        drawHudPanel(context, rawWidth, rawHeight, panelOpacity(CONFIG.armorBackground, CONFIG.armorBackgroundOpacity, editor));
-
+        beginWidget(context, p, scale);
+        int opacity = panelOpacity(CONFIG.armorBackground, CONFIG.armorBackgroundOpacity, editor);
+        boolean shadow = opacity < 110;
+        drawHudPanel(context, rawWidth, rawHeight, opacity);
         if (items.isEmpty()) {
-            FlintFixFont.drawExact(context, "NO ARMOR", 8, FlintFixFont.centeredY(0, rawHeight, 7), 7, FlintFixUi.muted(), true);
+            FlintFixFont.drawExact(context, "NO ARMOR", PAD_X, FlintFixFont.centeredY(0, rawHeight, LABEL), LABEL,
+                FlintFixUi.muted(), true, shadow);
         } else {
             for (int i = 0; i < items.size(); i++) {
                 ArmorHudItem item = items.get(i);
-                int rowY = 2 + i * 19;
-                int color = durabilityColor(item.remaining(), item.max());
-                context.drawItem(item.stack(), 3, rowY + 1);
-                int textX = 23;
-                int barW = rawWidth - textX - 5;
-                String value = Integer.toString(item.remaining());
-                FlintFixFont.drawExact(context, value, textX, rowY + 3, 8, color, true);
-                String percent = Math.round(item.remaining() * 100.0f / Math.max(1, item.max())) + "%";
-                FlintFixFont.drawExact(context, percent, rawWidth - 5 - FlintFixFont.width(percent, 6, false),
-                    rowY + 4, 6, FlintFixUi.muted(), false);
-                int barY = rowY + 13;
-                FlintFixUi.roundedRaw(context, textX, barY, barW, 2, 1, FlintFixUi.opacity(FlintFixUi.raised(), 0.9f));
-                int fillWidth = Math.round(barW * item.remaining() / (float)item.max());
-                if (fillWidth > 0) FlintFixUi.roundedRaw(context, textX, barY, fillWidth, 2, 1, color);
+                int rowY = 1 + i * rowH;
+                context.renderItem(item.stack(), 3, rowY + (rowH - 16) / 2);
+                int color = statusColor(durabilityColor(item.remaining(), item.max()));
+                FlintFixFont.drawExact(context, Integer.toString(item.remaining()), textX,
+                    FlintFixFont.centeredY(rowY, rowH, VALUE), VALUE, color, true, shadow);
             }
         }
-
-        context.getMatrices().pop();
+        endWidget(context);
         return new HudBounds(p.x, p.y, p.width, p.height);
     }
 
-    private static List<ArmorHudItem> armorHudItems(MinecraftClient client, boolean editor) {
-        ArrayList<ArmorHudItem> result = new ArrayList<>(5);
+    // ------------------------------------------------------------------
+    // Potion effects, speed and compass
+    // ------------------------------------------------------------------
+
+    private static double smoothedSpeed;
+
+    /** Called every client tick: smooths the player's speed in blocks per second. */
+    static void tickSpeed(Minecraft client) {
+        if (client.player == null) {
+            smoothedSpeed = 0.0;
+            return;
+        }
+        double dx = client.player.getX() - client.player.xo;
+        double dy = client.player.getY() - client.player.yo;
+        double dz = client.player.getZ() - client.player.zo;
+        // Count vertical motion only while gliding, so jumping doesn't spike the meter.
+        double perTick = FlintFixCompat.isGliding(client.player) ? Math.sqrt(dx * dx + dy * dy + dz * dz) : Math.sqrt(dx * dx + dz * dz);
+        smoothedSpeed += (perTick * 20.0 - smoothedSpeed) * 0.35;
+        if (smoothedSpeed < 0.01) smoothedSpeed = 0.0;
+    }
+
+    public static HudBounds renderSpeedHud(GuiGraphics context, Minecraft client, boolean editor, boolean selected) {
+        return renderSpeedHud(context, client, editor, selected, false);
+    }
+
+    static HudBounds renderSpeedHud(GuiGraphics context, Minecraft client, boolean editor, boolean selected, boolean preview) {
+        if (!CONFIG.speedEnabled && !editor && !preview) return emptyBounds();
+        if (!editor && !preview && client.player == null) return emptyBounds();
+        double speed = client.player == null ? 5.61 : smoothedSpeed;
+        String value = CONFIG.speedUnit == 1
+            ? String.format(Locale.ROOT, "%.1f km/h", speed * 3.6)
+            : String.format(Locale.ROOT, "%.2f b/s", speed);
+        return lineTile(context, client, editor, CONFIG.speedX, CONFIG.speedY, CONFIG.speedScale,
+            CONFIG.speedBackground, CONFIG.speedBackgroundOpacity, true, "SPEED", value, FlintFixUi.text());
+    }
+
+    public static HudBounds renderPotionsHud(GuiGraphics context, Minecraft client, boolean editor, boolean selected) {
+        return renderPotionsHud(context, client, editor, selected, false);
+    }
+
+    /**
+     * Active effects with their icon, name and time left. The time blinks during
+     * the last ten seconds so an expiring effect is easy to notice.
+     */
+    static HudBounds renderPotionsHud(GuiGraphics context, Minecraft client, boolean editor, boolean selected, boolean preview) {
+        if (!CONFIG.potionsEnabled && !editor && !preview) return emptyBounds();
+        List<MobEffectInstance> effects = new ArrayList<>();
+        if (client.player != null) effects.addAll(client.player.getActiveEffects());
+        if (effects.isEmpty() && (editor || preview)) {
+            //? if >=1.21.5 {
+            /*effects.add(new MobEffectInstance(MobEffects.SPEED, 1680, 1));
+            effects.add(new MobEffectInstance(MobEffects.STRENGTH, 160, 0));
+            *///?} else {
+            effects.add(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 1680, 1));
+            effects.add(new MobEffectInstance(MobEffects.DAMAGE_BOOST, 160, 0));
+            //?}
+            effects.add(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 3600, 0));
+        }
+        if (effects.isEmpty()) return emptyBounds();
+        effects.sort((a, b) -> Integer.compare(b.getDuration(), a.getDuration()));
+
+        int rowH = Math.max(20, FlintFixFont.lineHeight(7) + FlintFixFont.lineHeight(LABEL) + 3);
+        int textX = 4 + 18 + 4;
+        int textW = 0;
+        String[] names = new String[effects.size()];
+        String[] times = new String[effects.size()];
+        for (int i = 0; i < effects.size(); i++) {
+            MobEffectInstance effect = effects.get(i);
+            String name = FlintFixCompat.effectName(effect);
+            if (effect.getAmplifier() > 0) name += " " + roman(effect.getAmplifier() + 1);
+            names[i] = name;
+            times[i] = effectTime(effect);
+            textW = Math.max(textW, Math.max(FlintFixFont.width(name, 7, true), FlintFixFont.width(times[i], LABEL, true)));
+        }
+        textW = Math.min(textW, 110);
+        int rawWidth = textX + textW + PAD_X;
+        int rawHeight = 2 + effects.size() * rowH + 1;
+        float scale = CONFIG.potionsScale;
+        HudPlacement p = placement(client, CONFIG.potionsX, CONFIG.potionsY, rawWidth, rawHeight, scale);
+
+        beginWidget(context, p, scale);
+        int opacity = panelOpacity(CONFIG.potionsBackground, CONFIG.potionsBackgroundOpacity, editor);
+        boolean shadow = opacity < 110;
+        drawHudPanel(context, rawWidth, rawHeight, opacity);
+        boolean blinkOn = (System.currentTimeMillis() / 400L) % 2L == 0L;
+        for (int i = 0; i < effects.size(); i++) {
+            MobEffectInstance effect = effects.get(i);
+            int rowY = 2 + i * rowH;
+            FlintFixCompat.drawEffectIcon(context, effect, 4, rowY + (rowH - 18) / 2, 18);
+            int nameY = rowY + Math.max(0, (rowH - FlintFixFont.lineHeight(7) - FlintFixFont.lineHeight(LABEL)) / 2);
+            FlintFixFont.drawExact(context, FlintFixFont.trim(names[i], textW, 7, true), textX, nameY, 7,
+                FlintFixUi.text(), true, shadow);
+            boolean expiring = !effect.isInfiniteDuration() && effect.getDuration() <= 200;
+            int timeColor = expiring ? (blinkOn ? statusColor(BAD) : FlintFixUi.opacity(statusColor(BAD), 0.35f)) : FlintFixUi.muted();
+            FlintFixFont.drawExact(context, times[i], textX, nameY + FlintFixFont.lineHeight(7) - 1, LABEL,
+                timeColor, true, shadow);
+        }
+        endWidget(context);
+        return new HudBounds(p.x, p.y, p.width, p.height);
+    }
+
+    private static String effectTime(MobEffectInstance effect) {
+        if (effect.isInfiniteDuration()) return "--:--";
+        int seconds = Math.max(0, effect.getDuration() / 20);
+        return String.format(Locale.ROOT, "%d:%02d", seconds / 60, seconds % 60);
+    }
+
+    private static String roman(int value) {
+        return switch (value) {
+            case 1 -> "I";
+            case 2 -> "II";
+            case 3 -> "III";
+            case 4 -> "IV";
+            case 5 -> "V";
+            case 6 -> "VI";
+            case 7 -> "VII";
+            case 8 -> "VIII";
+            case 9 -> "IX";
+            case 10 -> "X";
+            default -> Integer.toString(value);
+        };
+    }
+
+    public static HudBounds renderCompassHud(GuiGraphics context, Minecraft client, boolean editor, boolean selected) {
+        return renderCompassHud(context, client, editor, selected, false);
+    }
+
+    /**
+     * Heading strip: letters at the cardinal directions, smaller labels between
+     * them and ticks every 15 degrees, fading toward the edges. A red marker
+     * points at your last death in this dimension.
+     */
+    static HudBounds renderCompassHud(GuiGraphics context, Minecraft client, boolean editor, boolean selected, boolean preview) {
+        if (!CONFIG.compassEnabled && !editor && !preview) return emptyBounds();
+        if (!editor && !preview && client.player == null) return emptyBounds();
+
+        int rawWidth = 180;
+        int valueLine = FlintFixFont.lineHeight(VALUE);
+        int rawHeight = valueLine + PAD_Y * 2 + 3;
+        float scale = CONFIG.compassScale;
+        HudPlacement p = placement(client, CONFIG.compassX, CONFIG.compassY, rawWidth, rawHeight, scale);
+        float yaw = client.gameRenderer == null || client.player == null ? 180.0f : FlintFixCompat.cameraYaw(client.gameRenderer.getMainCamera());
+        // Minecraft yaw is 0 toward +Z (south); a compass bearing is 0 toward north.
+        float bearing = Mth.wrapDegrees(yaw + 180.0f);
+        float range = 75.0f;
+        float center = rawWidth / 2.0f;
+        float pxPerDegree = (rawWidth - 16) / (range * 2.0f);
+
+        beginWidget(context, p, scale);
+        int opacity = panelOpacity(CONFIG.compassBackground, CONFIG.compassBackgroundOpacity, editor);
+        boolean shadow = opacity < 110;
+        drawHudPanel(context, rawWidth, rawHeight, opacity);
+        int textY = PAD_Y + 2;
+        for (int degrees = 0; degrees < 360; degrees += 15) {
+            float delta = Mth.wrapDegrees(degrees - bearing);
+            if (Math.abs(delta) > range) continue;
+            int x = Math.round(center + delta * pxPerDegree);
+            float fade = 1.0f - Math.max(0.0f, (Math.abs(delta) - range * 0.55f) / (range * 0.45f));
+            if (degrees % 90 == 0) {
+                String letter = switch (degrees) {
+                    case 0 -> "N";
+                    case 90 -> "E";
+                    case 180 -> "S";
+                    default -> "W";
+                };
+                int color = degrees == 0 ? statusColor(BAD) : FlintFixUi.text();
+                FlintFixFont.drawCenteredExact(context, letter, x, textY, VALUE, FlintFixUi.opacity(color, fade), true);
+            } else if (degrees % 45 == 0) {
+                String label = switch (degrees) {
+                    case 45 -> "NE";
+                    case 135 -> "SE";
+                    case 225 -> "SW";
+                    default -> "NW";
+                };
+                FlintFixFont.drawCenteredExact(context, label, x, textY + capBottom(VALUE) - capBottom(LABEL), LABEL,
+                    FlintFixUi.opacity(FlintFixUi.muted(), fade), true);
+            } else {
+                context.fill(x, textY + 2, x + 1, textY + capBottom(VALUE), FlintFixUi.opacity(FlintFixUi.muted(), 0.6f * fade));
+            }
+        }
+        if (CONFIG.compassDeathMarker && client.player != null && client.level != null) {
+            client.player.getLastDeathLocation().ifPresent(death -> {
+                if (!death.dimension().equals(client.level.dimension())) return;
+                double dx = death.pos().getX() + 0.5 - client.player.getX();
+                double dz = death.pos().getZ() + 0.5 - client.player.getZ();
+                float target = (float) Math.toDegrees(Math.atan2(dx, -dz));
+                float delta = Mth.wrapDegrees(target - bearing);
+                if (Math.abs(delta) > range) return;
+                int x = Math.round(center + delta * pxPerDegree);
+                int y = rawHeight - 4;
+                FlintFixUi.roundedRaw(context, x - 2, y - 2, 4, 4, 1, statusColor(BAD));
+            });
+        }
+        if (CONFIG.waypointsEnabled && CONFIG.waypointsCompass && client.player != null && client.level != null) {
+            for (FlintFixWaypoints.Waypoint waypoint : FlintFixWaypoints.visibleHere(client)) {
+                if (waypoint.death) continue;
+                double dx = waypoint.x + 0.5 - client.player.getX();
+                double dz = waypoint.z + 0.5 - client.player.getZ();
+                float delta = Mth.wrapDegrees((float) Math.toDegrees(Math.atan2(dx, -dz)) - bearing);
+                if (Math.abs(delta) > range) continue;
+                int x = Math.round(center + delta * pxPerDegree);
+                FlintFixUi.roundedRaw(context, x - 2, rawHeight - 6, 4, 4, 1, waypoint.color);
+            }
+        }
+        // Center caret.
+        int caret = FlintFixUi.accent();
+        context.fill(Math.round(center) - 2, 0, Math.round(center) + 3, 1, caret);
+        context.fill(Math.round(center) - 1, 1, Math.round(center) + 2, 2, caret);
+        context.fill(Math.round(center), 2, Math.round(center) + 1, 3, caret);
+        endWidget(context);
+        return new HudBounds(p.x, p.y, p.width, p.height);
+    }
+
+    private static List<ArmorHudItem> armorHudItems(Minecraft client, boolean editor) {
+        ArrayList<ArmorHudItem> result = new ArrayList<>(6);
         if (client == null || client.player == null) {
             if (editor) {
-                addDemoArmorItem(result, Items.DIAMOND_HELMET, 5);
+                addDemoArmorItem(result, Items.DIAMOND_HELMET, 300);
                 addDemoArmorItem(result, Items.DIAMOND_CHESTPLATE, 321);
-                addDemoArmorItem(result, Items.DIAMOND_LEGGINGS, 440);
-                addDemoArmorItem(result, Items.DIAMOND_BOOTS, 390);
-                addDemoArmorItem(result, Items.DIAMOND_SWORD, 12);
+                addDemoArmorItem(result, Items.NETHERITE_LEGGINGS, 512);
+                addDemoArmorItem(result, Items.DIAMOND_BOOTS, 90);
+                addDemoArmorItem(result, Items.NETHERITE_SWORD, 1800);
             }
             return result;
         }
 
-        addArmorItem(result, client.player.getEquippedStack(EquipmentSlot.HEAD));
-        addArmorItem(result, client.player.getEquippedStack(EquipmentSlot.CHEST));
-        addArmorItem(result, client.player.getEquippedStack(EquipmentSlot.LEGS));
-        addArmorItem(result, client.player.getEquippedStack(EquipmentSlot.FEET));
-        addArmorItem(result, client.player.getMainHandStack());
+        addArmorItem(result, client.player.getItemBySlot(EquipmentSlot.HEAD));
+        addArmorItem(result, client.player.getItemBySlot(EquipmentSlot.CHEST));
+        addArmorItem(result, client.player.getItemBySlot(EquipmentSlot.LEGS));
+        addArmorItem(result, client.player.getItemBySlot(EquipmentSlot.FEET));
+        addArmorItem(result, client.player.getMainHandItem());
+        addArmorItem(result, client.player.getOffhandItem());
         return result;
     }
 
@@ -479,23 +777,28 @@ public final class FlintFixClient implements ClientModInitializer {
         ItemStack stack = new ItemStack(item);
         int max = stack.getMaxDamage();
         int value = Math.max(0, Math.min(max, remaining));
-        stack.setDamage(max - value);
+        stack.setDamageValue(max - value);
         items.add(new ArmorHudItem(stack, value, max));
     }
 
     private static void addArmorItem(List<ArmorHudItem> items, ItemStack stack) {
-        if (stack == null || stack.isEmpty() || !stack.isDamageable()) return;
+        if (stack == null || stack.isEmpty() || !stack.isDamageableItem()) return;
         int max = stack.getMaxDamage();
-        int remaining = Math.max(0, max - stack.getDamage());
+        int remaining = Math.max(0, max - stack.getDamageValue());
         items.add(new ArmorHudItem(stack, remaining, max));
     }
 
     private static int durabilityColor(int remaining, int max) {
-        float ratio = max <= 0 ? 0.0f : remaining / (float)max;
-        if (ratio <= 0.20f) return 0xFFFF6268;
-        if (ratio <= 0.40f) return 0xFFFF963D;
-        if (ratio <= 0.65f) return 0xFFFFD34F;
-        return 0xFF71D687;
+        float ratio = max <= 0 ? 0.0f : remaining / (float) max;
+        if (ratio <= 0.20f) return BAD;
+        if (ratio <= 0.50f) return WARN;
+        return FlintFixUi.text();
+    }
+
+    /** Status colors are tuned for dark panels; deepen them so they stay readable on the light theme. */
+    private static int statusColor(int color) {
+        if (FlintFixUi.activeTheme() != FlintFixTheme.LIGHT || color == FlintFixUi.text()) return color;
+        return FlintFixUi.blendColors(color, 0xFF000000, 0.32f);
     }
 
     private record ArmorHudItem(ItemStack stack, int remaining, int max) {}
@@ -512,51 +815,63 @@ public final class FlintFixClient implements ClientModInitializer {
         return result.isEmpty() ? "Unknown" : result.toString();
     }
 
+    /** Offset from a text line's top to the bottom of its capitals, for lining up two sizes. */
+    private static int capBottom(int size) {
+        return Math.round(FlintFixFont.lineHeight(size) * 0.80f);
+    }
+
+    private static void beginWidget(GuiGraphics context, HudPlacement p, float scale) {
+        FlintFixCompat.pushGui(context);
+        FlintFixCompat.translateGui(context, p.x, p.y);
+        FlintFixCompat.scaleGui(context, scale, scale);
+    }
+
+    private static void endWidget(GuiGraphics context) {
+        FlintFixCompat.popGui(context);
+    }
+
     /** The editor always shows a panel so widgets stay visible while they are arranged. */
     private static int panelOpacity(boolean background, float opacity, boolean editor) {
         if (editor) return 200;
         return background ? Math.round(opacity * 255.0f) : 0;
     }
 
-    /** Themed widget panel: soft edge, background fill and a faint top highlight. */
-    private static void drawHudPanel(DrawContext context, int width, int height, int opacity) {
+    /** A single flat, rounded, translucent panel. */
+    private static void drawHudPanel(GuiGraphics context, int width, int height, int opacity) {
         if (opacity <= 0 || width <= 0 || height <= 0) return;
         float a = Math.max(0, Math.min(255, opacity)) / 255.0f;
-        FlintFixUi.roundedRaw(context, 0, 0, width, height, 3, FlintFixUi.opacity(FlintFixUi.border(), Math.min(1.0f, a * 0.9f)));
-        FlintFixUi.roundedRaw(context, 1, 1, width - 2, height - 2, 2, FlintFixUi.opacity(FlintFixUi.bg(), a));
-        context.fill(3, 1, width - 3, 2, FlintFixUi.opacity(0xFFFFFFFF, a * 0.07f));
+        FlintFixUi.roundedRaw(context, 0, 0, width, height, 3, FlintFixUi.opacity(FlintFixUi.bg(), a));
     }
 
-    /** Rounded key tile that eases into the accent color while pressed. */
-    private static void drawKey(DrawContext c, int x, int y, int w, int h, String label, boolean pressed) {
+    /** Flat key tile that fills with the accent color while pressed. */
+    private static void drawKey(GuiGraphics c, int x, int y, int w, int h, String label, boolean pressed, float fill) {
         float t = FlintFixUi.hoverProgress("hud-key:" + label, pressed);
-        int fill = FlintFixUi.blendColors(FlintFixUi.opacity(FlintFixUi.raised(), 0.55f), FlintFixUi.accent(), t);
-        int edge = FlintFixUi.blendColors(FlintFixUi.opacity(FlintFixUi.border(), 0.9f), FlintFixUi.accentBright(), t);
-        FlintFixUi.roundedRaw(c, x, y, w, h, 3, edge);
-        FlintFixUi.roundedRaw(c, x + 1, y + 1, w - 2, h - 2, 2, fill);
+        int idle = FlintFixUi.opacity(FlintFixUi.bg(), fill);
+        FlintFixUi.roundedRaw(c, x, y, w, h, 3, FlintFixUi.blendColors(idle, FlintFixUi.accent(), t));
         int ink = FlintFixUi.blendColors(FlintFixUi.text(), FlintFixUi.onAccent(), t);
-        FlintFixFont.drawCenteredExact(c, label, x + w / 2, FlintFixFont.centeredY(y, h, 10), 10, ink, true);
+        FlintFixFont.drawCenteredExact(c, label, x + w / 2, FlintFixFont.centeredY(y, h, VALUE), VALUE, ink, true);
     }
 
-    private static void drawMouseKey(DrawContext c, int x, int y, int w, int h, String label, int cps, boolean pressed) {
+    private static void drawMouseKey(GuiGraphics c, int x, int y, int w, int h, String label, int cps, boolean pressed,
+                                     float fill) {
         float t = FlintFixUi.hoverProgress("hud-key:" + label, pressed);
-        int fill = FlintFixUi.blendColors(FlintFixUi.opacity(FlintFixUi.raised(), 0.55f), FlintFixUi.accent(), t);
-        int edge = FlintFixUi.blendColors(FlintFixUi.opacity(FlintFixUi.border(), 0.9f), FlintFixUi.accentBright(), t);
-        FlintFixUi.roundedRaw(c, x, y, w, h, 3, edge);
-        FlintFixUi.roundedRaw(c, x + 1, y + 1, w - 2, h - 2, 2, fill);
+        int idle = FlintFixUi.opacity(FlintFixUi.bg(), fill);
+        FlintFixUi.roundedRaw(c, x, y, w, h, 3, FlintFixUi.blendColors(idle, FlintFixUi.accent(), t));
         int ink = FlintFixUi.blendColors(FlintFixUi.text(), FlintFixUi.onAccent(), t);
         if (CONFIG.keystrokesShowCps) {
-            FlintFixFont.drawCenteredExact(c, label, x + w / 2, y + 2, 8, ink, true);
-            FlintFixFont.drawCenteredExact(c, cps + " CPS", x + w / 2, y + 10, 6,
-                FlintFixUi.blendColors(FlintFixUi.muted(), ink, t), false);
+            int valueLine = FlintFixFont.lineHeight(VALUE);
+            int top = y + Math.max(1, (h - valueLine - FlintFixFont.lineHeight(LABEL) + 1) / 2);
+            FlintFixFont.drawCenteredExact(c, label, x + w / 2, top, VALUE, ink, true);
+            FlintFixFont.drawCenteredExact(c, cps + " CPS", x + w / 2, top + valueLine - 1, LABEL,
+                FlintFixUi.blendColors(FlintFixUi.muted(), ink, t), true);
         } else {
-            FlintFixFont.drawCenteredExact(c, label, x + w / 2, FlintFixFont.centeredY(y, h, 8), 8, ink, true);
+            FlintFixFont.drawCenteredExact(c, label, x + w / 2, FlintFixFont.centeredY(y, h, VALUE), VALUE, ink, true);
         }
     }
 
-    private static HudPlacement placement(MinecraftClient client, float nx, float ny, int rawWidth, int rawHeight, float scale) {
-        int screenWidth = client.getWindow().getScaledWidth();
-        int screenHeight = client.getWindow().getScaledHeight();
+    private static HudPlacement placement(Minecraft client, float nx, float ny, int rawWidth, int rawHeight, float scale) {
+        int screenWidth = client.getWindow().getGuiScaledWidth();
+        int screenHeight = client.getWindow().getGuiScaledHeight();
         int width = Math.max(1, Math.round(rawWidth * scale));
         int height = Math.max(1, Math.round(rawHeight * scale));
         int x = Math.round(nx * Math.max(1, screenWidth - width));

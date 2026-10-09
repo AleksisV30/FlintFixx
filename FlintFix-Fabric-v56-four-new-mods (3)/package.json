@@ -1,18 +1,93 @@
 {
   "name": "flintfix-client",
-  "version": "0.56.0",
+  "version": "1.7.0",
   "private": true,
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "dist": "node scripts/obfuscate.js && electron-builder --win --publish never",
+    "release": "node scripts/obfuscate.js && electron-builder --win --publish always",
+    "obfuscate": "node scripts/obfuscate.js"
   },
   "devDependencies": {
-    "electron": "^38.0.0"
+    "electron": "^38.0.0",
+    "electron-builder": "^26.0.12",
+    "javascript-obfuscator": "^4.2.2"
   },
   "dependencies": {
     "@azure/msal-node": "^6.0.1",
+    "@xhayper/discord-rpc": "^1.5.1",
+    "electron-updater": "^6.6.2",
     "extract-zip": "^2.0.1",
-    "@xhayper/discord-rpc": "^1.5.1"
+    "material-symbols": "^0.47.6",
+    "skinview3d": "^3.4.2"
   },
-  "productName": "FlintFix Client"
+  "productName": "FlintFix Client",
+  "build": {
+    "appId": "com.flintfix.client",
+    "productName": "FlintFix Client",
+    "files": [
+      "**/*",
+      "!flintfix-mod/**",
+      "!backup-before-gui-redesign/**",
+      "!**/*.map",
+      "!installer/**",
+      "!scripts/**",
+      "!docs/**",
+      "!release/**",
+      "!dist/**",
+      "!release*/**",
+      "!release-out/**",
+      "!build-obf/**",
+      "!install-flintfix.bat",
+      "!install-flintfix.ps1",
+      "!main.js",
+      "!preload.js",
+      "!renderer.js",
+      "!auth/*.js",
+      "!minecraft/*.js",
+      "!discord/*.js",
+      {
+        "from": "build-obf",
+        "to": ".",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/flintfix-client-icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": true,
+      "shortcutName": "FlintFix Client",
+      "runAfterFinish": true,
+      "include": "installer/installer.nsh",
+      "artifactName": "FlintFix-Client-Setup-${version}.${ext}"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "AleksisV30",
+        "repo": "FlintFixx"
+      }
+    ],
+    "extraResources": [
+      {
+        "from": "flintfix-mod/build/libs/all",
+        "to": "flintfix-mods",
+        "filter": [
+          "*.jar",
+          "!*-sources.jar"
+        ]
+      }
+    ],
+    "directories": {
+      "output": "release-out"
+    }
+  }
 }

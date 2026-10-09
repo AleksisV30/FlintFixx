@@ -1,0 +1,63 @@
+{
+    "posts": [
+        {
+            "version": "1.7.0",
+            "date": "2026-10-09",
+            "title": "FlintFix 1.7: every version, one installer",
+            "items": [
+                "FlintFix in-game features now work on 15 Minecraft versions: 1.20.1 through 1.21.11, plus the new 26.1, 26.2 and 26.3.",
+                "One setup file installs everything. No Java download or mod build on first launch, because the mod comes ready inside the installer.",
+                "The installer asks if you want a desktop shortcut and starts FlintFix when it finishes.",
+                "The launcher icon, loading screen and default profile pictures now use the real Minecraft flint.",
+                "Automatic updates: new versions download in the background and install with one click.",
+                "Official FlintFix Discord bot with /download, /status, /versions and /report.",
+                "The launcher is smaller, faster to start and better protected."
+            ]
+        },
+        {
+            "version": "1.0.0",
+            "date": "2026-10-06",
+            "title": "FlintFix 1.0 is here",
+            "items": [
+                "A new animated loading screen when the launcher opens.",
+                "Fabric is now the default loader, and works on every Minecraft version. FlintFix's in-game features run on 1.21.1; other versions launch with Fabric and Fabric API only.",
+                "One accent color across the whole launcher, smoother page changes and cleaner menus.",
+                "In-game menus and HUD polished and checked for glitches.",
+                "Forge and NeoForge are marked as coming soon."
+            ]
+        },
+        {
+            "version": "0.59.0",
+            "date": "2026-10-06",
+            "title": "Servers, skins and waypoints",
+            "items": [
+                "Servers tab: save favorite servers, see who's online, and join in one click.",
+                "Skins tab: a 3D preview, a skin library, and one-click skin changes.",
+                "Waypoints in game: save places, see them in the world and on the compass.",
+                "Server profiles: FlintFix switches to your chosen module profile when you join a server.",
+                "Performance mode installs Sodium, Lithium and other speed-up mods in one click.",
+                "The launcher now tells you when a new FlintFix version is out."
+            ]
+        },
+        {
+            "version": "0.58.0",
+            "date": "2026-10-06",
+            "title": "Ten new modules",
+            "items": [
+                "Potion effects, speed meter and compass bar HUD widgets.",
+                "Custom block outline and crosshair.",
+                "Low fire, shield and totem, damage numbers, no weather, motion blur and team glow."
+            ]
+        },
+        {
+            "version": "0.57.0",
+            "date": "2026-10-05",
+            "title": "Resource packs and a cinematic sky",
+            "items": [
+                "Browse and preview resource packs in the new Packs tab.",
+                "Show Hand holds your item, with a new Inspect animation.",
+                "A more cinematic Custom Sky and a redesigned HUD."
+            ]
+        }
+    ]
+}

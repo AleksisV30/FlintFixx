@@ -1,13 +1,17 @@
 package com.flintfix.client.mixin;
 
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.screen.slot.Slot;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.world.inventory.Slot;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
-@Mixin(HandledScreen.class)
+@Mixin(AbstractContainerScreen.class)
 public interface HandledScreenAccessor {
-    @Invoker("getSlotAt")
+    //? if >=1.21.2 {
+    /*@Invoker("getHoveredSlot")
+    *///?} else {
+    @Invoker("findSlot")
+    //?}
     @Nullable Slot flintfix$getSlotAt(double x, double y);
 }

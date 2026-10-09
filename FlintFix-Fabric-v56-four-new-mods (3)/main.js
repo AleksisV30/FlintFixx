@@ -14,6 +14,10 @@ const microsoftAuth = require("./auth/microsoft");
 const { launchMinecraft } = require("./minecraft/launcher");
 const { installFabric } = require("./minecraft/fabric");
 const { FlintFixDiscordPresence } = require("./discord/presence");
+const { createResourcePackManager } = require("./minecraft/resourcepacks");
+const serverPing = require("./minecraft/serverping");
+const { createSkinManager } = require("./minecraft/skins");
+const { createUpdater, REPO: UPDATE_REPO } = require("./minecraft/updates");
 
 function loadDiscordPresenceConfig() {
     const configPath = path.join(__dirname, "discord", "config.json");
@@ -112,6 +116,40 @@ function getInstanceRoot(instanceId) {
     return path.join(app.getPath("userData"), "minecraft", "instances", safeId);
 }
 
+function getGameDir() {
+    return path.join(app.getPath("userData"), "minecraft", "game");
+}
+
+const resourcePacks = createResourcePackManager({ getGameDir });
+
+const skins = createSkinManager({
+    getUserDataDir: () => app.getPath("userData"),
+    getAccessToken: async () => {
+        const session = await getMinecraftSessionForLaunch();
+        return session?.minecraft?.offline ? null : session?.minecraft?.accessToken || null;
+    }
+});
+
+const updater = createUpdater({
+    app,
+    send: state => {
+        for (const window of BrowserWindow.getAllWindows()) {
+            if (!window.isDestroyed()) window.webContents.send("update:status", state);
+        }
+    }
+});
+
+// Mods installed by Performance mode, by Modrinth slug. "match" finds an
+// already installed copy by file name.
+const PERFORMANCE_MODS = [
+    { slug: "sodium", title: "Sodium", match: /sodium/i },
+    { slug: "lithium", title: "Lithium", match: /lithium/i },
+    { slug: "ferrite-core", title: "FerriteCore", match: /ferrite/i },
+    { slug: "immediatelyfast", title: "ImmediatelyFast", match: /immediatelyfast/i },
+    { slug: "entityculling", title: "Entity Culling", match: /entityculling/i },
+    { slug: "modernfix", title: "ModernFix", match: /modernfix/i }
+];
+
 function getInstanceModsDir(instanceId) {
     return path.join(getInstanceRoot(instanceId), "mods");
 }
@@ -189,7 +227,7 @@ function buildUniqueModFileName(modsDir, originalName) {
 async function fetchJson(url) {
     const response = await fetch(url, {
         headers: {
-            "User-Agent": "FlintFix-Client/40",
+            "User-Agent": "FlintFix-Client/1.0",
             "Accept": "application/json"
         }
     });
@@ -292,7 +330,7 @@ async function postJson(url, body) {
     const response = await fetch(url, {
         method: "POST",
         headers: {
-            "User-Agent": "FlintFix-Client/40",
+            "User-Agent": "FlintFix-Client/1.0",
             "Accept": "application/json",
             "Content-Type": "application/json"
         },
@@ -353,7 +391,7 @@ async function applyInstanceModUpdate(instanceId, fileName, options = {}) {
     if (!mod) throw new Error("Mod file was not found.");
     const update = await getCompatibleModUpdate(mod, String(options.version || ""), String(options.loader || "fabric"));
     if (!update?.updateAvailable || !update.fileUrl) return { updated: false, reason: "Already up to date." };
-    const response = await fetch(update.fileUrl, { headers: { "User-Agent": "FlintFix-Client/40" } });
+    const response = await fetch(update.fileUrl, { headers: { "User-Agent": "FlintFix-Client/1.0" } });
     if (!response.ok) throw new Error(`Download failed (${response.status}).`);
     const bytes = Buffer.from(await response.arrayBuffer());
     const modsDir = getInstanceModsDir(instanceId);
@@ -377,6 +415,8 @@ async function installCatalogMod(instanceId, options = {}) {
     if (version) versionsUrl.searchParams.set("game_versions", JSON.stringify([version]));
     let versions = await fetchJson(versionsUrl.toString());
     if (!Array.isArray(versions) || !versions.length) {
+        // Strict installs (Performance mode) never fall back to a build for another version.
+        if (options.strict) throw new Error(`No ${loader} build for Minecraft ${version || "this version"} yet.`);
         versions = await fetchJson(`https://api.modrinth.com/v2/project/${encodeURIComponent(projectId)}/version`);
     }
     if (!Array.isArray(versions) || !versions.length) throw new Error("No downloadable versions were found for this mod.");
@@ -392,7 +432,7 @@ async function installCatalogMod(instanceId, options = {}) {
         }
     }
     if (!chosenFile?.url) throw new Error("This mod does not expose a downloadable .jar file.");
-    const response = await fetch(chosenFile.url, { headers: { "User-Agent": "FlintFix-Client/40" } });
+    const response = await fetch(chosenFile.url, { headers: { "User-Agent": "FlintFix-Client/1.0" } });
     if (!response.ok) throw new Error(`Download failed (${response.status}).`);
     const arrayBuffer = await response.arrayBuffer();
     const finalName = buildUniqueModFileName(modsDir, chosenFile.filename || `${projectId}.jar`);
@@ -459,16 +499,41 @@ function createWindow() {
         height: 760,
         minWidth: 900,
         minHeight: 600,
-        backgroundColor: "#0d0d10",
+        backgroundColor: "#07080b",
         frame: false,
+        // Shown once the splash screen has painted, so the window never flashes white.
+        show: false,
         autoHideMenuBar: true,
         icon: cachedFlintIcon || fallbackIcon,
         webPreferences: {
             preload: path.join(__dirname, "preload.js"),
             contextIsolation: true,
             nodeIntegration: false,
+            // Developer tools only in "npm start"; the installed client can't open them.
+            devTools: !app.isPackaged,
             backgroundThrottling: false
         }
+    });
+
+    if (app.isPackaged) {
+        // Swallow the DevTools and reload shortcuts so players can't poke at the UI.
+        win.webContents.on("before-input-event", (event, input) => {
+            const key = String(input.key || "").toLowerCase();
+            const ctrl = input.control || input.meta;
+            if (key === "f12" || key === "f5"
+                || (ctrl && input.shift && ["i", "j", "c"].includes(key))
+                || (ctrl && key === "r")) {
+                event.preventDefault();
+            }
+        });
+    }
+    // The window only ever shows index.html; links open in the real browser instead.
+    win.webContents.setWindowOpenHandler(({ url }) => {
+        if (/^https:\/\//i.test(url)) void shell.openExternal(url);
+        return { action: "deny" };
+    });
+    win.webContents.on("will-navigate", (event, url) => {
+        if (!url.startsWith("file:")) event.preventDefault();
     });
 
     win.setMenuBarVisibility(false);
@@ -492,6 +557,15 @@ function createWindow() {
     win.on("show", () => {
         try { win.setOpacity(1); } catch {}
     });
+
+    let shown = false;
+    const showWindow = () => {
+        if (shown || win.isDestroyed()) return;
+        shown = true;
+        win.show();
+    };
+    win.once("ready-to-show", showWindow);
+    setTimeout(showWindow, 4000);
 
     win.loadFile("index.html");
 }
@@ -964,6 +1038,10 @@ ipcMain.handle("java:detect", async () => {
 // FLINTFIX MANAGED BUILD JDK
 // ========================================
 
+// The mod build (Gradle 9 + Fabric Loom 1.18) runs on JDK 25; it still compiles
+// Java 17/21 jars for older Minecraft versions.
+const BUILD_JDK_MAJOR = 25;
+
 function findJavacExecutable(directory) {
     if (!fs.existsSync(directory)) return null;
     const stack = [directory];
@@ -987,27 +1065,29 @@ function findJavacOnPath() {
     });
 }
 
-async function findSystemJdk21() {
+async function findSystemBuildJdk() {
     for (const javac of await findJavacOnPath()) {
         const javaExecutable = path.join(path.dirname(javac), "java.exe");
         if (!fs.existsSync(javaExecutable)) continue;
         try {
             const java = await runJava(javaExecutable);
             const major = Number(String(java.version || "").split(/[._]/)[0]);
-            if (major === 21) return javaExecutable;
+            if (major === BUILD_JDK_MAJOR) return javaExecutable;
         } catch (_) {}
     }
     return null;
 }
 
-async function ensureBuildJdk21(emit) {
-    const systemJdk = await findSystemJdk21();
+async function ensureBuildJdk(emit) {
+    // Installed builds ship prebuilt mod jars (see minecraft/fabric.js), so no compiler is needed.
+    if (app.isPackaged && fs.existsSync(path.join(process.resourcesPath, "flintfix-mods"))) return null;
+    const systemJdk = await findSystemBuildJdk();
     if (systemJdk) {
-        emit?.({ stage: "fabric", phase: "jdk", message: "Using existing system JDK 21." });
+        emit?.({ stage: "fabric", phase: "jdk", message: `Using existing system JDK ${BUILD_JDK_MAJOR}.` });
         return systemJdk;
     }
 
-    const jdkRoot = path.join(app.getPath("userData"), "runtime", "jdk-21-build");
+    const jdkRoot = path.join(app.getPath("userData"), "runtime", `jdk-${BUILD_JDK_MAJOR}-build`);
     const existingJavac = findJavacExecutable(jdkRoot);
     if (existingJavac) {
         const javaExecutable = path.join(path.dirname(existingJavac), "java.exe");
@@ -1018,9 +1098,9 @@ async function ensureBuildJdk21(emit) {
         throw new Error("Automatic FlintFix build JDK installation currently supports Windows x64 only.");
     }
 
-    emit?.({ stage: "fabric", message: "Installing managed JDK 21 for FlintFix mod compilation..." });
-    const zipPath = path.join(app.getPath("temp"), "flintfix-jdk-21-build.zip");
-    const downloadUrl = "https://api.adoptium.net/v3/binary/latest/21/ga/windows/x64/jdk/hotspot/normal/eclipse";
+    emit?.({ stage: "fabric", message: `Installing managed JDK ${BUILD_JDK_MAJOR} for FlintFix mod compilation...` });
+    const zipPath = path.join(app.getPath("temp"), `flintfix-jdk-${BUILD_JDK_MAJOR}-build.zip`);
+    const downloadUrl = `https://api.adoptium.net/v3/binary/latest/${BUILD_JDK_MAJOR}/ga/windows/x64/jdk/hotspot/normal/eclipse`;
 
     await downloadFile(downloadUrl, zipPath, percent => {
         emit?.({
@@ -1028,7 +1108,7 @@ async function ensureBuildJdk21(emit) {
             phase: "jdk-download",
             current: percent,
             total: 100,
-            message: `Downloading managed JDK 21... ${percent}%`
+            message: `Downloading managed JDK ${BUILD_JDK_MAJOR}... ${percent}%`
         });
     });
 
@@ -1038,11 +1118,11 @@ async function ensureBuildJdk21(emit) {
     try { fs.rmSync(zipPath, { force: true }); } catch (_) {}
 
     const javac = findJavacExecutable(jdkRoot);
-    if (!javac) throw new Error("Managed JDK 21 downloaded, but javac.exe was not found.");
+    if (!javac) throw new Error(`Managed JDK ${BUILD_JDK_MAJOR} downloaded, but javac.exe was not found.`);
     const javaExecutable = path.join(path.dirname(javac), "java.exe");
-    if (!fs.existsSync(javaExecutable)) throw new Error("Managed JDK 21 downloaded, but java.exe was not found next to javac.exe.");
+    if (!fs.existsSync(javaExecutable)) throw new Error(`Managed JDK ${BUILD_JDK_MAJOR} downloaded, but java.exe was not found next to javac.exe.`);
 
-    emit?.({ stage: "fabric", message: "Managed JDK 21 compiler ready." });
+    emit?.({ stage: "fabric", message: `Managed JDK ${BUILD_JDK_MAJOR} compiler ready.` });
     return javaExecutable;
 }
 
@@ -1903,7 +1983,7 @@ ipcMain.handle(
                 const fabricEmit = data => {
                     if (!event.sender.isDestroyed()) event.sender.send("minecraft:progress", data);
                 };
-                const buildJavaExecutable = await ensureBuildJdk21(fabricEmit);
+                const buildJavaExecutable = await ensureBuildJdk(fabricEmit);
                 const fabric = await installFabric({
                     rootDir: minecraftRoot,
                     projectRoot: __dirname,
@@ -1982,7 +2062,16 @@ ipcMain.handle(
                 fullscreen: Boolean(launchOptions?.fullscreen),
                 launcherVisibility: "keep",
                 discordRichPresence: Boolean(launchOptions?.discordRichPresence),
-                instanceId: launchOptions?.instanceId ? normalizeInstanceId(launchOptions.instanceId) : null
+                instanceId: launchOptions?.instanceId ? normalizeInstanceId(launchOptions.instanceId) : null,
+                joinServer: (() => {
+                    if (!launchOptions?.joinServer) return null;
+                    try {
+                        serverPing.parseAddress(launchOptions.joinServer);
+                        return String(launchOptions.joinServer).trim();
+                    } catch {
+                        return null;
+                    }
+                })()
             };
             // Keep the launcher visible from the moment Play is pressed. On
             // Windows, Electron can receive a minimize event as Minecraft
@@ -2046,7 +2135,7 @@ ipcMain.handle(
                 const fabricEmit = data => emitLaunchProgress(data);
 
                 emitLaunchProgress({ stage: "fabric", phase: "jdk", message: "Checking Fabric build runtime..." });
-                const buildJavaExecutable = await ensureBuildJdk21(fabricEmit);
+                const buildJavaExecutable = await ensureBuildJdk(fabricEmit);
                 const fabric = await installFabric({
                     rootDir: minecraftRoot,
                     projectRoot: __dirname,
@@ -2338,14 +2427,36 @@ ipcMain.handle("discord:link:manage", async () => ({
 // FLINTFIX SOCIAL / CHAT
 // ========================================
 
+// The in-game Team Glow module reads friends' Minecraft UUIDs from this file.
+let lastSocialFriendsJson = "";
+async function writeSocialFriendsFile(friends) {
+    const list = (Array.isArray(friends) ? friends : [])
+        .map(friend => ({
+            uuid: String(friend?.minecraft?.uuid || "").replace(/[^0-9a-fA-F]/g, "").slice(0, 32),
+            name: String(friend?.minecraft?.username || friend?.minecraft?.name || "").slice(0, 32)
+        }))
+        .filter(friend => friend.uuid.length === 32);
+    const json = JSON.stringify({ friends: list, updatedAt: Date.now() }, null, 2);
+    const withoutTime = JSON.stringify(list);
+    if (withoutTime === lastSocialFriendsJson) return;
+    lastSocialFriendsJson = withoutTime;
+    const filePath = path.join(app.getPath("userData"), "minecraft", "game", "flintfix-social-friends.json");
+    await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.promises.writeFile(filePath, json, "utf8");
+}
+
 ipcMain.handle("social:sync", async (_event, options = {}) => {
     try {
         const game = getSocialGameState();
-        return await callSocialApi("/api/social/sync", "social_sync", {
+        const result = await callSocialApi("/api/social/sync", "social_sync", {
             state: game.state,
             server: options?.showServer === false ? null : game.server,
             lastMessageId: Number(options?.lastMessageId || 0)
         });
+        if (result?.success && Array.isArray(result.friends)) {
+            writeSocialFriendsFile(result.friends).catch(() => {});
+        }
+        return result;
     } catch (error) {
         return { success: false, error: error.message };
     }
@@ -2595,6 +2706,214 @@ ipcMain.handle("mods:openFolder", async (_event, instanceId) => {
     }
 });
 
+ipcMain.handle("packs:search", async (_event, options) => {
+    try {
+        return { success: true, ...(await resourcePacks.search(options || {})) };
+    } catch (error) {
+        return { success: false, packs: [], totalHits: 0, error: error.message };
+    }
+});
+
+ipcMain.handle("packs:details", async (_event, projectId, options) => {
+    try {
+        return { success: true, details: await resourcePacks.details(projectId, options || {}) };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle("packs:list", async () => {
+    try {
+        return { success: true, ...(await resourcePacks.list()) };
+    } catch (error) {
+        return { success: false, packs: [], error: error.message };
+    }
+});
+
+ipcMain.handle("packs:install", async (event, options) => {
+    try {
+        const result = await resourcePacks.install(options || {}, progress => {
+            if (!event.sender.isDestroyed()) event.sender.send("packs:progress", progress);
+        });
+        return { success: true, ...result };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle("packs:setEnabled", async (_event, fileName, enabled) => {
+    try {
+        return { success: true, ...(await resourcePacks.setPackEnabled(fileName, Boolean(enabled))) };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle("packs:remove", async (_event, fileName) => {
+    try {
+        return { success: true, ...(await resourcePacks.remove(fileName)) };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle("packs:openFolder", async () => {
+    try {
+        const dir = resourcePacks.packsDir();
+        await fs.promises.mkdir(dir, { recursive: true });
+        const result = await shell.openPath(dir);
+        if (result) throw new Error(result);
+        return { success: true, path: dir };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle("servers:ping", async (_event, address) => {
+    try {
+        return { success: true, ...(await serverPing.ping(address)) };
+    } catch (error) {
+        return { success: false, online: false, error: error.message };
+    }
+});
+
+ipcMain.handle("skins:list", async () => {
+    try {
+        return { success: true, skins: await skins.list() };
+    } catch (error) {
+        return { success: false, skins: [], error: error.message };
+    }
+});
+
+ipcMain.handle("skins:import", async (event, variant) => {
+    try {
+        const owner = BrowserWindow.fromWebContents(event.sender);
+        const picked = await dialog.showOpenDialog(owner || undefined, {
+            title: "Add Minecraft skins",
+            properties: ["openFile", "multiSelections"],
+            filters: [{ name: "Minecraft skins", extensions: ["png"] }]
+        });
+        if (picked.canceled || !picked.filePaths?.length) return { success: true, canceled: true, added: [] };
+        const added = [];
+        for (const filePath of picked.filePaths) added.push(await skins.importFile(filePath, variant));
+        return { success: true, canceled: false, added };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle("skins:current", async () => {
+    try {
+        return { success: true, ...(await skins.current()) };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle("skins:saveCurrent", async () => {
+    try {
+        const current = await skins.current();
+        if (!current.dataUrl) throw new Error("This account uses a default skin.");
+        const bytes = Buffer.from(current.dataUrl.split(",")[1], "base64");
+        return { success: true, skin: await skins.add(bytes, { name: `${current.name || "My"} skin`, variant: current.variant }) };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle("skins:apply", async (_event, id) => {
+    try {
+        return { success: true, skin: await skins.apply(id) };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle("skins:update", async (_event, id, changes) => {
+    try {
+        return { success: true, skin: await skins.update(id, changes || {}) };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle("skins:delete", async (_event, id) => {
+    try {
+        await skins.remove(id);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle("skins:reset", async () => {
+    try {
+        await skins.reset();
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle("news:get", async () => {
+    const local = () => {
+        try {
+            return JSON.parse(fs.readFileSync(path.join(__dirname, "news.json"), "utf8"));
+        } catch {
+            return { posts: [] };
+        }
+    };
+    try {
+        // news.json sits in the project folder inside the repository (not __dirname: that is app.asar when installed).
+        const url = `https://raw.githubusercontent.com/${UPDATE_REPO}/main/${encodeURIComponent("FlintFix-Fabric-v56-four-new-mods (3)")}/news.json`;
+        const response = await fetch(url, { headers: { "User-Agent": "FlintFix-Client" } });
+        if (!response.ok) throw new Error(String(response.status));
+        const remote = await response.json();
+        if (!Array.isArray(remote?.posts)) throw new Error("Invalid news file.");
+        return { success: true, source: "online", posts: remote.posts.slice(0, 20) };
+    } catch {
+        return { success: true, source: "bundled", posts: (local().posts || []).slice(0, 20) };
+    }
+});
+
+ipcMain.handle("app:version", () => app.getVersion());
+
+ipcMain.handle("update:check", async () => {
+    try {
+        return { success: true, ...(await updater.check()), canInstall: updater.canInstall() };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle("update:install", async () => {
+    updater.install();
+    return { success: true };
+});
+
+ipcMain.handle("mods:performance", async (event, instanceId, options = {}) => {
+    try {
+        const { mods } = await listInstanceMods(instanceId);
+        const results = [];
+        for (const mod of PERFORMANCE_MODS) {
+            if (mods.some(installed => mod.match.test(installed.fileName))) {
+                results.push({ title: mod.title, status: "already" });
+                continue;
+            }
+            if (!event.sender.isDestroyed()) event.sender.send("mods:performance:progress", { title: mod.title });
+            try {
+                await installCatalogMod(instanceId, { projectId: mod.slug, version: options.version, loader: "fabric", strict: true });
+                results.push({ title: mod.title, status: "installed" });
+            } catch (error) {
+                results.push({ title: mod.title, status: "failed", error: error.message });
+            }
+        }
+        return { success: true, results };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
 function runPowerShellCommand(command) {
     return new Promise((resolve, reject) => {
         execFile(
@@ -2616,23 +2935,49 @@ function psQuote(value) {
     return `'${String(value).replace(/'/g, "''")}'`;
 }
 
+/**
+ * A Minecraft client JAR to read the flint texture from: the requested version first,
+ * then any version installed by FlintFix, then any version in the official launcher's
+ * .minecraft folder (most players already have one before installing FlintFix).
+ */
+function findMinecraftClientJar(preferredVersionId) {
+    const roots = [path.join(app.getPath("userData"), "minecraft")];
+    if (process.env.APPDATA) roots.push(path.join(process.env.APPDATA, ".minecraft"));
+    for (const root of roots) {
+        const versionsDir = path.join(root, "versions");
+        if (!fs.existsSync(versionsDir)) continue;
+        const ids = preferredVersionId ? [preferredVersionId] : [];
+        try {
+            ids.push(...fs.readdirSync(versionsDir));
+        } catch {
+            continue;
+        }
+        for (const id of ids) {
+            const jar = path.join(versionsDir, id, `${id}.jar`);
+            if (fs.existsSync(jar)) return { id, jar };
+        }
+    }
+    return null;
+}
+
 ipcMain.handle("minecraft:getFlintIcon", async (_event, versionId) => {
     try {
-        if (typeof versionId !== "string" || !/^[A-Za-z0-9._+-]+$/.test(versionId)) {
+        if (versionId != null && (typeof versionId !== "string" || !/^[A-Za-z0-9._+-]+$/.test(versionId))) {
             throw new Error("Invalid Minecraft version ID.");
         }
 
-        const minecraftRoot = path.join(app.getPath("userData"), "minecraft");
-        const clientJar = path.join(minecraftRoot, "versions", versionId, `${versionId}.jar`);
-        if (!fs.existsSync(clientJar)) {
-            return { success: false, error: "Minecraft client JAR is not installed yet." };
-        }
+        // The flint texture is the same in every version, so any cached copy will do.
+        let outputFile = getCachedMinecraftFlintIconPath();
+        if (!outputFile) {
+            const source = findMinecraftClientJar(versionId || null);
+            if (!source) {
+                return { success: false, error: "No Minecraft client JAR is installed yet." };
+            }
+            const clientJar = source.jar;
+            const cacheDir = path.join(app.getPath("userData"), "cache");
+            fs.mkdirSync(cacheDir, { recursive: true });
+            outputFile = path.join(cacheDir, `minecraft-flint-${source.id.replace(/[^A-Za-z0-9._+-]/g, "_")}.png`);
 
-        const cacheDir = path.join(app.getPath("userData"), "cache");
-        fs.mkdirSync(cacheDir, { recursive: true });
-        const outputFile = path.join(cacheDir, `minecraft-flint-${versionId}.png`);
-
-        if (!fs.existsSync(outputFile)) {
             const command = [
                 "Add-Type -AssemblyName System.IO.Compression.FileSystem;",
                 `$zip=[System.IO.Compression.ZipFile]::OpenRead(${psQuote(clientJar)});`,

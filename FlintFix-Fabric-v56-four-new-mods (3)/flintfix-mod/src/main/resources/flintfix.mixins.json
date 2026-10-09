@@ -1,7 +1,7 @@
 {
   "required": true,
   "package": "com.flintfix.client.mixin",
-  "compatibilityLevel": "JAVA_21",
+  "compatibilityLevel": "JAVA_${java}",
   "client": [
     "MouseMixin",
     "EntityMixin",
@@ -14,7 +14,15 @@
     "WorldRendererSkyMixin",
     "BackgroundRendererMixin",
     "HeldItemRendererMixin",
-    "LightmapTextureManagerMixin"
+    "LightmapTextureManagerMixin",
+    "ScreenInvoker",
+    "InGameHudMixin",
+    "InGameOverlayRendererMixin",
+    "GameRendererTotemMixin",
+    "WorldWeatherMixin",
+    "MinecraftClientMixin",
+    "ChunkBorderGizmoMixin",
+    "AbstractTextureAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

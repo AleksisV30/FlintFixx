@@ -1,13 +1,11 @@
 package com.flintfix.client;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.util.Identifier;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.ToIntFunction;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.resources.ResourceLocation;
 
 public final class FlintFixUi {
     public static int BG = 0xFF10151D;
@@ -27,10 +25,10 @@ public final class FlintFixUi {
     private static final int THEME_TRANSITION_MS = 300;
     private static final Map<String, HoverMotion> HOVER_MOTIONS = new HashMap<>();
 
-    private static final Identifier CORNER_TL = Identifier.of("flintfix", "textures/gui/corner_tl.png");
-    private static final Identifier CORNER_TR = Identifier.of("flintfix", "textures/gui/corner_tr.png");
-    private static final Identifier CORNER_BL = Identifier.of("flintfix", "textures/gui/corner_bl.png");
-    private static final Identifier CORNER_BR = Identifier.of("flintfix", "textures/gui/corner_br.png");
+    private static final ResourceLocation CORNER_TL = FlintFixCompat.id("flintfix", "textures/gui/corner_tl.png");
+    private static final ResourceLocation CORNER_TR = FlintFixCompat.id("flintfix", "textures/gui/corner_tr.png");
+    private static final ResourceLocation CORNER_BL = FlintFixCompat.id("flintfix", "textures/gui/corner_bl.png");
+    private static final ResourceLocation CORNER_BR = FlintFixCompat.id("flintfix", "textures/gui/corner_br.png");
     private static final int CORNER_TEX = 64;
     private static boolean cornerFilteringApplied;
 
@@ -105,6 +103,9 @@ public final class FlintFixUi {
         int saturation = Math.max(red, Math.max(green, blue)) - Math.min(red, Math.min(green, blue));
         if (light >= 190) return (alpha << 24) | (theme.text() & 0x00FFFFFF);
         if (saturation < 55 && light >= 105) return (alpha << 24) | (theme.muted() & 0x00FFFFFF);
+        // Saturated pastel colors made for dark panels (greens, golds) wash out on
+        // white; deepen them so they keep their meaning and stay readable.
+        if (saturation >= 55 && light >= 150) return blendColors(color, 0xFF000000, 0.35f);
         return color;
     }
 
@@ -137,7 +138,7 @@ public final class FlintFixUi {
     }
 
     public static int interactiveBorder(boolean hovered) {
-        if (activeTheme == FlintFixTheme.LIGHT) return hovered ? 0xFF151A20 : 0xFF616B76;
+        if (activeTheme == FlintFixTheme.LIGHT) return hovered ? ACCENT : 0xFFB4BCC8;
         return hovered ? ACCENT_BRIGHT : BORDER;
     }
 
@@ -152,22 +153,22 @@ public final class FlintFixUi {
         return (color & 0x00FFFFFF) | (adjusted << 24);
     }
 
-    public static void pushPanelIntro(DrawContext c, int x, int y, int w, int h, float progress) {
+    public static void pushPanelIntro(GuiGraphics c, int x, int y, int w, int h, float progress) {
         float scale = 0.975f + 0.025f * progress;
         float cx = x + w / 2.0f;
         float cy = y + h / 2.0f;
-        c.getMatrices().push();
-        c.getMatrices().translate(cx, cy + (1.0f - progress) * 4.0f, 0);
-        c.getMatrices().scale(scale, scale, 1.0f);
-        c.getMatrices().translate(-cx, -cy, 0);
+        FlintFixCompat.pushGui(c);
+        FlintFixCompat.translateGui(c, cx, cy + (1.0f - progress) * 4.0f);
+        FlintFixCompat.scaleGui(c, scale, scale);
+        FlintFixCompat.translateGui(c, -cx, -cy);
     }
 
-    public static void finishPanelIntro(DrawContext c, int x, int y, int w, int h, float progress) {
+    public static void finishPanelIntro(GuiGraphics c, int x, int y, int w, int h, float progress) {
         c.fill(x, y, x + w, y + h, opacity(0xFF000000, (1.0f - progress) * 0.28f));
-        c.getMatrices().pop();
+        FlintFixCompat.popGui(c);
     }
 
-    public static void outlinedBox(DrawContext c, int x, int y, int w, int h, int radius,
+    public static void outlinedBox(GuiGraphics c, int x, int y, int w, int h, int radius,
                                    int borderColor, int fillColor) {
         if (w <= 0 || h <= 0) return;
         c.fill(x, y, x + w, y + h, borderColor);
@@ -175,13 +176,13 @@ public final class FlintFixUi {
     }
 
     /** Anti-aliased rounded rectangle using filtered corner masks. */
-    public static void rounded(DrawContext c, int x, int y, int w, int h, int r, int color) {
+    public static void rounded(GuiGraphics c, int x, int y, int w, int h, int r, int color) {
         if (w <= 0 || h <= 0) return;
         roundedRaw(c, x, y, w, h, r, themeSurface(color));
     }
 
     /** Rounded rectangle in the exact color given, for colors already taken from the active theme. */
-    public static void roundedRaw(DrawContext c, int x, int y, int w, int h, int r, int color) {
+    public static void roundedRaw(GuiGraphics c, int x, int y, int w, int h, int r, int color) {
         if (w <= 0 || h <= 0) return;
         // FlintFix uses a crisp, near-square style across all Minecraft screens.
         r = Math.max(0, Math.min(Math.min(r, 3), Math.min(w, h) / 2));
@@ -197,24 +198,23 @@ public final class FlintFixUi {
         c.fill(x, y + r, x + w, y + h - r, color);
         c.fill(x + r, y + h - r, x + w - r, y + h, color);
 
-        tint(color);
-        try {
-            c.drawTexture(CORNER_TL, x, y, r, r, 0, 0, CORNER_TEX, CORNER_TEX, CORNER_TEX, CORNER_TEX);
-            c.drawTexture(CORNER_TR, x + w - r, y, r, r, 0, 0, CORNER_TEX, CORNER_TEX, CORNER_TEX, CORNER_TEX);
-            c.drawTexture(CORNER_BL, x, y + h - r, r, r, 0, 0, CORNER_TEX, CORNER_TEX, CORNER_TEX, CORNER_TEX);
-            c.drawTexture(CORNER_BR, x + w - r, y + h - r, r, r, 0, 0, CORNER_TEX, CORNER_TEX, CORNER_TEX, CORNER_TEX);
-        } finally {
-            RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
-        }
+        corner(c, CORNER_TL, x, y, r, color);
+        corner(c, CORNER_TR, x + w - r, y, r, color);
+        corner(c, CORNER_BL, x, y + h - r, r, color);
+        corner(c, CORNER_BR, x + w - r, y + h - r, r, color);
     }
 
-    public static void glass(DrawContext c, int x, int y, int w, int h, int r, int fill) {
+    private static void corner(GuiGraphics c, ResourceLocation texture, int x, int y, int r, int color) {
+        FlintFixCompat.drawTexture(c, texture, x, y, r, r, 0, 0, CORNER_TEX, CORNER_TEX, CORNER_TEX, CORNER_TEX, color);
+    }
+
+    public static void glass(GuiGraphics c, int x, int y, int w, int h, int r, int fill) {
         rounded(c, x - 1, y - 1, w + 2, h + 2, r + 1, BORDER_SOFT);
         rounded(c, x, y, w, h, r, fill);
     }
 
     /** Soft outer edge that fades into the game behind the panel. */
-    public static void fadeOutline(DrawContext c, int x, int y, int w, int h, int r, int color) {
+    public static void fadeOutline(GuiGraphics c, int x, int y, int w, int h, int r, int color) {
         // Use several low-opacity rings so the edge dissolves gradually instead
         // of reading as a few hard, stacked outlines.
         int[] spread = {12, 10, 8, 6, 5, 4, 3, 2, 1};
@@ -228,47 +228,47 @@ public final class FlintFixUi {
         }
     }
 
-    public static void glowPanel(DrawContext c, int x, int y, int w, int h, int r, int fill) {
+    public static void glowPanel(GuiGraphics c, int x, int y, int w, int h, int r, int fill) {
         rounded(c, x - 6, y - 6, w + 12, h + 12, r + 6, 0x11000000);
         rounded(c, x - 4, y - 4, w + 8, h + 8, r + 4, 0x181D1D1D);
         rounded(c, x - 2, y - 2, w + 4, h + 4, r + 2, 0x55444444);
         rounded(c, x, y, w, h, r, fill);
     }
 
-    public static void divider(DrawContext c, int x, int y, int w) {
+    public static void divider(GuiGraphics c, int x, int y, int w) {
         int rgb = activeTheme == FlintFixTheme.GRAPHITE
             ? 0x00484848 : (activeTheme.divider() & 0x00FFFFFF);
         c.fill(x, y, x + w, y + 1, 0x55000000 | rgb);
     }
 
-    public static void button(DrawContext c, int x, int y, int w, int h, String label, boolean hover, boolean primary) {
+    public static void button(GuiGraphics c, int x, int y, int w, int h, String label, boolean hover, boolean primary) {
         int fill = primary ? (hover ? 0xFF696969 : 0xFF4D4D4D) : (hover ? 0xFF2D2D2D : 0xFF1A1A1A);
         if (primary && hover) rounded(c, x - 2, y - 2, w + 4, h + 4, 8, 0x34B0B0B0);
         glass(c, x, y, w, h, 7, fill);
         FlintFixFont.drawCentered(c, label, x + w / 2, y + (h - 13) / 2 - 1, 13, 0xFFFFFFFF, true);
     }
 
-    public static void toggle(DrawContext c, int x, int y, boolean enabled) {
+    public static void toggle(GuiGraphics c, int x, int y, boolean enabled) {
         rounded(c, x, y, 38, 18, 9, enabled ? 0xFF666666 : 0xFF383838);
         if (enabled) rounded(c, x + 1, y + 1, 36, 16, 8, 0xFF828282);
         int knobX = enabled ? x + 22 : x + 3;
         rounded(c, knobX, y + 3, 13, 12, 6, 0xFFF7F4F9);
     }
 
-    public static void iconBox(DrawContext c, int x, int y, String glyph, boolean active) {
+    public static void iconBox(GuiGraphics c, int x, int y, String glyph, boolean active) {
         rounded(c, x, y, 28, 28, 8, active ? 0x68444B55 : 0x39232932);
         FlintFixFont.drawCentered(c, glyph, x + 14, y + 6, 14, active ? 0xFFE0E4EA : 0xFF9AA6B6, true);
     }
 
     /** Small reference-style toggle for compact FlintFix panels. */
-    public static void compactToggle(DrawContext c, int x, int y, boolean enabled) {
+    public static void compactToggle(GuiGraphics c, int x, int y, boolean enabled) {
         rounded(c, x, y, 28, 14, 7, enabled ? 0xFF666666 : 0xFF383838);
         if (enabled) rounded(c, x + 1, y + 1, 26, 12, 6, 0xFF828282);
         int knobX = enabled ? x + 16 : x + 2;
         rounded(c, knobX, y + 2, 10, 10, 5, 0xFFF8F5FA);
     }
 
-    public static void microToggle(DrawContext c, int x, int y, boolean enabled, boolean available) {
+    public static void microToggle(GuiGraphics c, int x, int y, boolean enabled, boolean available) {
         int track = !available ? 0xFF2B3038 : (enabled ? 0xFF42644A : 0xFF654641);
         rounded(c, x, y, 18, 10, 5, track);
         int knobX = enabled && available ? x + 10 : x + 2;
@@ -276,20 +276,20 @@ public final class FlintFixUi {
     }
 
     /** Compact settings action using a static Lucide sliders icon. */
-    public static void moduleSettingsButton(DrawContext c, int x, int y, boolean hover) {
+    public static void moduleSettingsButton(GuiGraphics c, int x, int y, boolean hover) {
         rounded(c, x - 1, y - 1, 8, 8, 3, hover ? 0xFF747474 : 0xFF4D4D4D);
         rounded(c, x, y, 6, 6, 3, hover ? 0xFF5C5C5C : 0xFF363636);
         FlintFixIcons.draw(c, "settings", x, y, 6, hover ? 0xFFFFFFFF : 0xFFD0D5DC);
     }
 
     /** Compact module icon tile. */
-    public static void compactIcon(DrawContext c, int x, int y, String glyph, boolean active) {
+    public static void compactIcon(GuiGraphics c, int x, int y, String glyph, boolean active) {
         rounded(c, x, y, 20, 18, 6, active ? 0x6C484848 : 0x3225222A);
         FlintFixFont.drawCentered(c, glyph, x + 10, y + 5, 8, active ? 0xFFE0E4EA : 0xFFA29AA6, true);
     }
 
     /** Compact button used by the smaller v15 layouts. */
-    public static void compactButton(DrawContext c, int x, int y, int w, int h, String label, boolean hover, boolean primary) {
+    public static void compactButton(GuiGraphics c, int x, int y, int w, int h, String label, boolean hover, boolean primary) {
         actionButton(c, x, y, w, h, label, hover, primary ? ButtonStyle.PRIMARY : ButtonStyle.SECONDARY);
     }
 
@@ -331,14 +331,14 @@ public final class FlintFixUi {
     public enum ButtonStyle { PRIMARY, SECONDARY, DANGER }
 
     /** Bordered rounded surface: a 1px edge around a fill. */
-    public static void surface(DrawContext c, int x, int y, int w, int h, int fill, int edge) {
+    public static void surface(GuiGraphics c, int x, int y, int w, int h, int fill, int edge) {
         if (w <= 0 || h <= 0) return;
         roundedRaw(c, x, y, w, h, 3, edge);
         if (w > 2 && h > 2) roundedRaw(c, x + 1, y + 1, w - 2, h - 2, 2, fill);
     }
 
     /** Soft drop shadow that fades out around a panel. */
-    public static void shadow(DrawContext c, int x, int y, int w, int h, float strength) {
+    public static void shadow(GuiGraphics c, int x, int y, int w, int h, float strength) {
         int[] spread = {12, 9, 6, 4, 2};
         int[] alpha = {8, 14, 22, 32, 48};
         for (int i = 0; i < spread.length; i++) {
@@ -349,19 +349,20 @@ public final class FlintFixUi {
     }
 
     /** Standard window: shadow, edge, background and a faint top highlight. */
-    public static void panelFrame(DrawContext c, int x, int y, int w, int h) {
-        shadow(c, x, y, w, h, 1.0f);
+    public static void panelFrame(GuiGraphics c, int x, int y, int w, int h) {
+        boolean light = activeTheme == FlintFixTheme.LIGHT;
+        shadow(c, x, y, w, h, light ? 0.6f : 1.0f);
         surface(c, x, y, w, h, bg(), border());
-        c.fill(x + 3, y + 1, x + w - 3, y + 2, 0x0CFFFFFF);
+        if (!light) c.fill(x + 3, y + 1, x + w - 3, y + 2, 0x0CFFFFFF);
     }
 
     /** Dims the game behind a FlintFix screen. */
-    public static void backdrop(DrawContext c, int width, int height, float amount) {
+    public static void backdrop(GuiGraphics c, int width, int height, float amount) {
         c.fill(0, 0, width, height, opacity(0x70000000, amount));
     }
 
     /** Screen header: accent icon tile, title and an optional subtitle. */
-    public static void header(DrawContext c, int x, int y, int maxWidth, String icon, String title, String subtitle) {
+    public static void header(GuiGraphics c, int x, int y, int maxWidth, String icon, String title, String subtitle) {
         surface(c, x, y, 22, 22, raised(), blendColors(border(), accent(), 0.35f));
         FlintFixIcons.drawExact(c, icon, x + 5, y + 5, 12, accentBright());
         int textW = Math.max(0, maxWidth - 29);
@@ -371,12 +372,12 @@ public final class FlintFixUi {
         }
     }
 
-    public static void sectionLabel(DrawContext c, String label, int x, int y) {
+    public static void sectionLabel(GuiGraphics c, String label, int x, int y) {
         FlintFixFont.drawExact(c, label, x, y, 6, subtle(), true);
     }
 
     /** Square button holding a single icon, e.g. close or back. */
-    public static void iconButton(DrawContext c, String key, int x, int y, int size, String icon, boolean hover) {
+    public static void iconButton(GuiGraphics c, String key, int x, int y, int size, String icon, boolean hover) {
         float t = hoverProgress("icon-button:" + key, hover);
         surface(c, x, y, size, size, blendColors(card(), raised(), t), blendColors(border(), accentBright(), t * 0.7f));
         int glyph = Math.max(6, size - 6);
@@ -384,7 +385,7 @@ public final class FlintFixUi {
             blendColors(muted(), text(), t));
     }
 
-    public static void actionButton(DrawContext c, int x, int y, int w, int h, String label, boolean hover,
+    public static void actionButton(GuiGraphics c, int x, int y, int w, int h, String label, boolean hover,
                                     ButtonStyle style) {
         float t = hoverProgress("button:" + x + ":" + y, hover);
         int fill;
@@ -414,7 +415,7 @@ public final class FlintFixUi {
     }
 
     /** Wide button with a leading icon, used for navigation entries. */
-    public static void navButton(DrawContext c, int x, int y, int w, int h, String icon, String label, boolean hover) {
+    public static void navButton(GuiGraphics c, int x, int y, int w, int h, String icon, String label, boolean hover) {
         float t = hoverProgress("nav:" + label, hover);
         surface(c, x, y, w, h, blendColors(card(), raised(), t), blendColors(border(), accentBright(), t * 0.6f));
         int glyph = Math.min(9, h - 6);
@@ -425,7 +426,7 @@ public final class FlintFixUi {
     }
 
     /** Animated on/off switch, 20x11. The key keeps its animation independent of others. */
-    public static void switchToggle(DrawContext c, String key, int x, int y, boolean on) {
+    public static void switchToggle(GuiGraphics c, String key, int x, int y, boolean on) {
         float t = hoverProgress("switch:" + key, on);
         roundedRaw(c, x, y, 20, 11, 3, blendColors(raised(), accent(), t));
         int knobX = Math.round(x + 2 + 9 * t);
@@ -433,7 +434,7 @@ public final class FlintFixUi {
     }
 
     /** Horizontal slider; t is the 0..1 position of the knob. */
-    public static void slider(DrawContext c, int x, int y, int w, float t, boolean active) {
+    public static void slider(GuiGraphics c, int x, int y, int w, float t, boolean active) {
         t = Math.max(0.0f, Math.min(1.0f, t));
         roundedRaw(c, x, y, w, 3, 1, raised());
         int fillW = Math.round(w * t);
@@ -444,7 +445,7 @@ public final class FlintFixUi {
     }
 
     /** Single-line search input with a leading icon and a blinking caret. */
-    public static void searchField(DrawContext c, int x, int y, int w, int h, String value, String placeholder,
+    public static void searchField(GuiGraphics c, int x, int y, int w, int h, String value, String placeholder,
                                    boolean focused) {
         surface(c, x, y, w, h, focused ? panel() : bg(), focused ? accent() : border());
         int glyph = Math.min(7, h - 6);
@@ -462,7 +463,7 @@ public final class FlintFixUi {
     }
 
     /** Small status pill ending at rightX. Returns its width. */
-    public static int badge(DrawContext c, int rightX, int y, String label, boolean on) {
+    public static int badge(GuiGraphics c, int rightX, int y, String label, boolean on) {
         int w = FlintFixFont.width(label, 6, true) + 8;
         int x = rightX - w;
         roundedRaw(c, x, y, w, 10, 3, on ? blendColors(card(), accent(), 0.28f) : raised());
@@ -472,7 +473,7 @@ public final class FlintFixUi {
     }
 
     /** Selection/hover highlight for list rows, with an accent marker when selected. */
-    public static void selectableRow(DrawContext c, String key, int x, int y, int w, int h,
+    public static void selectableRow(GuiGraphics c, String key, int x, int y, int w, int h,
                                      boolean selected, boolean hover) {
         float t = hoverProgress("row:" + key, hover || selected);
         if (t > 0.01f) {
@@ -482,23 +483,23 @@ public final class FlintFixUi {
         if (selected) roundedRaw(c, x + 1, y + 3, 2, h - 6, 1, accent());
     }
 
-    public static void scrollbar(DrawContext c, int x, int top, int trackH, int scroll, int maxScroll) {
+    public static void scrollbar(GuiGraphics c, int x, int top, int trackH, int scroll, int maxScroll) {
         if (maxScroll <= 0 || trackH <= 0) return;
-        int thumbH = Math.max(14, trackH * trackH / (trackH + maxScroll));
+        int thumbH = Math.min(trackH, Math.max(14, trackH * trackH / (trackH + maxScroll)));
         int thumbY = top + (trackH - thumbH) * scroll / maxScroll;
         roundedRaw(c, x, top, 2, trackH, 1, opacity(raised(), 0.7f));
         roundedRaw(c, x, thumbY, 2, thumbH, 1, muted());
     }
 
-    public static void hairline(DrawContext c, int x, int y, int w) {
+    public static void hairline(GuiGraphics c, int x, int y, int w) {
         c.fill(x, y, x + w, y + 1, opacity(border(), 0.7f));
     }
 
-    public static void drawTrimmed(DrawContext c, String text, int x, int y, int maxWidth, int size, int color, boolean bold) {
+    public static void drawTrimmed(GuiGraphics c, String text, int x, int y, int maxWidth, int size, int color, boolean bold) {
         FlintFixFont.draw(c, FlintFixFont.trim(text, maxWidth, size, bold), x, y, size, color, bold);
     }
 
-    public static void drawTrimmedExact(DrawContext c, String text, int x, int y, int maxWidth, int size, int color, boolean bold) {
+    public static void drawTrimmedExact(GuiGraphics c, String text, int x, int y, int maxWidth, int size, int color, boolean bold) {
         FlintFixFont.drawExact(c, FlintFixFont.trim(text, maxWidth, size, bold), x, y, size, color, bold);
     }
 
@@ -508,21 +509,11 @@ public final class FlintFixUi {
 
     private static void ensureCornerFiltering() {
         if (cornerFilteringApplied) return;
-        var textures = MinecraftClient.getInstance().getTextureManager();
-        textures.getTexture(CORNER_TL).setFilter(true, false);
-        textures.getTexture(CORNER_TR).setFilter(true, false);
-        textures.getTexture(CORNER_BL).setFilter(true, false);
-        textures.getTexture(CORNER_BR).setFilter(true, false);
+        FlintFixCompat.smoothTexture(CORNER_TL);
+        FlintFixCompat.smoothTexture(CORNER_TR);
+        FlintFixCompat.smoothTexture(CORNER_BL);
+        FlintFixCompat.smoothTexture(CORNER_BR);
         cornerFilteringApplied = true;
-    }
-
-    private static void tint(int color) {
-        float a = ((color >>> 24) & 0xFF) / 255.0f;
-        float r = ((color >>> 16) & 0xFF) / 255.0f;
-        float g = ((color >>> 8) & 0xFF) / 255.0f;
-        float b = (color & 0xFF) / 255.0f;
-        RenderSystem.enableBlend();
-        RenderSystem.setShaderColor(r, g, b, a);
     }
 
     private static final class HoverMotion {

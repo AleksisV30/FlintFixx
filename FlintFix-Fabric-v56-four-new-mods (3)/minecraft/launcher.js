@@ -300,6 +300,12 @@ function launchMinecraft({
         ensureGameArg("--height", resolutionHeight);
     }
 
+    // Join a server straight from the launcher's server list (Minecraft 1.20+).
+    if (launchOptions.joinServer) {
+        removeFlagWithValue("--quickPlayMultiplayer");
+        gameArgs.push("--quickPlayMultiplayer", String(launchOptions.joinServer));
+    }
+
     if (onLog) {
         onLog({
             source: "AUTH",

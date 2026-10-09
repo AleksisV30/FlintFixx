@@ -210,11 +210,20 @@ let consoleLoggingEnabled = false;
 let launchTelemetry = null;
 let lastProgressLogKey = "";
 
+// FlintFix's in-game client runs on Fabric; it is the default loader.
+// Default selection; FlintFix in-game features run on every version in FLINTFIX_GAME_VERSIONS.
+const FLINTFIX_GAME_VERSION = "1.21.1";
+const FLINTFIX_GAME_VERSIONS = [
+    "1.20", "1.20.1", "1.20.2", "1.20.3", "1.20.4", "1.20.5", "1.20.6",
+    "1.21", "1.21.1", "1.21.2", "1.21.3", "1.21.4", "1.21.5",
+    "1.21.6", "1.21.7", "1.21.8", "1.21.9", "1.21.10", "1.21.11",
+    "26.1", "26.1.1", "26.1.2", "26.2", "26.3"
+];
 const loaderOptions = [
-    { value: "vanilla", label: "Vanilla", subtitle: "Default Minecraft" },
-    { value: "fabric", label: "Fabric", subtitle: "FlintFix recommended" },
-    { value: "forge", label: "Forge", subtitle: "Coming later" },
-    { value: "neoforge", label: "NeoForge", subtitle: "Coming later" }
+    { value: "fabric", label: "Fabric", subtitle: "FlintFix in-game client" },
+    { value: "vanilla", label: "Vanilla", subtitle: "Unmodded Minecraft" },
+    { value: "forge", label: "Forge", subtitle: "Coming soon", unavailable: true },
+    { value: "neoforge", label: "NeoForge", subtitle: "Coming soon", unavailable: true }
 ];
 let selectedLoader = loaderOptions[0];
 let activeSettingsTab = "game";
@@ -260,6 +269,9 @@ const pageHeaderIcons = {
     instances: "dashboard",
     mods: "extension",
     explore: "travel_explore",
+    packs: "palette",
+    servers: "dns",
+    skins: "checkroom",
     chat: "chat_bubble",
     settings: "settings"
 };
@@ -1231,13 +1243,23 @@ async function openOfficialUrl(url) {
     if (!result?.success) showToast(result?.error || "Could not open the page.", "error");
 }
 
+/**
+ * Swaps every FlintFix logo and fallback profile picture to the real Minecraft flint
+ * texture, read from any installed Minecraft (the bundled icon stays until one exists).
+ */
 async function refreshMinecraftFlintIcon(versionId = selectedVersion) {
-    if (!versionId || !window.flintfix.getMinecraftFlintIcon) return;
+    if (!window.flintfix.getMinecraftFlintIcon) return;
     try {
-        const result = await window.flintfix.getMinecraftFlintIcon(versionId);
+        const result = await window.flintfix.getMinecraftFlintIcon(versionId || null);
         if (!result?.success || !result.dataUrl) return;
         minecraftFlintDataUrl = result.dataUrl;
-        if (brandIcon) brandIcon.src = result.dataUrl;
+        document.querySelectorAll("img[data-flint-icon]").forEach(img => {
+            img.src = result.dataUrl;
+            img.classList.add("mc-flint");
+        });
+        document.querySelectorAll(".fallback-face").forEach(face => {
+            face.style.backgroundImage = `url("${result.dataUrl}")`;
+        });
         if (!minecraftProfile?.skinUrl) {
             setSkinFace(playerSkin, null);
             setSkinFace(accountAvatar, null);
@@ -1248,6 +1270,7 @@ async function refreshMinecraftFlintIcon(versionId = selectedVersion) {
         // Keep the bundled fallback icon when the Minecraft client JAR is not installed yet.
     }
 }
+void refreshMinecraftFlintIcon(null);
 
 function getReadiness() {
     if (!minecraftProfile) return { ready: false, reason: "Sign in to a Minecraft account." };
@@ -1256,6 +1279,9 @@ function getReadiness() {
     if (!getUsableJava()) return { ready: false, reason: `Java ${requiredJava} is required for Minecraft ${selectedVersion}.` };
     if (selectedLoader.value !== "vanilla" && selectedLoader.value !== "fabric") {
         return { ready: false, reason: `${selectedLoader.label} support is not available yet.` };
+    }
+    if (selectedLoader.value === "fabric" && !FLINTFIX_GAME_VERSIONS.includes(selectedVersion)) {
+        return { ready: true, reason: `Ready. FlintFix in-game features aren't available for ${selectedVersion} yet; Fabric launches without them.` };
     }
     return { ready: true, reason: "Everything is ready to launch." };
 }
@@ -1325,6 +1351,11 @@ function renderLoaderOptions() {
         button.type = "button";
         button.className = "version-option";
         if (option.value === selectedLoader.value) button.classList.add("selected");
+        if (option.unavailable) {
+            button.classList.add("unavailable");
+            button.disabled = true;
+            button.setAttribute("aria-disabled", "true");
+        }
 
         const copy = document.createElement("span");
         copy.className = "loader-option-copy";
@@ -1337,8 +1368,11 @@ function renderLoaderOptions() {
 
         button.addEventListener("click", event => {
             event.stopPropagation();
+            if (option.unavailable) return;
             selectedLoader = option;
             if (loaderTriggerValue) loaderTriggerValue.textContent = option.label;
+            const loaderSubtitle = document.getElementById("loaderTriggerSubtitle");
+            if (loaderSubtitle) loaderSubtitle.textContent = option.subtitle;
             renderLoaderOptions();
             closeLoaderDropdown();
             addConsoleLog("Loader", `${option.label} selected`);
@@ -1609,7 +1643,7 @@ function renderModDescription(source) {
 }
 
 function updatePageHeader(name) {
-    const display = name === "home" ? "Home" : name.charAt(0).toUpperCase() + name.slice(1);
+    const display = name === "packs" ? "Resource packs" : name.charAt(0).toUpperCase() + name.slice(1);
     if (pageName) pageName.textContent = display;
     if (pageIcon) {
         pageIcon.classList.add("material-symbols-rounded");
@@ -1640,7 +1674,7 @@ function populateModsConfigControls(instance) {
         refreshFlintSelect(modsVersionSelect);
     }
     if (modsLoaderSelect) {
-        modsLoaderSelect.value = instance?.loader || "vanilla";
+        modsLoaderSelect.value = instance?.loader || "fabric";
         enhanceFlintSelect(modsLoaderSelect);
         refreshFlintSelect(modsLoaderSelect);
     }
@@ -2538,6 +2572,8 @@ async function launchInstance(instance) {
     const loader = loaderOptions.find(option => option.value === instance.loader) || loaderOptions[0];
     selectedLoader = loader;
     if (loaderTriggerValue) loaderTriggerValue.textContent = loader.label;
+    const loaderSubtitle = document.getElementById("loaderTriggerSubtitle");
+    if (loaderSubtitle) loaderSubtitle.textContent = loader.subtitle;
     renderLoaderOptions();
     await selectVersion(instance.version);
     updateReadiness();
@@ -2555,19 +2591,28 @@ loadInstancesFromStorage();
 updatePageHeader("home");
 
 function setActiveNavigation(name) {
-    const allowed = new Set(["home", "instances", "mods", "explore", "chat"]);
+    const allowed = new Set(["home", "instances", "mods", "explore", "packs", "servers", "skins", "chat"]);
     const page = allowed.has(name) ? name : "home";
     activeContentPage = page;
     navItems.forEach(item => item.classList.toggle("active", item.dataset.nav === name));
     appPages.forEach(element => {
         const active = element.dataset.page === page;
+        const wasActive = !element.hidden && element.classList.contains("active");
         element.classList.toggle("active", active);
         element.hidden = !active;
+        if (active && !wasActive) {
+            element.classList.remove("page-enter");
+            void element.offsetWidth;
+            element.classList.add("page-enter");
+        }
     });
     updatePageHeader(name);
     if (page === "instances") renderInstances();
     if (page === "mods") void renderModsPage();
     if (page === "explore") void renderExplorePage(true);
+    if (page === "packs") void renderPacksPage();
+    if (page === "servers") void renderServersPage();
+    if (page === "skins") void renderSkinsPage();
     if (page === "chat") {
         renderChatPage();
         void refreshSocial({ force: true, suppressNotifications: true });
@@ -2848,7 +2893,7 @@ if (modsConfigSave) modsConfigSave.addEventListener("click", async () => {
         return;
     }
     const nextVersion = String(modsVersionSelect?.value || instance.version || "").trim();
-    const nextLoader = String(modsLoaderSelect?.value || instance.loader || "vanilla").trim();
+    const nextLoader = String(modsLoaderSelect?.value || instance.loader || "fabric").trim();
     instance.version = nextVersion || instance.version;
     instance.loader = nextLoader || instance.loader;
     saveInstances();
@@ -3230,6 +3275,14 @@ function renderVersions(search = "") {
             button.appendChild(
                 badge
             );
+        }
+
+        if (FLINTFIX_GAME_VERSIONS.includes(version.id)) {
+            const badge = document.createElement("span");
+            badge.className = "version-latest version-flintfix";
+            badge.textContent = "FLINTFIX";
+            badge.title = "FlintFix in-game features run on this version";
+            button.appendChild(badge);
         }
 
         button.addEventListener(
@@ -3788,7 +3841,7 @@ async function loadMinecraftVersions() {
                     version.id === saved
             )
                 ? saved
-                : latestRelease;
+                : (minecraftVersions.some(version => version.id === FLINTFIX_GAME_VERSION) ? FLINTFIX_GAME_VERSION : latestRelease);
 
         await selectVersion(
             chosen
@@ -4018,9 +4071,13 @@ playButton.addEventListener(
                         fullscreen: launchPreferences.fullscreen,
                         launcherVisibility: launchPreferences.launcherVisibility,
                         discordRichPresence: launchPreferences.discordRichPresence,
-                        instanceId: activeInstanceId || null
+                        instanceId: activeInstanceId || null,
+                        // Only a join started in the last few seconds; a cancelled one must not stick.
+                        joinServer: pendingJoinServer && Date.now() - pendingJoinServer.at < 15000
+                            ? pendingJoinServer.address : null
                     }
                 );
+            pendingJoinServer = null;
 
             if (!launchResult.success) {
                 if (
@@ -4100,37 +4157,1290 @@ playButton.addEventListener(
     }
 );
 
+// Launch splash: shown until the first data has loaded, at least long enough
+// for its intro animation, and never longer than SPLASH_MAX_MS.
+const SPLASH_MIN_MS = 1400;
+const SPLASH_MAX_MS = 9000;
+const splashStartedAt = performance.now();
+const splash = {
+    root: document.getElementById("ffSplash"),
+    bar: document.getElementById("ffSplashBar"),
+    status: document.getElementById("ffSplashStatus"),
+    progress: 0,
+    done: false,
+    step(text, progress) {
+        if (this.done) return;
+        if (text && this.status) this.status.textContent = text;
+        this.progress = Math.max(this.progress, progress);
+        if (this.bar) this.bar.style.width = `${Math.round(this.progress * 100)}%`;
+    },
+    async finish() {
+        if (this.done) return;
+        this.step("Ready", 1);
+        const wait = Math.max(0, SPLASH_MIN_MS - (performance.now() - splashStartedAt));
+        await new Promise(resolve => setTimeout(resolve, wait + 220));
+        this.done = true;
+        document.body.classList.remove("is-booting");
+        this.root?.classList.add("is-done");
+        setTimeout(() => this.root?.remove(), 700);
+    }
+};
+setTimeout(() => void splash.finish(), SPLASH_MAX_MS);
+window.flintfix.getAppVersion?.().then(version => {
+    const label = document.getElementById("ffSplashVersion");
+    if (label && version) label.textContent = `V${version}`;
+}).catch(() => {});
+
 async function initializeFlintFix() {
     addConsoleLog(
         "FlintFix",
         "Starting launcher..."
     );
+    splash.step("Starting up", 0.12);
 
     if (loaderTriggerValue) {
         loaderTriggerValue.textContent = selectedLoader.label;
     }
     syncSettingsControls();
 
-    await Promise.all([
-        detectJava(),
-        loadMinecraftVersions(),
-        loadAuthStatus()
-    ]);
+    try {
+        let finished = 0;
+        const track = (promise, label) => Promise.resolve(promise).finally(() => {
+            finished++;
+            splash.step(label, 0.2 + finished * 0.22);
+        });
+        splash.step("Checking Java, versions and account", 0.2);
+        await Promise.all([
+            track(detectJava(), "Java checked"),
+            track(loadMinecraftVersions(), "Minecraft versions loaded"),
+            track(loadAuthStatus(), "Account loaded")
+        ]);
 
-    if (minecraftProfile) await refreshDiscordLinkStatus({ silent: true });
-    else renderDiscordLinkUi({ linked: false });
+        splash.step("Connecting services", 0.9);
+        if (minecraftProfile) await refreshDiscordLinkStatus({ silent: true });
+        else renderDiscordLinkUi({ linked: false });
 
-    await syncDiscordPresencePreference();
+        await syncDiscordPresencePreference();
 
-    setPlayText(minecraftProfile ? "PLAY" : "SIGN IN & PLAY");
+        setPlayText(minecraftProfile ? "PLAY" : "SIGN IN & PLAY");
 
-    updateProfileUi();
-    updateReadiness();
+        updateProfileUi();
+        updateReadiness();
 
-    addConsoleLog(
-        "FlintFix",
-        "Launcher ready"
-    );
+        addConsoleLog(
+            "FlintFix",
+            "Launcher ready"
+        );
+    } finally {
+        void splash.finish();
+    }
 }
+
+// ---------------------------------------------------------------------------
+// Resource packs: browse Modrinth, preview galleries, install into the game.
+// ---------------------------------------------------------------------------
+
+const PACKS_PAGE_SIZE = 12;
+const packsPage = document.getElementById("packsPage");
+const packsSearch = document.getElementById("packsSearch");
+const packsVersionSelect = document.getElementById("packsVersionSelect");
+const packsSortSelect = document.getElementById("packsSortSelect");
+const packsCategoryButtons = Array.from(document.querySelectorAll("#packsCategoryRow .explore-category"));
+const packsStatus = document.getElementById("packsStatus");
+const packsGrid = document.getElementById("packsGrid");
+const packsPagination = document.getElementById("packsPagination");
+const packsPrevPage = document.getElementById("packsPrevPage");
+const packsNextPage = document.getElementById("packsNextPage");
+const packsPageNumbers = document.getElementById("packsPageNumbers");
+const packsViewTabs = Array.from(document.querySelectorAll(".packs-view-tab[data-packs-view]"));
+const packsBrowse = document.getElementById("packsBrowse");
+const packsInstalled = document.getElementById("packsInstalled");
+const packsInstalledList = document.getElementById("packsInstalledList");
+const packsInstalledCount = document.getElementById("packsInstalledCount");
+const packsOpenFolder = document.getElementById("packsOpenFolder");
+const packPreviewBackdrop = document.getElementById("packPreviewBackdrop");
+const packPreviewImage = document.getElementById("packPreviewImage");
+const packPreviewFallback = document.getElementById("packPreviewFallback");
+const packPreviewPrev = document.getElementById("packPreviewPrev");
+const packPreviewNext = document.getElementById("packPreviewNext");
+const packPreviewCaption = document.getElementById("packPreviewCaption");
+const packPreviewThumbs = document.getElementById("packPreviewThumbs");
+const packPreviewClose = document.getElementById("packPreviewClose");
+const packPreviewIcon = document.getElementById("packPreviewIcon");
+const packPreviewTitle = document.getElementById("packPreviewTitle");
+const packPreviewSubtitle = document.getElementById("packPreviewSubtitle");
+const packPreviewTags = document.getElementById("packPreviewTags");
+const packPreviewBody = document.getElementById("packPreviewBody");
+const packPreviewDownloads = document.getElementById("packPreviewDownloads");
+const packPreviewFollowers = document.getElementById("packPreviewFollowers");
+const packPreviewVersions = document.getElementById("packPreviewVersions");
+const packPreviewProgress = document.getElementById("packPreviewProgress");
+const packPreviewInstall = document.getElementById("packPreviewInstall");
+const packPreviewWeb = document.getElementById("packPreviewWeb");
+
+const packsState = {
+    view: "browse",
+    category: "",
+    page: 1,
+    totalHits: 0,
+    results: [],
+    installed: [],
+    installing: new Map(),
+    requestId: 0,
+    preview: null,
+    previewIndex: 0
+};
+
+function packsVersion() {
+    return packsVersionSelect?.value || "";
+}
+
+function populatePacksVersions() {
+    if (!packsVersionSelect) return;
+    const previous = packsVersionSelect.value || localStorage.getItem("flintfix.packs.version");
+    const ids = getMinecraftVersionIds(40);
+    const preferred = getSelectedModsInstance()?.version || instances[0]?.version || ids[0] || "";
+    packsVersionSelect.innerHTML = "";
+    const any = document.createElement("option");
+    any.value = "";
+    any.textContent = "Any version";
+    packsVersionSelect.appendChild(any);
+    for (const id of new Set([preferred, ...ids].filter(Boolean))) {
+        const option = document.createElement("option");
+        option.value = id;
+        option.textContent = `Minecraft ${id}`;
+        packsVersionSelect.appendChild(option);
+    }
+    const options = Array.from(packsVersionSelect.options).map(option => option.value);
+    packsVersionSelect.value = previous !== null && options.includes(previous) ? previous : preferred;
+    enhanceFlintSelect(packsVersionSelect);
+    refreshFlintSelect(packsVersionSelect);
+}
+
+/** Card banner: the pack's featured screenshot, or a tint from its brand color. */
+function packBanner(pack) {
+    const banner = document.createElement("div");
+    banner.className = "pack-card-banner";
+    if (Number.isFinite(pack.color)) {
+        const hex = `#${pack.color.toString(16).padStart(6, "0")}`;
+        banner.style.setProperty("--pack-tint", hex);
+    }
+    if (pack.previewUrl) {
+        const img = document.createElement("img");
+        img.loading = "lazy";
+        img.decoding = "async";
+        img.alt = "";
+        img.src = pack.previewUrl;
+        img.addEventListener("load", () => banner.classList.add("loaded"));
+        img.addEventListener("error", () => img.remove());
+        banner.appendChild(img);
+    } else if (pack.iconUrl) {
+        banner.classList.add("icon-only");
+        const img = document.createElement("img");
+        img.alt = "";
+        img.src = pack.iconUrl;
+        img.className = "pack-card-banner-icon";
+        banner.appendChild(img);
+    }
+    const zoom = document.createElement("span");
+    zoom.className = "pack-card-zoom material-symbols-rounded";
+    zoom.setAttribute("aria-hidden", "true");
+    zoom.textContent = "zoom_in";
+    banner.appendChild(zoom);
+    return banner;
+}
+
+function installedPackFor(projectId) {
+    return packsState.installed.find(pack => pack.projectId === projectId) || null;
+}
+
+function packInstallLabel(pack) {
+    const progress = packsState.installing.get(pack.projectId);
+    if (progress) return progress.total ? `Downloading ${Math.round(progress.received / progress.total * 100)}%` : "Downloading...";
+    const installed = installedPackFor(pack.projectId);
+    if (!installed) return "Download";
+    return installed.enabled ? "Active" : "Installed";
+}
+
+function syncPackButtons(projectId) {
+    const pack = packsState.results.find(item => item.projectId === projectId)
+        || (packsState.preview?.projectId === projectId ? packsState.preview : null);
+    if (!pack) return;
+    const busy = packsState.installing.has(projectId);
+    const installed = installedPackFor(projectId);
+    for (const button of document.querySelectorAll(`[data-pack-install="${CSS.escape(projectId)}"]`)) {
+        button.textContent = packInstallLabel(pack);
+        button.disabled = busy || Boolean(installed);
+        button.classList.toggle("is-installed", Boolean(installed));
+    }
+    if (packsState.preview?.projectId === projectId && packPreviewProgress) {
+        const progress = packsState.installing.get(projectId);
+        packPreviewProgress.hidden = !progress;
+        const bar = packPreviewProgress.querySelector("span");
+        if (bar && progress) bar.style.width = `${progress.total ? Math.round(progress.received / progress.total * 100) : 30}%`;
+    }
+}
+
+function renderPacksGrid() {
+    if (!packsGrid) return;
+    packsGrid.innerHTML = "";
+    if (!packsState.results.length) {
+        const empty = document.createElement("div");
+        empty.className = "mods-explore-empty";
+        empty.textContent = packsState.loading ? "" : "No resource packs found. Try another search, category or version.";
+        if (packsState.loading) {
+            packsGrid.classList.add("loading");
+            for (let i = 0; i < 6; i += 1) {
+                const skeleton = document.createElement("div");
+                skeleton.className = "pack-card skeleton";
+                packsGrid.appendChild(skeleton);
+            }
+            return;
+        }
+        packsGrid.classList.remove("loading");
+        packsGrid.appendChild(empty);
+        return;
+    }
+    packsGrid.classList.remove("loading");
+    packsState.results.forEach((pack, index) => {
+        const card = document.createElement("article");
+        card.className = "pack-card";
+        card.tabIndex = 0;
+        card.style.setProperty("--stagger", `${Math.min(index, 11) * 28}ms`);
+        card.setAttribute("aria-label", `${pack.title} resource pack`);
+
+        const body = document.createElement("div");
+        body.className = "pack-card-body";
+        const head = document.createElement("div");
+        head.className = "pack-card-head";
+        const icon = document.createElement("div");
+        icon.className = "pack-card-icon";
+        if (pack.iconUrl) {
+            const img = document.createElement("img");
+            img.src = pack.iconUrl;
+            img.alt = "";
+            img.loading = "lazy";
+            icon.appendChild(img);
+        } else {
+            icon.textContent = (pack.title || "?").charAt(0).toUpperCase();
+        }
+        const titles = document.createElement("div");
+        titles.className = "pack-card-titles";
+        const title = document.createElement("strong");
+        title.textContent = pack.title;
+        const author = document.createElement("small");
+        author.textContent = pack.author ? `by ${pack.author}` : "Modrinth";
+        titles.append(title, author);
+        head.append(icon, titles);
+
+        const desc = document.createElement("p");
+        desc.textContent = pack.description || "A resource pack on Modrinth.";
+
+        const foot = document.createElement("div");
+        foot.className = "pack-card-foot";
+        const stats = document.createElement("span");
+        stats.className = "pack-card-stats";
+        stats.innerHTML = '<span class="material-symbols-rounded" aria-hidden="true">download</span>';
+        stats.append(formatDownloadCount(pack.downloads));
+        const install = document.createElement("button");
+        install.type = "button";
+        install.className = "pack-card-install";
+        install.dataset.packInstall = pack.projectId;
+        install.addEventListener("click", event => {
+            event.stopPropagation();
+            void installPack(pack);
+        });
+        foot.append(stats, install);
+        body.append(head, desc, foot);
+
+        card.append(packBanner(pack), body);
+        card.addEventListener("click", () => void openPackPreview(pack));
+        card.addEventListener("keydown", event => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                void openPackPreview(pack);
+            }
+        });
+        packsGrid.appendChild(card);
+        syncPackButtons(pack.projectId);
+    });
+}
+
+function renderPacksPagination() {
+    if (!packsPagination || !packsPageNumbers) return;
+    const totalPages = Math.max(1, Math.ceil(packsState.totalHits / PACKS_PAGE_SIZE));
+    packsPagination.hidden = totalPages <= 1;
+    if (totalPages <= 1) return;
+    if (packsPrevPage) packsPrevPage.disabled = packsState.page <= 1;
+    if (packsNextPage) packsNextPage.disabled = packsState.page >= totalPages;
+    packsPageNumbers.innerHTML = "";
+    const pages = Array.from(new Set([1, totalPages, packsState.page - 1, packsState.page, packsState.page + 1]))
+        .filter(page => page >= 1 && page <= totalPages)
+        .sort((a, b) => a - b);
+    let previous = 0;
+    for (const page of pages) {
+        if (previous && page - previous > 1) {
+            const dots = document.createElement("span");
+            dots.className = "explore-page-dots";
+            dots.textContent = "…";
+            packsPageNumbers.appendChild(dots);
+        }
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `explore-page-number${page === packsState.page ? " active" : ""}`;
+        button.textContent = String(page);
+        button.addEventListener("click", () => {
+            if (page === packsState.page) return;
+            packsState.page = page;
+            void loadPacks();
+        });
+        packsPageNumbers.appendChild(button);
+        previous = page;
+    }
+}
+
+async function loadPacks() {
+    if (!packsGrid) return;
+    const requestId = ++packsState.requestId;
+    packsState.loading = true;
+    packsState.results = [];
+    renderPacksGrid();
+    const version = packsVersion();
+    if (packsStatus) packsStatus.textContent = "Loading resource packs...";
+    const result = await window.flintfix.searchResourcePacks({
+        query: String(packsSearch?.value || "").trim(),
+        version,
+        category: packsState.category,
+        index: packsSortSelect?.value || "downloads",
+        limit: PACKS_PAGE_SIZE,
+        offset: (packsState.page - 1) * PACKS_PAGE_SIZE
+    });
+    if (requestId !== packsState.requestId) return;
+    packsState.loading = false;
+    if (!result?.success) {
+        packsState.results = [];
+        packsState.totalHits = 0;
+        if (packsStatus) packsStatus.textContent = result?.error || "Could not reach Modrinth right now.";
+        renderPacksGrid();
+        renderPacksPagination();
+        return;
+    }
+    packsState.results = Array.isArray(result.packs) ? result.packs : [];
+    packsState.totalHits = Number(result.totalHits) || packsState.results.length;
+    const totalPages = Math.max(1, Math.ceil(packsState.totalHits / PACKS_PAGE_SIZE));
+    if (packsStatus) {
+        packsStatus.textContent = `${formatDownloadCount(packsState.totalHits)} packs${version ? ` for Minecraft ${version}` : ""} • page ${packsState.page} of ${totalPages}`;
+    }
+    renderPacksGrid();
+    renderPacksPagination();
+}
+
+async function refreshInstalledPacks() {
+    const result = await window.flintfix.listResourcePacks();
+    packsState.installed = result?.success && Array.isArray(result.packs) ? result.packs : [];
+    if (packsInstalledCount) packsInstalledCount.textContent = String(packsState.installed.length);
+    renderInstalledPacks();
+    for (const pack of packsState.results) syncPackButtons(pack.projectId);
+    if (packsState.preview) syncPackButtons(packsState.preview.projectId);
+}
+
+function renderInstalledPacks() {
+    if (!packsInstalledList) return;
+    packsInstalledList.innerHTML = "";
+    if (!packsState.installed.length) {
+        const empty = document.createElement("div");
+        empty.className = "mods-explore-empty";
+        empty.textContent = "No resource packs yet. Download one from Browse, or drop .zip packs into the folder.";
+        packsInstalledList.appendChild(empty);
+        return;
+    }
+    for (const pack of packsState.installed) {
+        const row = document.createElement("div");
+        row.className = `pack-row${pack.enabled ? " active" : ""}`;
+        const icon = document.createElement("span");
+        icon.className = "pack-row-icon material-symbols-rounded";
+        icon.setAttribute("aria-hidden", "true");
+        icon.textContent = pack.folder ? "folder" : "texture";
+        const copy = document.createElement("div");
+        copy.className = "pack-row-copy";
+        const name = document.createElement("strong");
+        name.textContent = pack.title;
+        const meta = document.createElement("small");
+        const size = pack.folder ? "Folder" : `${(pack.size / 1048576).toFixed(pack.size > 10485760 ? 0 : 1)} MB`;
+        meta.textContent = [pack.versionNumber, size, pack.projectId ? "Modrinth" : "Added manually"].filter(Boolean).join(" • ");
+        copy.append(name, meta);
+
+        const toggle = document.createElement("label");
+        toggle.className = "pack-switch";
+        toggle.title = pack.enabled ? "Active in game" : "Not active";
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.checked = pack.enabled;
+        input.setAttribute("aria-label", `Use ${pack.title} in game`);
+        input.addEventListener("change", async () => {
+            input.disabled = true;
+            const result = await window.flintfix.setResourcePackEnabled(pack.fileName, input.checked);
+            if (!result?.success) {
+                input.checked = !input.checked;
+                showToast(result?.error || "Could not change the pack.", "error");
+            } else {
+                showToast(input.checked ? `${pack.title} will load next launch.` : `${pack.title} turned off.`, "success");
+            }
+            await refreshInstalledPacks();
+        });
+        const track = document.createElement("span");
+        track.setAttribute("aria-hidden", "true");
+        toggle.append(input, track);
+
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "pack-row-remove";
+        remove.setAttribute("aria-label", `Remove ${pack.title}`);
+        remove.innerHTML = '<span class="material-symbols-rounded" aria-hidden="true">delete</span>';
+        remove.addEventListener("click", async () => {
+            if (remove.dataset.confirm !== "1") {
+                remove.dataset.confirm = "1";
+                remove.classList.add("confirm");
+                remove.title = "Click again to remove";
+                setTimeout(() => {
+                    remove.dataset.confirm = "";
+                    remove.classList.remove("confirm");
+                }, 2500);
+                return;
+            }
+            const result = await window.flintfix.removeResourcePack(pack.fileName);
+            if (!result?.success) showToast(result?.error || "Could not remove the pack.", "error");
+            else showToast(`${pack.title} removed.`, "success");
+            await refreshInstalledPacks();
+        });
+
+        row.append(icon, copy, toggle, remove);
+        packsInstalledList.appendChild(row);
+    }
+}
+
+async function installPack(pack) {
+    if (!pack?.projectId || packsState.installing.has(pack.projectId) || installedPackFor(pack.projectId)) return;
+    packsState.installing.set(pack.projectId, { received: 0, total: 0 });
+    syncPackButtons(pack.projectId);
+    const result = await window.flintfix.installResourcePack({
+        projectId: pack.projectId,
+        version: packsVersion(),
+        title: pack.title
+    });
+    packsState.installing.delete(pack.projectId);
+    if (!result?.success) {
+        showToast(result?.error || `Could not download ${pack.title}.`, "error");
+    } else if (result.alreadyInstalled) {
+        showToast(`${pack.title} is already in your game.`, "success");
+    } else {
+        const note = result.exactMatch === false ? " (no exact match for this version)" : "";
+        showToast(`${pack.title} added and turned on for your next launch${note}.`, "success");
+    }
+    await refreshInstalledPacks();
+    syncPackButtons(pack.projectId);
+}
+
+function showPackPreviewImage(index) {
+    const gallery = packsState.preview?.gallery || [];
+    if (!packPreviewImage) return;
+    if (!gallery.length) {
+        packPreviewImage.hidden = true;
+        if (packPreviewFallback) packPreviewFallback.hidden = false;
+        if (packPreviewPrev) packPreviewPrev.hidden = true;
+        if (packPreviewNext) packPreviewNext.hidden = true;
+        if (packPreviewCaption) packPreviewCaption.textContent = "";
+        return;
+    }
+    packsState.previewIndex = (index + gallery.length) % gallery.length;
+    const item = gallery[packsState.previewIndex];
+    if (packPreviewFallback) packPreviewFallback.hidden = true;
+    packPreviewImage.hidden = false;
+    packPreviewImage.classList.remove("ready");
+    packPreviewImage.onload = () => packPreviewImage.classList.add("ready");
+    packPreviewImage.src = item.rawUrl || item.url;
+    packPreviewImage.alt = item.title || packsState.preview.title;
+    const many = gallery.length > 1;
+    if (packPreviewPrev) packPreviewPrev.hidden = !many;
+    if (packPreviewNext) packPreviewNext.hidden = !many;
+    if (packPreviewCaption) {
+        packPreviewCaption.textContent = [item.title, many ? `${packsState.previewIndex + 1} / ${gallery.length}` : ""].filter(Boolean).join("  •  ");
+    }
+    if (packPreviewThumbs) {
+        Array.from(packPreviewThumbs.children).forEach((thumb, i) => thumb.classList.toggle("active", i === packsState.previewIndex));
+        packPreviewThumbs.children[packsState.previewIndex]?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+    }
+}
+
+async function openPackPreview(pack) {
+    if (!packPreviewBackdrop || !pack) return;
+    packsState.preview = { ...pack, gallery: pack.previewUrl ? [{ url: pack.previewUrl, rawUrl: pack.previewUrl, title: "" }] : [] };
+    packPreviewBackdrop.hidden = false;
+    requestAnimationFrame(() => packPreviewBackdrop.classList.add("open"));
+    if (packPreviewTitle) packPreviewTitle.textContent = pack.title;
+    if (packPreviewSubtitle) packPreviewSubtitle.textContent = pack.author ? `by ${pack.author}` : "";
+    if (packPreviewBody) packPreviewBody.textContent = pack.description || "";
+    if (packPreviewDownloads) packPreviewDownloads.textContent = formatDownloadCount(pack.downloads);
+    if (packPreviewFollowers) packPreviewFollowers.textContent = formatDownloadCount(pack.follows);
+    if (packPreviewVersions) packPreviewVersions.textContent = "Checking...";
+    if (packPreviewTags) packPreviewTags.innerHTML = "";
+    if (packPreviewThumbs) packPreviewThumbs.innerHTML = "";
+    if (packPreviewIcon) {
+        packPreviewIcon.innerHTML = "";
+        if (pack.iconUrl) {
+            const img = document.createElement("img");
+            img.src = pack.iconUrl;
+            img.alt = "";
+            packPreviewIcon.appendChild(img);
+        } else {
+            packPreviewIcon.textContent = (pack.title || "?").charAt(0).toUpperCase();
+        }
+    }
+    if (packPreviewInstall) packPreviewInstall.dataset.packInstall = pack.projectId;
+    syncPackButtons(pack.projectId);
+    showPackPreviewImage(0);
+
+    const result = await window.flintfix.getResourcePackDetails(pack.projectId, { version: packsVersion() });
+    if (packsState.preview?.projectId !== pack.projectId) return;
+    if (!result?.success) {
+        if (packPreviewVersions) packPreviewVersions.textContent = "Unknown";
+        return;
+    }
+    const details = result.details;
+    packsState.preview = { ...packsState.preview, ...details, gallery: details.gallery.length ? details.gallery : packsState.preview.gallery };
+    if (packPreviewSubtitle) packPreviewSubtitle.textContent = details.description || packPreviewSubtitle.textContent;
+    if (packPreviewBody) packPreviewBody.innerHTML = renderModDescription(String(details.body || details.description || "").slice(0, 24000));
+    if (packPreviewFollowers) packPreviewFollowers.textContent = formatDownloadCount(details.followers);
+    if (packPreviewVersions) {
+        const versions = details.gameVersions || [];
+        packPreviewVersions.textContent = versions.length > 1 ? `${versions[0]} – ${versions[versions.length - 1]}` : (versions[0] || "Unknown");
+    }
+    if (packPreviewTags) {
+        for (const tag of Array.from(new Set(details.categories || [])).slice(0, 6)) {
+            const span = document.createElement("span");
+            span.textContent = tag;
+            packPreviewTags.appendChild(span);
+        }
+    }
+    if (packPreviewThumbs) {
+        packPreviewThumbs.innerHTML = "";
+        packsState.preview.gallery.forEach((item, i) => {
+            const thumb = document.createElement("button");
+            thumb.type = "button";
+            thumb.className = "pack-preview-thumb";
+            thumb.setAttribute("aria-label", item.title || `Preview ${i + 1}`);
+            const img = document.createElement("img");
+            img.src = item.url;
+            img.alt = "";
+            img.loading = "lazy";
+            thumb.appendChild(img);
+            thumb.addEventListener("click", () => showPackPreviewImage(i));
+            packPreviewThumbs.appendChild(thumb);
+        });
+        packPreviewThumbs.hidden = packsState.preview.gallery.length < 2;
+    }
+    showPackPreviewImage(0);
+}
+
+function closePackPreview() {
+    if (!packPreviewBackdrop || packPreviewBackdrop.hidden) return;
+    packPreviewBackdrop.classList.remove("open");
+    packsState.preview = null;
+    setTimeout(() => {
+        if (!packPreviewBackdrop.classList.contains("open")) packPreviewBackdrop.hidden = true;
+    }, 180);
+}
+
+function setPacksView(view) {
+    packsState.view = view === "installed" ? "installed" : "browse";
+    packsViewTabs.forEach(tab => {
+        const active = tab.dataset.packsView === packsState.view;
+        tab.classList.toggle("active", active);
+        tab.setAttribute("aria-selected", String(active));
+    });
+    if (packsBrowse) packsBrowse.hidden = packsState.view !== "browse";
+    if (packsInstalled) packsInstalled.hidden = packsState.view !== "installed";
+}
+
+async function renderPacksPage() {
+    if (!packsPage) return;
+    populatePacksVersions();
+    await refreshInstalledPacks();
+    if (!packsState.results.length && !packsState.loading) await loadPacks();
+}
+
+if (packsSearch) {
+    let timer = null;
+    packsSearch.addEventListener("input", () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+            packsState.page = 1;
+            void loadPacks();
+        }, 300);
+    });
+}
+for (const select of [packsVersionSelect, packsSortSelect]) {
+    if (!select) continue;
+    select.addEventListener("change", () => {
+        if (select === packsVersionSelect) localStorage.setItem("flintfix.packs.version", select.value);
+        packsState.page = 1;
+        void loadPacks();
+    });
+}
+enhanceFlintSelect(packsSortSelect);
+refreshFlintSelect(packsSortSelect);
+packsCategoryButtons.forEach(button => button.addEventListener("click", () => {
+    packsState.category = button.dataset.category || "";
+    packsState.page = 1;
+    packsCategoryButtons.forEach(item => item.classList.toggle("active", item === button));
+    void loadPacks();
+}));
+packsViewTabs.forEach(tab => tab.addEventListener("click", () => setPacksView(tab.dataset.packsView)));
+if (packsPrevPage) packsPrevPage.addEventListener("click", () => {
+    if (packsState.page <= 1) return;
+    packsState.page -= 1;
+    void loadPacks();
+});
+if (packsNextPage) packsNextPage.addEventListener("click", () => {
+    if (packsState.page >= Math.ceil(packsState.totalHits / PACKS_PAGE_SIZE)) return;
+    packsState.page += 1;
+    void loadPacks();
+});
+if (packsOpenFolder) packsOpenFolder.addEventListener("click", async () => {
+    const result = await window.flintfix.openResourcePacksFolder();
+    if (!result?.success) showToast(result?.error || "Could not open the folder.", "error");
+});
+if (packPreviewClose) packPreviewClose.addEventListener("click", closePackPreview);
+if (packPreviewBackdrop) packPreviewBackdrop.addEventListener("click", event => {
+    if (event.target === packPreviewBackdrop) closePackPreview();
+});
+if (packPreviewPrev) packPreviewPrev.addEventListener("click", () => showPackPreviewImage(packsState.previewIndex - 1));
+if (packPreviewNext) packPreviewNext.addEventListener("click", () => showPackPreviewImage(packsState.previewIndex + 1));
+if (packPreviewInstall) packPreviewInstall.addEventListener("click", () => {
+    if (packsState.preview) void installPack(packsState.preview);
+});
+if (packPreviewWeb) packPreviewWeb.addEventListener("click", () => {
+    if (packsState.preview?.pageUrl) window.flintfix.openExternal(packsState.preview.pageUrl);
+});
+if (packPreviewBody) packPreviewBody.addEventListener("click", event => {
+    const anchor = event.target.closest("a[data-external-link=\"true\"]");
+    if (!anchor) return;
+    event.preventDefault();
+    const href = anchor.getAttribute("href");
+    if (href && /^https?:\/\//i.test(href)) window.flintfix.openExternal(href);
+});
+document.addEventListener("keydown", event => {
+    if (!packPreviewBackdrop || packPreviewBackdrop.hidden) return;
+    if (event.key === "Escape") closePackPreview();
+    else if (event.key === "ArrowLeft") showPackPreviewImage(packsState.previewIndex - 1);
+    else if (event.key === "ArrowRight") showPackPreviewImage(packsState.previewIndex + 1);
+});
+window.flintfix.onResourcePackProgress?.(progress => {
+    if (!progress?.projectId || !packsState.installing.has(progress.projectId)) return;
+    packsState.installing.set(progress.projectId, progress);
+    syncPackButtons(progress.projectId);
+});
+
+
+// ---------------------------------------------------------------------------
+// Servers: favorites with live status, popular servers, one-click join.
+// ---------------------------------------------------------------------------
+
+let pendingJoinServer = null;
+const SERVERS_KEY = "flintfix.servers.v1";
+const POPULAR_SERVERS = [
+    { name: "Hypixel", address: "mc.hypixel.net" },
+    { name: "CubeCraft", address: "play.cubecraft.net" },
+    { name: "Wynncraft", address: "play.wynncraft.com" },
+    { name: "MCC Island", address: "play.mccisland.net" }
+];
+const serversList = document.getElementById("serversList");
+const serversPopular = document.getElementById("serversPopular");
+const serverAddForm = document.getElementById("serverAddForm");
+const serverAddressInput = document.getElementById("serverAddressInput");
+const serverNameInput = document.getElementById("serverNameInput");
+const serversInstanceSelect = document.getElementById("serversInstanceSelect");
+const serversRefresh = document.getElementById("serversRefresh");
+const serverStatus = new Map();
+let serversRefreshTimer = null;
+
+function loadServers() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(SERVERS_KEY) || "[]");
+        return Array.isArray(parsed) ? parsed.filter(item => item && typeof item.address === "string") : [];
+    } catch {
+        return [];
+    }
+}
+
+function saveServers(list) {
+    localStorage.setItem(SERVERS_KEY, JSON.stringify(list));
+}
+
+function populateServersInstances() {
+    if (!serversInstanceSelect) return;
+    const previous = serversInstanceSelect.value || localStorage.getItem("flintfix.servers.instance") || "";
+    serversInstanceSelect.innerHTML = "";
+    if (!instances.length) {
+        const option = document.createElement("option");
+        option.value = "";
+        option.textContent = "Create an instance first";
+        serversInstanceSelect.appendChild(option);
+    }
+    for (const instance of instances) {
+        const option = document.createElement("option");
+        option.value = instance.id;
+        option.textContent = `${instance.name} — ${instance.version}`;
+        serversInstanceSelect.appendChild(option);
+    }
+    if (instances.some(item => item.id === previous)) serversInstanceSelect.value = previous;
+    enhanceFlintSelect(serversInstanceSelect);
+    refreshFlintSelect(serversInstanceSelect);
+}
+
+function serverCard(server, { favorite }) {
+    const status = serverStatus.get(server.address.toLowerCase());
+    const card = document.createElement("article");
+    card.className = `server-card${status?.online ? " online" : status ? " offline" : ""}`;
+
+    const icon = document.createElement("div");
+    icon.className = "server-icon";
+    if (status?.icon) {
+        const img = document.createElement("img");
+        img.src = status.icon;
+        img.alt = "";
+        icon.appendChild(img);
+    } else {
+        icon.innerHTML = '<span class="material-symbols-rounded" aria-hidden="true">dns</span>';
+    }
+
+    const copy = document.createElement("div");
+    copy.className = "server-copy";
+    const title = document.createElement("strong");
+    title.textContent = server.name || server.address;
+    const address = document.createElement("small");
+    address.textContent = server.address;
+    const motd = document.createElement("p");
+    motd.textContent = !status ? "Checking..." : status.online ? (status.motd || "No message") : (status.error || "Offline");
+    copy.append(title, address, motd);
+
+    const meta = document.createElement("div");
+    meta.className = "server-meta";
+    if (status?.online) {
+        const players = document.createElement("span");
+        players.className = "server-players";
+        players.innerHTML = '<span class="material-symbols-rounded" aria-hidden="true">group</span>';
+        players.append(`${formatDownloadCount(status.players)} / ${formatDownloadCount(status.maxPlayers)}`);
+        const ping = document.createElement("span");
+        const quality = status.latency <= 80 ? "good" : status.latency <= 160 ? "ok" : "bad";
+        ping.className = `server-ping ${quality}`;
+        ping.textContent = `${status.latency} ms`;
+        meta.append(players, ping);
+        if (status.version) {
+            const version = document.createElement("span");
+            version.className = "server-version";
+            version.textContent = status.version;
+            meta.appendChild(version);
+        }
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "server-actions";
+    const join = document.createElement("button");
+    join.type = "button";
+    join.className = "create-instance-button";
+    join.innerHTML = '<span class="material-symbols-rounded" aria-hidden="true">play_arrow</span><span>Join</span>';
+    join.addEventListener("click", () => joinServer(server));
+    actions.appendChild(join);
+    const second = document.createElement("button");
+    second.type = "button";
+    second.className = "mods-folder-button server-secondary";
+    if (favorite) {
+        second.setAttribute("aria-label", `Remove ${server.name || server.address}`);
+        second.innerHTML = '<span class="material-symbols-rounded" aria-hidden="true">delete</span>';
+        second.addEventListener("click", () => {
+            saveServers(loadServers().filter(item => item.address.toLowerCase() !== server.address.toLowerCase()));
+            renderServerLists();
+        });
+    } else {
+        const saved = loadServers().some(item => item.address.toLowerCase() === server.address.toLowerCase());
+        second.innerHTML = `<span class="material-symbols-rounded" aria-hidden="true">${saved ? "check" : "star"}</span>`;
+        second.disabled = saved;
+        second.setAttribute("aria-label", saved ? "Saved" : `Save ${server.name}`);
+        second.addEventListener("click", () => {
+            saveServers([...loadServers(), { name: server.name, address: server.address }]);
+            renderServerLists();
+        });
+    }
+    actions.appendChild(second);
+    card.append(icon, copy, meta, actions);
+    return card;
+}
+
+function renderServerLists() {
+    if (!serversList || !serversPopular) return;
+    const favorites = loadServers();
+    serversList.innerHTML = "";
+    if (!favorites.length) {
+        const empty = document.createElement("div");
+        empty.className = "mods-explore-empty";
+        empty.textContent = "No saved servers yet. Add one above, or star a popular server.";
+        serversList.appendChild(empty);
+    }
+    for (const server of favorites) serversList.appendChild(serverCard(server, { favorite: true }));
+    serversPopular.innerHTML = "";
+    for (const server of POPULAR_SERVERS) serversPopular.appendChild(serverCard(server, { favorite: false }));
+}
+
+async function refreshServerStatus() {
+    const all = [...loadServers(), ...POPULAR_SERVERS];
+    const unique = Array.from(new Map(all.map(server => [server.address.toLowerCase(), server])).values());
+    await Promise.all(unique.map(async server => {
+        const result = await window.flintfix.pingServer(server.address);
+        serverStatus.set(server.address.toLowerCase(), result?.success ? result : { online: false, error: result?.error });
+    }));
+    renderServerLists();
+}
+
+async function renderServersPage() {
+    populateServersInstances();
+    renderServerLists();
+    await refreshServerStatus();
+    clearInterval(serversRefreshTimer);
+    serversRefreshTimer = setInterval(() => {
+        if (activeContentPage !== "servers") {
+            clearInterval(serversRefreshTimer);
+            return;
+        }
+        void refreshServerStatus();
+    }, 30000);
+}
+
+function joinServer(server) {
+    const instance = instances.find(item => item.id === serversInstanceSelect?.value) || instances[0];
+    if (!instance) {
+        showToast("Create an instance first, then join servers with it.", "error");
+        setActiveNavigation("instances");
+        return;
+    }
+    pendingJoinServer = { address: server.address, at: Date.now() };
+    showToast(`Joining ${server.name || server.address} with ${instance.name}...`, "success");
+    void launchInstance(instance);
+}
+
+if (serverAddForm) serverAddForm.addEventListener("submit", event => {
+    event.preventDefault();
+    const address = String(serverAddressInput?.value || "").trim();
+    if (!/^[A-Za-z0-9.\-[\]:]{3,255}$/.test(address)) {
+        showToast("Enter a valid server address.", "error");
+        return;
+    }
+    const list = loadServers();
+    if (list.some(item => item.address.toLowerCase() === address.toLowerCase())) {
+        showToast("That server is already saved.", "error");
+        return;
+    }
+    list.push({ name: String(serverNameInput?.value || "").trim().slice(0, 40) || address, address });
+    saveServers(list);
+    if (serverAddressInput) serverAddressInput.value = "";
+    if (serverNameInput) serverNameInput.value = "";
+    renderServerLists();
+    void refreshServerStatus();
+});
+if (serversInstanceSelect) serversInstanceSelect.addEventListener("change", () => {
+    localStorage.setItem("flintfix.servers.instance", serversInstanceSelect.value);
+});
+if (serversRefresh) serversRefresh.addEventListener("click", () => void refreshServerStatus());
+
+// ---------------------------------------------------------------------------
+// Skins: 3D preview, library, apply to the Minecraft account.
+// ---------------------------------------------------------------------------
+
+const skinCanvas = document.getElementById("skinCanvas");
+const skinStageEmpty = document.getElementById("skinStageEmpty");
+const skinStageName = document.getElementById("skinStageName");
+const skinStageMeta = document.getElementById("skinStageMeta");
+const skinGrid = document.getElementById("skinGrid");
+const skinApply = document.getElementById("skinApply");
+const skinDelete = document.getElementById("skinDelete");
+const skinReset = document.getElementById("skinReset");
+const skinImport = document.getElementById("skinImport");
+const skinSaveCurrent = document.getElementById("skinSaveCurrent");
+const skinModelButtons = Array.from(document.querySelectorAll("[data-skin-model]"));
+const skinAnimButtons = Array.from(document.querySelectorAll("[data-skin-anim]"));
+const skinState = { viewer: null, skins: [], selectedId: null, current: null, model: "classic", anim: "idle" };
+
+function ensureSkinViewer() {
+    if (skinState.viewer || !skinCanvas || !window.skinview3d) return skinState.viewer;
+    const box = skinCanvas.parentElement.getBoundingClientRect();
+    skinState.viewer = new window.skinview3d.SkinViewer({
+        canvas: skinCanvas,
+        width: Math.max(200, Math.round(box.width)),
+        height: Math.max(260, Math.round(box.height)),
+        zoom: 0.62
+    });
+    skinState.viewer.autoRotate = true;
+    skinState.viewer.autoRotateSpeed = 0.6;
+    setSkinAnimation(skinState.anim);
+    new ResizeObserver(() => {
+        const rect = skinCanvas.parentElement.getBoundingClientRect();
+        skinState.viewer?.setSize(Math.max(200, Math.round(rect.width)), Math.max(260, Math.round(rect.height)));
+    }).observe(skinCanvas.parentElement);
+    return skinState.viewer;
+}
+
+function setSkinAnimation(name) {
+    skinState.anim = name;
+    skinAnimButtons.forEach(button => button.classList.toggle("active", button.dataset.skinAnim === name));
+    const lib = window.skinview3d;
+    if (!skinState.viewer || !lib) return;
+    skinState.viewer.animation = name === "walk" ? new lib.WalkingAnimation()
+        : name === "run" ? new lib.RunningAnimation() : new lib.IdleAnimation();
+}
+
+function showSkinInViewer(dataUrl, model, name, meta) {
+    const viewer = ensureSkinViewer();
+    skinState.model = model === "slim" ? "slim" : "classic";
+    skinModelButtons.forEach(button => button.classList.toggle("active", button.dataset.skinModel === skinState.model));
+    if (skinStageName) skinStageName.textContent = name || "Skin";
+    if (skinStageMeta) skinStageMeta.textContent = meta || "Drag to rotate";
+    if (skinStageEmpty) skinStageEmpty.hidden = Boolean(dataUrl);
+    if (viewer && dataUrl) viewer.loadSkin(dataUrl, { model: skinState.model === "slim" ? "slim" : "default" });
+}
+
+/** Front view of a skin (head, body, arms, legs) for library tiles. */
+function drawSkinFront(canvas, dataUrl) {
+    const image = new Image();
+    image.onload = () => {
+        const ctx = canvas.getContext("2d");
+        const s = canvas.width / 16;
+        ctx.imageSmoothingEnabled = false;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const part = (sx, sy, sw, sh, dx, dy) => ctx.drawImage(image, sx, sy, sw, sh, dx * s, dy * s, sw * s, sh * s);
+        const legacy = image.height === 32;
+        part(8, 8, 8, 8, 4, 0);
+        part(20, 20, 8, 12, 4, 8);
+        part(44, 20, 4, 12, 0, 8);
+        if (legacy) {
+            ctx.save();
+            ctx.translate(16 * s, 0);
+            ctx.scale(-1, 1);
+            part(44, 20, 4, 12, 0, 8);
+            part(4, 20, 4, 12, 4, 20);
+            ctx.restore();
+        } else {
+            part(36, 52, 4, 12, 12, 8);
+            part(20, 52, 4, 12, 8, 20);
+        }
+        part(4, 20, 4, 12, 4, 20);
+        part(40, 8, 8, 8, 4, 0);
+    };
+    image.src = dataUrl;
+}
+
+function renderSkinGrid() {
+    if (!skinGrid) return;
+    skinGrid.innerHTML = "";
+    if (!skinState.skins.length) {
+        const empty = document.createElement("div");
+        empty.className = "mods-explore-empty";
+        empty.textContent = "Import a .png skin or save the one you're wearing.";
+        skinGrid.appendChild(empty);
+    }
+    for (const skin of skinState.skins) {
+        const tile = document.createElement("button");
+        tile.type = "button";
+        tile.className = `skin-tile${skin.id === skinState.selectedId ? " selected" : ""}`;
+        tile.setAttribute("aria-label", skin.name);
+        const canvas = document.createElement("canvas");
+        canvas.width = 64;
+        canvas.height = 128;
+        drawSkinFront(canvas, skin.dataUrl);
+        const name = document.createElement("span");
+        name.textContent = skin.name;
+        const variant = document.createElement("small");
+        variant.textContent = skin.variant === "slim" ? "Slim" : "Classic";
+        tile.append(canvas, name, variant);
+        tile.addEventListener("click", () => {
+            skinState.selectedId = skin.id;
+            showSkinInViewer(skin.dataUrl, skin.variant, skin.name, "From your library");
+            renderSkinGrid();
+        });
+        skinGrid.appendChild(tile);
+    }
+    if (skinApply) skinApply.disabled = !skinState.selectedId;
+    if (skinDelete) skinDelete.disabled = !skinState.selectedId;
+}
+
+async function loadSkinLibrary() {
+    const result = await window.flintfix.listSkins();
+    skinState.skins = result?.success ? result.skins : [];
+    if (!skinState.skins.some(skin => skin.id === skinState.selectedId)) skinState.selectedId = null;
+    renderSkinGrid();
+}
+
+async function renderSkinsPage() {
+    ensureSkinViewer();
+    await loadSkinLibrary();
+    if (skinState.selectedId) return;
+    if (!minecraftProfile) {
+        showSkinInViewer("", "classic", "Not signed in", "Sign in to see your skin");
+        return;
+    }
+    const current = await window.flintfix.getCurrentSkin();
+    if (current?.success && current.dataUrl) {
+        skinState.current = current;
+        showSkinInViewer(current.dataUrl, current.variant, current.name || "Your skin", "Currently wearing");
+    } else {
+        showSkinInViewer("", "classic", "Default skin", current?.error || "Import a skin to change it");
+    }
+}
+
+skinModelButtons.forEach(button => button.addEventListener("click", async () => {
+    const model = button.dataset.skinModel;
+    const selected = skinState.skins.find(skin => skin.id === skinState.selectedId);
+    if (selected) {
+        await window.flintfix.updateSkin(selected.id, { variant: model });
+        selected.variant = model;
+        showSkinInViewer(selected.dataUrl, model, selected.name, "From your library");
+        renderSkinGrid();
+    } else if (skinState.current?.dataUrl) {
+        showSkinInViewer(skinState.current.dataUrl, model, skinStageName?.textContent, "Preview only");
+    }
+}));
+skinAnimButtons.forEach(button => button.addEventListener("click", () => setSkinAnimation(button.dataset.skinAnim)));
+if (skinImport) skinImport.addEventListener("click", async () => {
+    const result = await window.flintfix.importSkins(skinState.model);
+    if (!result?.success) showToast(result?.error || "Could not import that skin.", "error");
+    else if (result.added?.length) {
+        skinState.selectedId = result.added[0].id;
+        await loadSkinLibrary();
+        const skin = skinState.skins.find(item => item.id === skinState.selectedId);
+        if (skin) showSkinInViewer(skin.dataUrl, skin.variant, skin.name, "From your library");
+        showToast(`${result.added.length} skin${result.added.length > 1 ? "s" : ""} added to your library.`, "success");
+    }
+});
+if (skinSaveCurrent) skinSaveCurrent.addEventListener("click", async () => {
+    const result = await window.flintfix.saveCurrentSkin();
+    if (!result?.success) showToast(result?.error || "Could not save your current skin.", "error");
+    else {
+        await loadSkinLibrary();
+        showToast("Saved your current skin to the library.", "success");
+    }
+});
+if (skinApply) skinApply.addEventListener("click", async () => {
+    const skin = skinState.skins.find(item => item.id === skinState.selectedId);
+    if (!skin) return;
+    skinApply.disabled = true;
+    const result = await window.flintfix.applySkin(skin.id);
+    skinApply.disabled = false;
+    if (!result?.success) showToast(result?.error || "Could not change your skin.", "error");
+    else showToast(`You're now wearing ${skin.name}. It shows in game after rejoining.`, "success");
+});
+if (skinDelete) skinDelete.addEventListener("click", async () => {
+    if (!skinState.selectedId) return;
+    if (skinDelete.dataset.confirm !== "1") {
+        skinDelete.dataset.confirm = "1";
+        skinDelete.textContent = "Click to confirm";
+        setTimeout(() => {
+            skinDelete.dataset.confirm = "";
+            skinDelete.textContent = "Delete";
+        }, 2500);
+        return;
+    }
+    await window.flintfix.deleteSkin(skinState.selectedId);
+    skinDelete.dataset.confirm = "";
+    skinDelete.textContent = "Delete";
+    skinState.selectedId = null;
+    await loadSkinLibrary();
+});
+if (skinReset) skinReset.addEventListener("click", async () => {
+    const result = await window.flintfix.resetSkin();
+    if (!result?.success) showToast(result?.error || "Could not reset your skin.", "error");
+    else {
+        showToast("Your account is back on a default skin.", "success");
+        skinState.selectedId = null;
+        await renderSkinsPage();
+    }
+});
+
+// ---------------------------------------------------------------------------
+// What's new and FlintFix updates.
+// ---------------------------------------------------------------------------
+
+const newsTitle = document.getElementById("newsTitle");
+const newsMeta = document.getElementById("newsMeta");
+const newsItems = document.getElementById("newsItems");
+const newsOlder = document.getElementById("newsOlder");
+const newsToggle = document.getElementById("newsToggle");
+
+function formatNewsDate(value) {
+    try {
+        return new Intl.DateTimeFormat(undefined, { month: "long", day: "numeric", year: "numeric" }).format(new Date(value));
+    } catch {
+        return value || "";
+    }
+}
+
+async function loadNews() {
+    const result = await window.flintfix.getNews();
+    const posts = Array.isArray(result?.posts) ? result.posts : [];
+    if (!posts.length || !newsItems) {
+        document.getElementById("newsCard")?.setAttribute("hidden", "");
+        return;
+    }
+    const [latest, ...older] = posts;
+    const seen = localStorage.getItem("flintfix.news.seen");
+    if (newsTitle) {
+        newsTitle.textContent = latest.title || `Version ${latest.version}`;
+        if (seen !== latest.version) {
+            const badge = document.createElement("span");
+            badge.className = "news-new";
+            badge.textContent = "NEW";
+            newsTitle.appendChild(badge);
+        }
+    }
+    if (newsMeta) newsMeta.textContent = [latest.version ? `Version ${latest.version}` : "", formatNewsDate(latest.date)].filter(Boolean).join(" • ");
+    newsItems.innerHTML = "";
+    for (const item of latest.items || []) {
+        const li = document.createElement("li");
+        li.textContent = item;
+        newsItems.appendChild(li);
+    }
+    if (newsOlder) {
+        newsOlder.innerHTML = "";
+        for (const post of older) {
+            const block = document.createElement("div");
+            block.className = "news-older-post";
+            const heading = document.createElement("strong");
+            heading.textContent = `${post.title || ""}${post.version ? ` — ${post.version}` : ""}`;
+            const list = document.createElement("ul");
+            for (const item of post.items || []) {
+                const li = document.createElement("li");
+                li.textContent = item;
+                list.appendChild(li);
+            }
+            block.append(heading, list);
+            newsOlder.appendChild(block);
+        }
+    }
+    if (newsToggle) newsToggle.hidden = !older.length;
+    localStorage.setItem("flintfix.news.seen", latest.version || "");
+}
+
+if (newsToggle) newsToggle.addEventListener("click", () => {
+    if (!newsOlder) return;
+    newsOlder.hidden = !newsOlder.hidden;
+    newsToggle.textContent = newsOlder.hidden ? "Earlier updates" : "Hide earlier updates";
+});
+
+const updateBanner = document.getElementById("updateBanner");
+const updateBannerTitle = document.getElementById("updateBannerTitle");
+const updateBannerText = document.getElementById("updateBannerText");
+const updateBannerAction = document.getElementById("updateBannerAction");
+const updateBannerDismiss = document.getElementById("updateBannerDismiss");
+const updateBannerProgress = document.getElementById("updateBannerProgress");
+let updateInfo = null;
+
+function renderUpdateBanner(state) {
+    if (!updateBanner || !state) return;
+    updateInfo = state;
+    const dismissed = localStorage.getItem("flintfix.update.dismissed");
+    const show = ["available", "downloading", "ready"].includes(state.status) && dismissed !== `${state.version}:${state.status}`;
+    updateBanner.hidden = !show;
+    if (!show) return;
+    if (updateBannerProgress) {
+        updateBannerProgress.hidden = state.status !== "downloading";
+        const bar = updateBannerProgress.querySelector("span");
+        if (bar) bar.style.width = `${state.percent || 0}%`;
+    }
+    if (state.status === "ready") {
+        updateBannerTitle.textContent = `FlintFix ${state.version} is ready`;
+        updateBannerText.textContent = "Restart the launcher to finish updating.";
+        updateBannerAction.hidden = false;
+        updateBannerAction.textContent = "Restart now";
+    } else if (state.status === "downloading") {
+        updateBannerTitle.textContent = `Downloading FlintFix ${state.version || "update"}`;
+        updateBannerText.textContent = `${state.percent || 0}% — you can keep using the launcher.`;
+        updateBannerAction.hidden = true;
+    } else {
+        updateBannerTitle.textContent = `FlintFix ${state.version} is available`;
+        updateBannerText.textContent = `You have ${state.currentVersion}. Get the new version for the latest features and fixes.`;
+        updateBannerAction.hidden = false;
+        updateBannerAction.textContent = "Download";
+    }
+}
+
+if (updateBannerAction) updateBannerAction.addEventListener("click", () => {
+    if (updateInfo?.status === "ready") void window.flintfix.installUpdate();
+    else if (updateInfo?.url) window.flintfix.openExternal(updateInfo.url);
+});
+if (updateBannerDismiss) updateBannerDismiss.addEventListener("click", () => {
+    if (updateInfo) localStorage.setItem("flintfix.update.dismissed", `${updateInfo.version}:${updateInfo.status}`);
+    if (updateBanner) updateBanner.hidden = true;
+});
+window.flintfix.onUpdateStatus?.(renderUpdateBanner);
+
+async function checkForFlintFixUpdates() {
+    const result = await window.flintfix.checkForUpdates();
+    if (result?.success) renderUpdateBanner(result);
+}
+
+// ---------------------------------------------------------------------------
+// Performance mode: install proven performance mods into the instance.
+// ---------------------------------------------------------------------------
+
+const performanceModeButton = document.getElementById("performanceModeButton");
+if (performanceModeButton) performanceModeButton.addEventListener("click", async () => {
+    const instance = getSelectedModsInstance();
+    if (!instance) {
+        showToast("Choose an instance first.", "error");
+        return;
+    }
+    if (instance.loader !== "fabric") {
+        showToast("Performance mode needs a Fabric instance.", "error");
+        return;
+    }
+    if (performanceModeButton.dataset.confirm !== "1") {
+        performanceModeButton.dataset.confirm = "1";
+        const label = performanceModeButton.lastChild;
+        const original = label.textContent;
+        label.textContent = " Click again: install Sodium, Lithium + 4 more";
+        setTimeout(() => {
+            performanceModeButton.dataset.confirm = "";
+            label.textContent = original;
+        }, 3500);
+        return;
+    }
+    performanceModeButton.dataset.confirm = "";
+    performanceModeButton.disabled = true;
+    const label = performanceModeButton.lastChild;
+    label.textContent = " Installing...";
+    const stop = window.flintfix.onPerformanceProgress?.(progress => {
+        label.textContent = ` Installing ${progress.title}...`;
+    });
+    const result = await window.flintfix.installPerformanceMods(instance.id, { version: instance.version });
+    stop?.();
+    performanceModeButton.disabled = false;
+    label.textContent = " Performance mode";
+    if (!result?.success) {
+        showToast(result?.error || "Performance mode failed.", "error");
+        return;
+    }
+    const installed = result.results.filter(item => item.status === "installed").map(item => item.title);
+    const failed = result.results.filter(item => item.status === "failed");
+    if (installed.length) showToast(`Installed ${installed.join(", ")}.`, "success");
+    else if (!failed.length) showToast("All performance mods are already installed.", "success");
+    if (failed.length) showToast(`Not available for ${instance.version}: ${failed.map(item => item.title).join(", ")}.`, "error");
+    modUpdateMap.clear();
+    await renderModsPage();
+});
+
+setTimeout(() => {
+    void loadNews();
+    void checkForFlintFixUpdates();
+}, 1500);
+setInterval(() => void checkForFlintFixUpdates(), 6 * 60 * 60 * 1000);
+
 
 initializeFlintFix();
