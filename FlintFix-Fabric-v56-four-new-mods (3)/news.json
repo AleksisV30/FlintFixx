@@ -10,6 +10,7 @@
                 "The installer asks if you want a desktop shortcut and starts FlintFix when it finishes.",
                 "The launcher icon, loading screen and default profile pictures now use the real Minecraft flint.",
                 "Automatic updates: new versions download in the background and install with one click.",
+                "Discord Rich Presence: your Discord status shows you are playing FlintFix Client, with the flint icon and a button to join the FlintFix Discord.",
                 "Official FlintFix Discord bot with /download, /status, /versions and /report.",
                 "The launcher is smaller, faster to start and better protected."
             ]

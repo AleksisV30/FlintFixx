@@ -73,7 +73,8 @@
       {
         "provider": "github",
         "owner": "AleksisV30",
-        "repo": "FlintFixx"
+        "repo": "FlintFixx",
+        "releaseType": "release"
       }
     ],
     "extraResources": [
