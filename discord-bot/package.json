@@ -1,0 +1,17 @@
+{
+  "name": "flintfix-discord-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "FlintFix Client Discord bot: downloads, status, supported versions, bug reports and release announcements.",
+  "main": "index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20.12"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.27.0"
+  }
+}
