@@ -1243,13 +1243,23 @@ async function openOfficialUrl(url) {
     if (!result?.success) showToast(result?.error || "Could not open the page.", "error");
 }
 
+/**
+ * Swaps every FlintFix logo and fallback profile picture to the real Minecraft flint
+ * texture, read from any installed Minecraft (the bundled icon stays until one exists).
+ */
 async function refreshMinecraftFlintIcon(versionId = selectedVersion) {
-    if (!versionId || !window.flintfix.getMinecraftFlintIcon) return;
+    if (!window.flintfix.getMinecraftFlintIcon) return;
     try {
-        const result = await window.flintfix.getMinecraftFlintIcon(versionId);
+        const result = await window.flintfix.getMinecraftFlintIcon(versionId || null);
         if (!result?.success || !result.dataUrl) return;
         minecraftFlintDataUrl = result.dataUrl;
-        if (brandIcon) brandIcon.src = result.dataUrl;
+        document.querySelectorAll("img[data-flint-icon]").forEach(img => {
+            img.src = result.dataUrl;
+            img.classList.add("mc-flint");
+        });
+        document.querySelectorAll(".fallback-face").forEach(face => {
+            face.style.backgroundImage = `url("${result.dataUrl}")`;
+        });
         if (!minecraftProfile?.skinUrl) {
             setSkinFace(playerSkin, null);
             setSkinFace(accountAvatar, null);
@@ -1260,6 +1270,7 @@ async function refreshMinecraftFlintIcon(versionId = selectedVersion) {
         // Keep the bundled fallback icon when the Minecraft client JAR is not installed yet.
     }
 }
+void refreshMinecraftFlintIcon(null);
 
 function getReadiness() {
     if (!minecraftProfile) return { ready: false, reason: "Sign in to a Minecraft account." };

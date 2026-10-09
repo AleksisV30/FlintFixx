@@ -2912,23 +2912,49 @@ function psQuote(value) {
     return `'${String(value).replace(/'/g, "''")}'`;
 }
 
+/**
+ * A Minecraft client JAR to read the flint texture from: the requested version first,
+ * then any version installed by FlintFix, then any version in the official launcher's
+ * .minecraft folder (most players already have one before installing FlintFix).
+ */
+function findMinecraftClientJar(preferredVersionId) {
+    const roots = [path.join(app.getPath("userData"), "minecraft")];
+    if (process.env.APPDATA) roots.push(path.join(process.env.APPDATA, ".minecraft"));
+    for (const root of roots) {
+        const versionsDir = path.join(root, "versions");
+        if (!fs.existsSync(versionsDir)) continue;
+        const ids = preferredVersionId ? [preferredVersionId] : [];
+        try {
+            ids.push(...fs.readdirSync(versionsDir));
+        } catch {
+            continue;
+        }
+        for (const id of ids) {
+            const jar = path.join(versionsDir, id, `${id}.jar`);
+            if (fs.existsSync(jar)) return { id, jar };
+        }
+    }
+    return null;
+}
+
 ipcMain.handle("minecraft:getFlintIcon", async (_event, versionId) => {
     try {
-        if (typeof versionId !== "string" || !/^[A-Za-z0-9._+-]+$/.test(versionId)) {
+        if (versionId != null && (typeof versionId !== "string" || !/^[A-Za-z0-9._+-]+$/.test(versionId))) {
             throw new Error("Invalid Minecraft version ID.");
         }
 
-        const minecraftRoot = path.join(app.getPath("userData"), "minecraft");
-        const clientJar = path.join(minecraftRoot, "versions", versionId, `${versionId}.jar`);
-        if (!fs.existsSync(clientJar)) {
-            return { success: false, error: "Minecraft client JAR is not installed yet." };
-        }
+        // The flint texture is the same in every version, so any cached copy will do.
+        let outputFile = getCachedMinecraftFlintIconPath();
+        if (!outputFile) {
+            const source = findMinecraftClientJar(versionId || null);
+            if (!source) {
+                return { success: false, error: "No Minecraft client JAR is installed yet." };
+            }
+            const clientJar = source.jar;
+            const cacheDir = path.join(app.getPath("userData"), "cache");
+            fs.mkdirSync(cacheDir, { recursive: true });
+            outputFile = path.join(cacheDir, `minecraft-flint-${source.id.replace(/[^A-Za-z0-9._+-]/g, "_")}.png`);
 
-        const cacheDir = path.join(app.getPath("userData"), "cache");
-        fs.mkdirSync(cacheDir, { recursive: true });
-        const outputFile = path.join(cacheDir, `minecraft-flint-${versionId}.png`);
-
-        if (!fs.existsSync(outputFile)) {
             const command = [
                 "Add-Type -AssemblyName System.IO.Compression.FileSystem;",
                 `$zip=[System.IO.Compression.ZipFile]::OpenRead(${psQuote(clientJar)});`,
