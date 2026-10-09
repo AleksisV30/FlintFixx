@@ -33,7 +33,11 @@ function createUpdater({ app, send }) {
             autoUpdater.on("update-not-available", () => setState({ status: "current" }));
             autoUpdater.on("download-progress", progress => setState({ status: "downloading", percent: Math.round(progress?.percent || 0) }));
             autoUpdater.on("update-downloaded", info => setState({ status: "ready", version: info?.version }));
-            autoUpdater.on("error", error => setState({ status: "error", error: String(error?.message || error) }));
+            autoUpdater.on("error", error => {
+                // Before the first GitHub release exists there is simply nothing to update to.
+                const message = String(error?.message || error);
+                setState(/no published versions/i.test(message) ? { status: "current" } : { status: "error", error: message });
+            });
         } catch {
             autoUpdater = null;
         }
@@ -41,7 +45,11 @@ function createUpdater({ app, send }) {
 
     async function check() {
         if (autoUpdater) {
-            await autoUpdater.checkForUpdates();
+            try {
+                await autoUpdater.checkForUpdates();
+            } catch {
+                // Reported through the "error" event above.
+            }
             return state;
         }
         setState({ status: "checking" });

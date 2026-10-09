@@ -509,8 +509,31 @@ function createWindow() {
             preload: path.join(__dirname, "preload.js"),
             contextIsolation: true,
             nodeIntegration: false,
+            // Developer tools only in "npm start"; the installed client can't open them.
+            devTools: !app.isPackaged,
             backgroundThrottling: false
         }
+    });
+
+    if (app.isPackaged) {
+        // Swallow the DevTools and reload shortcuts so players can't poke at the UI.
+        win.webContents.on("before-input-event", (event, input) => {
+            const key = String(input.key || "").toLowerCase();
+            const ctrl = input.control || input.meta;
+            if (key === "f12" || key === "f5"
+                || (ctrl && input.shift && ["i", "j", "c"].includes(key))
+                || (ctrl && key === "r")) {
+                event.preventDefault();
+            }
+        });
+    }
+    // The window only ever shows index.html; links open in the real browser instead.
+    win.webContents.setWindowOpenHandler(({ url }) => {
+        if (/^https:\/\//i.test(url)) void shell.openExternal(url);
+        return { action: "deny" };
+    });
+    win.webContents.on("will-navigate", (event, url) => {
+        if (!url.startsWith("file:")) event.preventDefault();
     });
 
     win.setMenuBarVisibility(false);
@@ -2841,8 +2864,8 @@ ipcMain.handle("news:get", async () => {
         }
     };
     try {
-        // news.json sits in the project folder inside the repository.
-        const url = `https://raw.githubusercontent.com/${UPDATE_REPO}/main/${encodeURIComponent(path.basename(__dirname))}/news.json`;
+        // news.json sits in the project folder inside the repository (not __dirname: that is app.asar when installed).
+        const url = `https://raw.githubusercontent.com/${UPDATE_REPO}/main/${encodeURIComponent("FlintFix-Fabric-v56-four-new-mods (3)")}/news.json`;
         const response = await fetch(url, { headers: { "User-Agent": "FlintFix-Client" } });
         if (!response.ok) throw new Error(String(response.status));
         const remote = await response.json();

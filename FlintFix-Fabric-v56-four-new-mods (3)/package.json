@@ -1,24 +1,26 @@
 {
   "name": "flintfix-client",
-  "version": "1.0.1",
+  "version": "1.7.0",
   "private": true,
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --win --publish never",
-    "release": "electron-builder --win --publish always"
+    "dist": "node scripts/obfuscate.js && electron-builder --win --publish never",
+    "release": "node scripts/obfuscate.js && electron-builder --win --publish always",
+    "obfuscate": "node scripts/obfuscate.js"
   },
   "devDependencies": {
     "electron": "^38.0.0",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "javascript-obfuscator": "^4.2.2"
   },
   "dependencies": {
     "@azure/msal-node": "^6.0.1",
-    "extract-zip": "^2.0.1",
     "@xhayper/discord-rpc": "^1.5.1",
+    "electron-updater": "^6.6.2",
+    "extract-zip": "^2.0.1",
     "material-symbols": "^0.47.6",
-    "skinview3d": "^3.4.2",
-    "electron-updater": "^6.6.2"
+    "skinview3d": "^3.4.2"
   },
   "productName": "FlintFix Client",
   "build": {
@@ -26,24 +28,32 @@
     "productName": "FlintFix Client",
     "files": [
       "**/*",
-      "!flintfix-mod/.gradle/**",
-      "!flintfix-mod/.gradle-local/**",
-      "!flintfix-mod/build/**",
+      "!flintfix-mod/**",
       "!backup-before-gui-redesign/**",
       "!**/*.map",
-      "!flintfix-mod/.gradle-local/**",
       "!installer/**",
-      "!flintfix-mod/versions/**/build/**",
-      "!flintfix-mod/versions/**/.gradle/**",
-      "!flintfix-mod/versions/**/run/**",
+      "!scripts/**",
+      "!docs/**",
       "!release/**",
       "!dist/**",
       "!release*/**",
-      "!release-out/**"
-    ],
-    "asarUnpack": [
-      "flintfix-mod/**",
-      "install-flintfix.ps1"
+      "!release-out/**",
+      "!build-obf/**",
+      "!install-flintfix.bat",
+      "!install-flintfix.ps1",
+      "!main.js",
+      "!preload.js",
+      "!renderer.js",
+      "!auth/*.js",
+      "!minecraft/*.js",
+      "!discord/*.js",
+      {
+        "from": "build-obf",
+        "to": ".",
+        "filter": [
+          "**/*"
+        ]
+      }
     ],
     "win": {
       "target": "nsis",
