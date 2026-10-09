@@ -175,7 +175,9 @@ async function ensureModJar(projectRoot, gameVersion, javaExecutable, emit) {
 
     emit?.({ stage: "fabric", message: "Building FlintFix in-game client..." });
     const script = path.join(modRoot, "build-mod.ps1");
-    if (!fs.existsSync(script)) throw new Error("flintfix-mod/build-mod.ps1 is missing.");
+    if (!fs.existsSync(script)) {
+        throw new Error(`This FlintFix install has no in-game client for Minecraft ${gameVersion}. Reinstall FlintFix Client with the latest setup file.`);
+    }
     await runPowerShell(script, modRoot, javaExecutable, ["-MinecraftVersion", target]);
 
     const candidate = newestJar();
