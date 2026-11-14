@@ -32,19 +32,14 @@ local make, label, button, onClick = Kit.make, Kit.label, Kit.button, Kit.onClic
 local fmt = Kit.formatNumber
 
 local player = Players.LocalPlayer
+-- Shows up in Studio's Output window, so you can check this version of the script is the one running
+print("[Lobby] LobbyClient v3 loaded: full-screen party room, quests, heist settings tab")
 
 -- Everything is laid out on one 1280x720 canvas that's scaled to fit the screen
 local CANVAS = Vector2.new(1280, 720)
 local CONTENT_TOP = 98
 local CONTENT_SIZE = Vector2.new(1232, 600)
--- The party room's three columns: crew on the left, hideout + chat in the middle,
--- heist settings on the right. The crew and settings columns run the full height.
-local COLUMNS = {
-	{ x = 0, width = 310 },
-	{ x = 326, width = 530 },
-	{ x = 872, width = 360 },
-}
--- The party room is shown a little bigger than the other tabs (when the screen has room)
+-- The party room is drawn a little bigger than the other tabs when the screen has room
 local MENU_SCALE_CAP = 1.25
 local PARTY_SCALE_CAP = 1.4
 local TABS = {
@@ -462,6 +457,13 @@ local joinCodeButton = button("Join", "blue", {
 	TextSize = 16,
 	Parent = hero,
 })
+local hubQuestsButton = button("📜  Quests", "gold", {
+	Position = UDim2.fromOffset(742, 160),
+	Size = UDim2.fromOffset(150, 52),
+	Font = Kit.FONT_BLACK,
+	TextSize = 16,
+	Parent = hero,
+})
 
 -- Public crews
 local publicCard = Kit.card({
@@ -601,7 +603,15 @@ for i, map in ipairs(Config.MAPS) do
 end
 
 ---------------------------------------------------------------- play: party room
+-- The party room fills the whole screen. The 3D hideout is the background (the crew stands
+-- in the middle with their name tags), and the controls sit around the edges:
+--   top left      Leave crew, Quests
+--   top middle    host, crew count and target
+--   top right     party code, invite
+--   bottom left   crew chat (see-through, no box behind the text)
+--   bottom right  Heist settings tab + Start / Ready
 
+-- Empty stand-in inside the Play page, so the hub hides while you're in a crew
 local partyView = make("Frame", {
 	Size = UDim2.fromScale(1, 1),
 	BackgroundTransparency = 1,
@@ -609,26 +619,170 @@ local partyView = make("Frame", {
 	Parent = playPage,
 })
 
--- Top row: code, invite, host
-local codeCard = Kit.card({ Size = UDim2.fromOffset(400, 60), Parent = partyView })
-Kit.pad(9, 16).Parent = codeCard
+-- Draw order on the screen: backdrop, 3D hideout, party controls, then the top bar on top
+backdrop.ZIndex = 0
+canvas.ZIndex = 3
+
+local PARTY_EDGE = 24
+local SETTINGS_WIDTH = 400
+
+-- Layers drawn in "design pixels": the frame is 1/s of the screen and a UIScale of s blows
+-- it back up, so everything inside grows and shrinks with the rest of the menu.
+local scaledLayers = {}
+local function scaledLayer(props)
+	local frame = make("Frame", props)
+	local uiScale = make("UIScale", { Parent = frame })
+	table.insert(scaledLayers, { frame = frame, scale = uiScale })
+	return frame
+end
+
+-- Full-screen 3D hideout
+local hideoutLayer = make("Frame", {
+	Name = "HideoutLayer",
+	BackgroundTransparency = 1,
+	Size = UDim2.fromScale(1, 1),
+	Visible = false,
+	ZIndex = 1,
+	Parent = gui,
+})
+-- Soft dark shading at the top and bottom so the menu stays readable over the 3D scene
+for _, shade in ipairs({ { 0, 0, 90 }, { 1, 1, -90 } }) do
+	make("Frame", {
+		AnchorPoint = Vector2.new(0, shade[1]),
+		Position = UDim2.fromScale(0, shade[2]),
+		Size = UDim2.fromScale(1, 0.3),
+		BackgroundColor3 = Color3.new(0, 0, 0),
+		BorderSizePixel = 0,
+		ZIndex = 2,
+		Parent = hideoutLayer,
+	}, {
+		make("UIGradient", {
+			Rotation = shade[3],
+			Transparency = NumberSequence.new(1, 0.45),
+		}),
+	})
+end
+
+local partyLayer = scaledLayer({
+	Name = "PartyLayer",
+	BackgroundTransparency = 1,
+	Size = UDim2.fromScale(1, 1),
+	Visible = false,
+	ZIndex = 2,
+	Parent = gui,
+})
+-- Everything below the top bar; laid out again whenever the screen size changes
+local partyBody = make("Frame", {
+	BackgroundTransparency = 1,
+	Parent = partyLayer,
+})
+
+-- Readable text over the 3D scene: white with a dark outline
+local function outlined(props)
+	props.TextStrokeTransparency = props.TextStrokeTransparency or 0.35
+	props.TextStrokeColor3 = Color3.new(0, 0, 0)
+	return label(props)
+end
+
+-- Little red counter in the corner of a button
+local function makeBadge(parent)
+	local badge = make("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(1, -4, 0, 4),
+		Size = UDim2.fromOffset(24, 24),
+		BackgroundColor3 = C.bad,
+		Visible = false,
+		ZIndex = 5,
+		Parent = parent,
+	}, { Kit.round(), Kit.stroke(Color3.new(1, 1, 1), 0.2, 2) })
+	local text = label({
+		Font = Kit.FONT_BLACK,
+		TextSize = 13,
+		TextXAlignment = Enum.TextXAlignment.Center,
+		TextTruncate = Enum.TextTruncate.None,
+		Size = UDim2.fromScale(1, 1),
+		ZIndex = 6,
+		Parent = badge,
+	})
+	return function(count)
+		badge.Visible = count > 0
+		text.Text = tostring(count)
+	end
+end
+
+-- Top left: leave and quests
+local leaveButton = button("🚪  Leave crew", "danger", {
+	Size = UDim2.fromOffset(170, 48),
+	Font = Kit.FONT_BLACK,
+	TextSize = 15,
+	Parent = partyBody,
+})
+local partyQuestsButton = button("📜  Quests", "gold", {
+	Position = UDim2.fromOffset(182, 0),
+	Size = UDim2.fromOffset(150, 48),
+	Font = Kit.FONT_BLACK,
+	TextSize = 15,
+	Parent = partyBody,
+})
+local setPartyQuestBadge = makeBadge(partyQuestsButton)
+
+-- Top middle: host and target
+local infoRow = make("Frame", {
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.new(0.5, 0, 0, 4),
+	Size = UDim2.fromOffset(0, 40),
+	AutomaticSize = Enum.AutomaticSize.X,
+	BackgroundTransparency = 1,
+	Parent = partyBody,
+}, { Kit.listLayout(10, true) })
+local function infoPill(order, strokeColor)
+	local pill = make("Frame", {
+		Size = UDim2.fromOffset(0, 40),
+		AutomaticSize = Enum.AutomaticSize.X,
+		BackgroundColor3 = C.well,
+		BackgroundTransparency = 0.2,
+		LayoutOrder = order,
+		Parent = infoRow,
+	}, { Kit.round(), Kit.stroke(strokeColor, 0.5), Kit.pad(0, 18) })
+	return label({
+		Font = Kit.FONT_BOLD,
+		TextSize = 14,
+		TextTruncate = Enum.TextTruncate.None,
+		Size = UDim2.fromScale(0, 1),
+		AutomaticSize = Enum.AutomaticSize.X,
+		Parent = pill,
+	})
+end
+local hostText = infoPill(1, C.gold)
+hostText.TextColor3 = C.gold
+local targetText = infoPill(2, C.stroke)
+
+-- Top right: party code and invite
+local codeCard = make("Frame", {
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.fromScale(1, 0),
+	Size = UDim2.fromOffset(320, 66),
+	BackgroundColor3 = C.card,
+	BackgroundTransparency = 0.1,
+	Parent = partyBody,
+}, { Kit.corner(14), Kit.stroke(C.stroke, 0.4), Kit.pad(9, 14) })
 Kit.sectionTitle("PARTY CODE  ·  SHARE WITH FRIENDS", { TextSize = 10, Size = UDim2.new(1, -70, 0, 12), Parent = codeCard })
 local codeChips = make("Frame", {
 	BackgroundTransparency = 1,
-	Position = UDim2.fromOffset(0, 16),
-	Size = UDim2.new(1, -70, 0, 26),
+	Position = UDim2.fromOffset(0, 18),
+	Size = UDim2.new(1, -70, 0, 28),
 	Parent = codeCard,
 }, { Kit.listLayout(6, true) })
 local chips = {}
 for i = 1, Config.CODE_LENGTH do
 	chips[i] = label({
 		Font = Kit.FONT_CODE,
-		TextSize = 19,
+		TextSize = 20,
 		TextColor3 = C.gold,
 		TextXAlignment = Enum.TextXAlignment.Center,
 		BackgroundTransparency = 0,
 		BackgroundColor3 = C.well,
-		Size = UDim2.fromOffset(30, 26),
+		Size = UDim2.fromOffset(32, 28),
 		LayoutOrder = i,
 		Parent = codeChips,
 	})
@@ -637,154 +791,135 @@ end
 local newCodeButton = button("New", "ghost", {
 	AnchorPoint = Vector2.new(1, 0.5),
 	Position = UDim2.fromScale(1, 0.5),
-	Size = UDim2.fromOffset(60, 32),
+	Size = UDim2.fromOffset(60, 34),
 	TextSize = 13,
 	Parent = codeCard,
 })
-
 local inviteButton = button("💌  Invite friends", "blue", {
-	Position = UDim2.fromOffset(COLUMNS[2].x, 0),
-	Size = UDim2.fromOffset(230, 60),
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, 0, 0, 76),
+	Size = UDim2.fromOffset(320, 46),
 	Font = Kit.FONT_BLACK,
 	TextSize = 16,
-	Parent = partyView,
+	Parent = partyBody,
 })
 
-local hostPill = make("Frame", {
-	AnchorPoint = Vector2.new(1, 0.5),
-	Position = UDim2.new(1, 0, 0, 30),
-	Size = UDim2.fromOffset(0, 40),
-	AutomaticSize = Enum.AutomaticSize.X,
-	BackgroundColor3 = C.card,
-	Parent = partyView,
-}, { Kit.round(), Kit.stroke(C.gold, 0.55), Kit.pad(0, 18) })
-local hostText = label({
-	Font = Kit.FONT_BOLD,
-	TextSize = 14,
-	TextColor3 = C.gold,
-	TextTruncate = Enum.TextTruncate.None,
-	Size = UDim2.fromScale(0, 1),
-	AutomaticSize = Enum.AutomaticSize.X,
-	Parent = hostPill,
+-- The 3D hideout itself. Hosts get Kick / Make host buttons on each name tag.
+local hideout = Hideout.new(hideoutLayer, {
+	kick = function(userId)
+		request("Kick", userId)
+	end,
+	makeHost = function(userId, displayName)
+		if request("TransferHost", userId) then
+			Kit.toast(displayName .. " is the host now.")
+		end
+	end,
 })
 
-local ROW_TOP = 72
-local ROW_BOTTOM = CONTENT_SIZE.Y - 64 -- the footer sits below this
-local BANNER_HEIGHT = 250
+---------------------------------------------------------------- party room: crew chat
+-- Bottom left, see-through: just outlined text over the hideout, no box behind it.
 
--- 3D hideout banner, at the top of the middle column
-local banner = make("Frame", {
+local chatFrame = make("Frame", {
+	AnchorPoint = Vector2.new(0, 1),
+	Position = UDim2.fromScale(0, 1),
+	Size = UDim2.fromOffset(460, 290),
 	BackgroundTransparency = 1,
-	Position = UDim2.fromOffset(COLUMNS[2].x, ROW_TOP),
-	Size = UDim2.fromOffset(COLUMNS[2].width, BANNER_HEIGHT),
-	Parent = partyView,
+	Parent = partyBody,
 })
-local hideout = Hideout.new(banner)
-make("Frame", {
-	BackgroundTransparency = 1,
-	Size = UDim2.fromScale(1, 1),
-	Parent = banner,
-}, { Kit.corner(14), Kit.stroke(C.stroke, 0.35, 1.5) })
-label({
-	Text = "THE HIDEOUT",
+outlined({
+	Text = "💬  CREW CHAT",
 	Font = Kit.FONT_BLACK,
-	TextSize = 12,
-	TextTransparency = 0.2,
-	TextStrokeTransparency = 0.6,
-	Position = UDim2.fromOffset(16, 12),
-	Size = UDim2.fromOffset(200, 14),
-	Parent = banner,
-})
-local targetPill = make("Frame", {
-	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, -12, 0, 10),
-	Size = UDim2.fromOffset(0, 30),
-	AutomaticSize = Enum.AutomaticSize.X,
-	BackgroundColor3 = C.well,
-	BackgroundTransparency = 0.15,
-	Parent = banner,
-}, { Kit.round(), Kit.stroke(C.stroke, 0.4), Kit.pad(0, 14) })
-local targetText = label({
-	Font = Kit.FONT_BOLD,
 	TextSize = 13,
-	TextTruncate = Enum.TextTruncate.None,
-	Size = UDim2.fromScale(0, 1),
-	AutomaticSize = Enum.AutomaticSize.X,
-	Parent = targetPill,
+	TextColor3 = Color3.fromRGB(220, 226, 240),
+	Size = UDim2.new(1, 0, 0, 16),
+	Parent = chatFrame,
 })
-
-local function columnCard(index, scrolling, top)
-	local col = COLUMNS[index]
-	top = top or ROW_TOP
-	return Kit.card({
-		Position = UDim2.fromOffset(col.x, top),
-		Size = UDim2.fromOffset(col.width, ROW_BOTTOM - top),
-		Parent = partyView,
-	}, scrolling)
-end
-
--- Crew list
-local crewCard = columnCard(1)
-Kit.pad(14).Parent = crewCard
-local crewTitle = Kit.sectionTitle("", { Parent = crewCard })
-local membersList = Kit.scroller({
-	Position = UDim2.fromOffset(0, 24),
-	Size = UDim2.new(1, 0, 1, -24),
-	Parent = crewCard,
-}, 6)
-
--- Crew chat, under the hideout
-local chatCard = columnCard(2, false, ROW_TOP + BANNER_HEIGHT + 12)
-Kit.pad(14).Parent = chatCard
-Kit.sectionTitle("CREW CHAT", { Parent = chatCard })
 local chatList = Kit.scroller({
-	Position = UDim2.fromOffset(0, 24),
-	Size = UDim2.new(1, 0, 1, -70),
-	Parent = chatCard,
+	Position = UDim2.fromOffset(0, 22),
+	Size = UDim2.new(1, 0, 1, -72),
+	ScrollBarThickness = 3,
+	ScrollBarImageTransparency = 0.5,
+	Parent = chatFrame,
 }, 4)
-local chatEmpty = label({
+-- Newest messages sit at the bottom, just above the typing line
+chatList:FindFirstChildOfClass("UIListLayout").VerticalAlignment = Enum.VerticalAlignment.Bottom
+local chatEmpty = outlined({
 	Text = "👋  Say hi and plan the job.",
-	TextSize = 13,
-	TextColor3 = C.faint,
-	TextXAlignment = Enum.TextXAlignment.Center,
-	Position = UDim2.fromOffset(0, 24),
-	Size = UDim2.new(1, 0, 1, -70),
-	Parent = chatCard,
+	TextSize = 15,
+	TextColor3 = Color3.fromRGB(205, 210, 228),
+	TextYAlignment = Enum.TextYAlignment.Bottom,
+	Position = UDim2.fromOffset(0, 22),
+	Size = UDim2.new(1, 0, 1, -76),
+	Parent = chatFrame,
 })
+-- The typing line: only a thin outline, no filled box
 local chatField = make("Frame", {
 	AnchorPoint = Vector2.new(0, 1),
 	Position = UDim2.fromScale(0, 1),
-	Size = UDim2.new(1, -74, 0, 38),
-	BackgroundColor3 = C.well,
-	Parent = chatCard,
-}, { Kit.corner(10), Kit.stroke(C.stroke, 0.4) })
+	Size = UDim2.new(1, -52, 0, 42),
+	BackgroundTransparency = 1,
+	Parent = chatFrame,
+}, { Kit.round() })
+local chatFieldStroke = Kit.stroke(Color3.new(1, 1, 1), 0.6, 1.5)
+chatFieldStroke.Parent = chatField
 local chatBox = make("TextBox", {
 	BackgroundTransparency = 1,
 	Size = UDim2.fromScale(1, 1),
-	Font = Kit.FONT,
-	TextSize = 14,
-	TextColor3 = C.text,
+	Font = Kit.FONT_BOLD,
+	TextSize = 16,
+	TextColor3 = Color3.new(1, 1, 1),
+	TextStrokeTransparency = 0.35,
 	TextXAlignment = Enum.TextXAlignment.Left,
 	TextTruncate = Enum.TextTruncate.AtEnd,
-	PlaceholderText = "Message your crew...",
-	PlaceholderColor3 = C.faint,
+	PlaceholderText = "Click here to message your crew...",
+	PlaceholderColor3 = Color3.fromRGB(200, 205, 220),
 	Text = "",
 	ClearTextOnFocus = false,
 	Parent = chatField,
-}, { Kit.pad(0, 12) })
-local sendButton = button("Send", "blue", {
+}, { Kit.pad(0, 16) })
+chatBox.Focused:Connect(function()
+	Kit.tween(chatFieldStroke, Kit.FAST, { Transparency = 0.1 })
+end)
+chatBox.FocusLost:Connect(function()
+	Kit.tween(chatFieldStroke, Kit.FAST, { Transparency = 0.6 })
+end)
+local sendButton = Kit.makeRound(button("➤", "blue", {
 	AnchorPoint = Vector2.new(1, 1),
 	Position = UDim2.fromScale(1, 1),
-	Size = UDim2.fromOffset(66, 38),
-	TextSize = 14,
-	Parent = chatCard,
-})
+	Size = UDim2.fromOffset(42, 42),
+	TextSize = 16,
+	Parent = chatFrame,
+}))
 
--- Heist settings
-local settingsCard = columnCard(3, true)
+---------------------------------------------------------------- party room: heist settings tab
+-- A pop-up panel above the "Heist settings" button, so it doesn't cover the hideout
+
+local settingsPanel = make("Frame", {
+	AnchorPoint = Vector2.new(1, 1),
+	Position = UDim2.new(1, 0, 1, -112),
+	Size = UDim2.fromOffset(SETTINGS_WIDTH, 460),
+	BackgroundTransparency = 1,
+	Visible = false,
+	Parent = partyBody,
+})
+local settingsPanelScale = make("UIScale", { Parent = settingsPanel })
+local settingsCard = Kit.card({
+	Size = UDim2.fromScale(1, 1),
+	BackgroundColor3 = C.window,
+	BackgroundTransparency = 0.04,
+	Parent = settingsPanel,
+}, true)
 Kit.pad(14).Parent = settingsCard
 Kit.listLayout(10).Parent = settingsCard
 local settingsTitle = Kit.sectionTitle("", { LayoutOrder = 0, Parent = settingsCard })
+local closeSettingsButton = Kit.makeRound(button("✕", "ghost", {
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -10, 0, 8),
+	Size = UDim2.fromOffset(30, 30),
+	TextSize = 13,
+	ZIndex = 2,
+	Parent = settingsPanel,
+}))
 
 local function settingRow(order, text)
 	local row = make("Frame", {
@@ -1029,24 +1164,26 @@ label({
 	Parent = settingsCard,
 })
 
--- Footer
-local leaveButton = button("Leave", "danger", {
-	AnchorPoint = Vector2.new(0, 1),
-	Position = UDim2.fromScale(0, 1),
-	Size = UDim2.fromOffset(140, 52),
+---------------------------------------------------------------- party room: bottom right
+
+local ACTION_HEIGHT = 58
+local settingsTabButton = button("⚙  HEIST SETTINGS", "ghost", {
+	AnchorPoint = Vector2.new(1, 1),
+	Position = UDim2.new(1, -272, 1, 0),
+	Size = UDim2.fromOffset(230, ACTION_HEIGHT),
 	Font = Kit.FONT_BLACK,
-	TextSize = 16,
-	Parent = partyView,
+	TextSize = 15,
+	Parent = partyBody,
 })
 local function footerButton(text, style)
 	return button(text, style, {
 		AnchorPoint = Vector2.new(1, 1),
 		Position = UDim2.fromScale(1, 1),
-		Size = UDim2.fromOffset(260, 52),
+		Size = UDim2.fromOffset(260, ACTION_HEIGHT),
 		Font = Kit.FONT_BLACK,
 		TextSize = 19,
 		Visible = false,
-		Parent = partyView,
+		Parent = partyBody,
 	})
 end
 local startButton = footerButton("START HEIST", "green")
@@ -1055,16 +1192,263 @@ local readyButton = footerButton("I'M READY", "green")
 local unreadyButton = footerButton("✔ READY  ·  undo", "ghost")
 unreadyButton.TextColor3 = C.good
 unreadyButton.TextSize = 16
-local footerHint = label({
+local footerHint = outlined({
 	RichText = true,
-	TextSize = 14,
-	TextColor3 = C.muted,
+	Font = Kit.FONT_BOLD,
+	TextSize = 15,
 	TextXAlignment = Enum.TextXAlignment.Right,
 	AnchorPoint = Vector2.new(1, 1),
-	Position = UDim2.new(1, -276, 1, 0),
-	Size = UDim2.new(1, -432, 0, 52),
-	Parent = partyView,
+	Position = UDim2.new(1, 0, 1, -(ACTION_HEIGHT + 12)),
+	Size = UDim2.fromOffset(560, 24),
+	Parent = partyBody,
 })
+
+local settingsOpen = false
+local function setSettingsOpen(open)
+	settingsOpen = open
+	settingsTabButton.Text = open and "⚙  HEIST SETTINGS  ▼" or "⚙  HEIST SETTINGS  ▲"
+	footerHint.Visible = not open
+	if open then
+		settingsPanel.Visible = true
+		settingsPanelScale.Scale = 0.92
+		Kit.tween(settingsPanelScale, Kit.BOUNCE, { Scale = 1 })
+	else
+		settingsPanel.Visible = false
+	end
+end
+setSettingsOpen(false)
+onClick(settingsTabButton, function()
+	setSettingsOpen(not settingsOpen)
+end)
+onClick(closeSettingsButton, function()
+	setSettingsOpen(false)
+end)
+
+---------------------------------------------------------------- quests
+
+-- Full-screen pop-up with every quest, its progress and a Claim button
+local questsOverlay = make("Frame", {
+	Name = "Quests",
+	Size = UDim2.fromScale(1, 1),
+	BackgroundColor3 = C.backdrop,
+	BackgroundTransparency = 0.3,
+	Active = true,
+	Visible = false,
+	ZIndex = 20,
+	Parent = gui,
+})
+local questsPanel = make("Frame", {
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.fromOffset(700, 560),
+	BackgroundColor3 = Color3.new(1, 1, 1),
+	Parent = questsOverlay,
+}, {
+	Kit.corner(18),
+	Kit.gradient(C.windowTop, C.window),
+	Kit.stroke(C.gold, 0.5, 1.5),
+	Kit.pad(22, 24),
+})
+local questsScale = make("UIScale", { Parent = questsPanel })
+label({
+	Text = "📜  QUESTS",
+	Font = Kit.FONT_BLACK,
+	TextSize = 26,
+	Size = UDim2.new(1, -60, 0, 30),
+	Parent = questsPanel,
+})
+label({
+	Text = "Finish quests to earn cash and XP. Every quest has a few tiers, each one bigger.",
+	TextSize = 14,
+	TextColor3 = C.muted,
+	Position = UDim2.fromOffset(0, 34),
+	Size = UDim2.new(1, -60, 0, 18),
+	Parent = questsPanel,
+})
+local closeQuestsButton = Kit.makeRound(button("✕", "ghost", {
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.fromScale(1, 0),
+	Size = UDim2.fromOffset(40, 40),
+	TextSize = 15,
+	Parent = questsPanel,
+}))
+local questsList = Kit.scroller({
+	Position = UDim2.fromOffset(0, 68),
+	Size = UDim2.new(1, 0, 1, -68),
+	Parent = questsPanel,
+}, 10)
+
+local questBadgeSetters = { setPartyQuestBadge }
+
+local function questRow(quest, order)
+	local claimed = profile.quests and profile.quests[quest.id] or 0
+	local tier = quest.tiers[claimed + 1]
+	local value = profile[quest.stat] or 0
+	local done = tier == nil
+	local ready = not done and value >= tier.goal
+
+	local row = make("Frame", {
+		BackgroundColor3 = C.cardRaised,
+		Size = UDim2.new(1, -8, 0, 84),
+		LayoutOrder = order,
+		Parent = questsList,
+	}, { Kit.corner(12), Kit.pad(12, 14), Kit.stroke(ready and C.gold or C.stroke, ready and 0.2 or 0.5, ready and 2 or 1) })
+	make("Frame", {
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.fromScale(0, 0.5),
+		Size = UDim2.fromOffset(54, 54),
+		BackgroundColor3 = C.well,
+		Parent = row,
+	}, {
+		Kit.round(),
+		label({
+			Text = quest.icon,
+			TextSize = 28,
+			TextTruncate = Enum.TextTruncate.None,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			Size = UDim2.fromScale(1, 1),
+		}),
+	})
+	label({
+		RichText = true,
+		Text = ('%s   <font color="%s" size="11">TIER %d/%d</font>'):format(
+			Kit.escape(quest.title),
+			Kit.hex(C.muted),
+			math.min(claimed + 1, #quest.tiers),
+			#quest.tiers
+		),
+		Font = Kit.FONT_BOLD,
+		TextSize = 16,
+		Position = UDim2.fromOffset(68, 0),
+		Size = UDim2.new(1, -200, 0, 20),
+		Parent = row,
+	})
+
+	local goal = done and quest.tiers[#quest.tiers].goal or tier.goal
+	local bar = make("Frame", {
+		Position = UDim2.fromOffset(68, 28),
+		Size = UDim2.new(1, -270, 0, 10),
+		BackgroundColor3 = C.well,
+		Parent = row,
+	}, { Kit.round() })
+	make("Frame", {
+		Size = UDim2.fromScale(math.clamp(value / goal, 0, 1), 1),
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		Parent = bar,
+	}, { Kit.round(), Kit.gradient(C.gold, C.robber, 0) })
+	label({
+		Text = ("%s / %s"):format(fmt(math.min(value, goal)), fmt(goal)),
+		Font = Kit.FONT_BOLD,
+		TextSize = 12,
+		TextColor3 = C.muted,
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -130, 0, 25),
+		Size = UDim2.fromOffset(64, 16),
+		TextXAlignment = Enum.TextXAlignment.Right,
+		Parent = row,
+	})
+	label({
+		RichText = true,
+		Text = done and "All tiers done. Nice work!"
+			or ('Reward: <font color="%s">💵 $%s</font>   <font color="%s">⭐ %s XP</font>'):format(
+				Kit.hex(C.gold),
+				fmt(tier.cash),
+				Kit.hex(C.cop),
+				fmt(tier.xp)
+			),
+		TextSize = 13,
+		TextColor3 = C.muted,
+		Position = UDim2.fromOffset(68, 44),
+		Size = UDim2.new(1, -200, 0, 16),
+		Parent = row,
+	})
+
+	if done then
+		Kit.pill("✔ COMPLETE", C.good, {
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.fromScale(1, 0.5),
+			Parent = row,
+		})
+	else
+		local claim = button(ready and "CLAIM" or "In progress", ready and "green" or "ghost", {
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.fromScale(1, 0.5),
+			Size = UDim2.fromOffset(116, 42),
+			Font = Kit.FONT_BLACK,
+			TextSize = ready and 15 or 12,
+			Parent = row,
+		})
+		if ready then
+			onClick(claim, function()
+				local ok, reward = request("ClaimQuest", quest.id)
+				if ok and type(reward) == "table" then
+					Kit.toast(("%s Quest done! +$%s and +%s XP"):format(quest.icon, fmt(reward.cash), fmt(reward.xp)))
+				end
+			end)
+		else
+			Kit.setEnabled(claim, false)
+		end
+	end
+	return ready
+end
+
+local function renderQuests()
+	if not profile then
+		return
+	end
+	Kit.clearRows(questsList)
+	local claimable = 0
+	for i, quest in ipairs(Config.QUESTS) do
+		if questRow(quest, i) then
+			claimable += 1
+		end
+	end
+	for _, setBadge in ipairs(questBadgeSetters) do
+		setBadge(claimable)
+	end
+end
+
+local function showQuests(open)
+	questsOverlay.Visible = open
+	if open then
+		renderQuests()
+		local base = questsScale:GetAttribute("Fit") or 1
+		questsScale.Scale = base * 0.9
+		Kit.tween(questsScale, Kit.BOUNCE, { Scale = base })
+	end
+end
+onClick(partyQuestsButton, function()
+	showQuests(true)
+end)
+onClick(closeQuestsButton, function()
+	showQuests(false)
+end)
+
+---------------------------------------------------------------- party room: screen layout
+
+-- Called from fit() whenever the screen size or the menu scale changes
+local function layoutParty(screen, scale)
+	for _, layer in ipairs(scaledLayers) do
+		layer.frame.Size = UDim2.fromScale(1 / scale, 1 / scale)
+		layer.scale.Scale = scale
+	end
+	hideout:setUiScale(scale)
+	local height = screen.Y / scale
+	-- Just under the top bar (the canvas is centred on the screen)
+	local top = math.floor((height - CANVAS.Y) / 2 + 96)
+	partyBody.Position = UDim2.fromOffset(PARTY_EDGE, top)
+	partyBody.Size = UDim2.new(1, -2 * PARTY_EDGE, 1, -(top + PARTY_EDGE))
+	local bodyHeight = height - top - PARTY_EDGE
+	-- The settings panel opens above the buttons and stops below the invite button
+	settingsPanel.Size = UDim2.fromOffset(SETTINGS_WIDTH, math.clamp(bodyHeight - (ACTION_HEIGHT + 12) - 140, 220, 560))
+	questsScale:SetAttribute("Fit", math.min(scale, 1.2))
+	questsScale.Scale = math.min(scale, 1.2)
+end
+
+table.insert(questBadgeSetters, makeBadge(hubQuestsButton))
+onClick(hubQuestsButton, function()
+	showQuests(true)
+end)
 
 ---------------------------------------------------------------- other tabs
 
@@ -1081,6 +1465,13 @@ tabModules.Shop = ShopTab.new(pages.Shop, ctx)
 tabModules.Profile = ProfileTab.new(pages.Profile)
 
 local currentTab = nil
+
+-- The full-screen party room only shows on the Play tab while you're in a crew
+local function updatePartyLayers()
+	local show = currentParty ~= nil and currentTab == "Play"
+	hideoutLayer.Visible = show
+	partyLayer.Visible = show
+end
 local function tabIndex(id)
 	for i, tab in ipairs(TABS) do
 		if tab.id == id then
@@ -1101,6 +1492,7 @@ function switchTab(id)
 		pages[currentTab].Visible = false
 	end
 	currentTab = id
+	updatePartyLayers()
 
 	local page = pages[id]
 	page.Visible = true
@@ -1141,6 +1533,7 @@ local function renderProfile()
 	for _, module in pairs(tabModules) do
 		module:update(profile)
 	end
+	renderQuests()
 end
 
 local function renderPublicList(list)
@@ -1221,122 +1614,6 @@ local function renderPublicList(list)
 	end
 end
 
-local function memberRow(member, order, amHost)
-	local row = make("Frame", {
-		BackgroundColor3 = C.cardRaised,
-		Size = UDim2.new(1, -6, 0, 48),
-		LayoutOrder = order,
-		Parent = membersList,
-	}, { Kit.corner(10), Kit.pad(7, 8) })
-	local ring = member.isHost and C.gold or member.isReady and C.good or nil
-	local face = Kit.avatar(member.userId, member.displayName, 34, ring)
-	face.AnchorPoint = Vector2.new(0, 0.5)
-	face.Position = UDim2.fromScale(0, 0.5)
-	face.Parent = row
-
-	local isYou = member.userId == player.UserId
-	local rightSpace = member.isHost and 72 or amHost and 96 or 6
-	label({
-		Text = (member.mask and member.mask .. " " or "") .. member.displayName .. (isYou and "  (you)" or ""),
-		Font = Kit.FONT_BOLD,
-		TextSize = 14,
-		TextYAlignment = Enum.TextYAlignment.Bottom,
-		Position = UDim2.fromOffset(44, 0),
-		Size = UDim2.new(1, -(44 + rightSpace), 0.5, 0),
-		Parent = row,
-	})
-	local rank = Config.rankFor(member.xp or 0)
-	local status
-	if member.isHost then
-		status = "Host"
-	elseif member.isReady then
-		status = ('<font color="%s">Ready</font>'):format(Kit.hex(C.good))
-	else
-		status = "Not ready"
-	end
-	label({
-		RichText = true,
-		Text = ('<font color="%s">%s %s</font>  ·  %s'):format(
-			Kit.hex(rank.color),
-			Config.RANK_ICONS[rank.name] or "",
-			rank.name,
-			status
-		),
-		TextSize = 11,
-		TextColor3 = C.muted,
-		TextYAlignment = Enum.TextYAlignment.Top,
-		Position = UDim2.new(0, 44, 0.5, 2),
-		Size = UDim2.new(1, -(44 + rightSpace), 0.5, -2),
-		Parent = row,
-	})
-
-	if member.isHost then
-		Kit.pill("👑 HOST", C.gold, {
-			AnchorPoint = Vector2.new(1, 0.5),
-			Position = UDim2.fromScale(1, 0.5),
-			Parent = row,
-		})
-	elseif amHost then
-		local kick = button("Kick", "danger", {
-			AnchorPoint = Vector2.new(1, 0.5),
-			Position = UDim2.fromScale(1, 0.5),
-			Size = UDim2.fromOffset(52, 30),
-			TextSize = 12,
-			Parent = row,
-		})
-		onClick(kick, function()
-			request("Kick", member.userId)
-		end)
-		local makeHost = button("👑", "ghost", {
-			AnchorPoint = Vector2.new(1, 0.5),
-			Position = UDim2.new(1, -58, 0.5, 0),
-			Size = UDim2.fromOffset(34, 30),
-			TextSize = 13,
-			Parent = row,
-		})
-		onClick(makeHost, function()
-			if request("TransferHost", member.userId) then
-				Kit.toast(member.displayName .. " is the host now.")
-			end
-		end)
-	end
-end
-
-local function emptySlot(order)
-	local slot = make("Frame", {
-		BackgroundTransparency = 1,
-		Size = UDim2.new(1, -6, 0, 48),
-		LayoutOrder = order,
-		Parent = membersList,
-	}, { Kit.corner(10), Kit.stroke(C.faint, 0.65) })
-	make("Frame", {
-		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.new(0, 8, 0.5, 0),
-		Size = UDim2.fromOffset(34, 34),
-		BackgroundColor3 = C.well,
-		Parent = slot,
-	}, {
-		Kit.round(),
-		Kit.stroke(C.faint, 0.6),
-		label({
-			Text = "+",
-			Font = Kit.FONT_BOLD,
-			TextSize = 16,
-			TextColor3 = C.faint,
-			TextXAlignment = Enum.TextXAlignment.Center,
-			Size = UDim2.fromScale(1, 1),
-		}),
-	})
-	label({
-		Text = "Open slot",
-		TextSize = 13,
-		TextColor3 = C.faint,
-		Position = UDim2.fromOffset(52, 0),
-		Size = UDim2.new(1, -60, 1, 0),
-		Parent = slot,
-	})
-end
-
 local function setStepButton(b, visible, enabled)
 	b.Visible = visible
 	Kit.setEnabled(b, enabled)
@@ -1382,7 +1659,7 @@ local function renderSettings(host, settings, members)
 			string.rep("$", map.loot)
 		)
 		mapCardStroke.Color = map.color
-		targetText.Text = "🎯  Target: " .. map.icon .. " " .. map.name
+		targetText.Text = ("👥  %d/%d   ·   🎯  Target: %s %s"):format(#members, settings.partySize, map.icon, map.name)
 	else
 		mapIcon.Text = "❓"
 		mapName.Text = "Random place"
@@ -1392,7 +1669,7 @@ local function renderSettings(host, settings, members)
 			Kit.hex(C.gold)
 		)
 		mapCardStroke.Color = C.stroke
-		targetText.Text = "🎯  Target: 🎲 Random"
+		targetText.Text = ("👥  %d/%d   ·   🎯  Target: 🎲 Random"):format(#members, settings.partySize)
 	end
 end
 
@@ -1447,7 +1724,11 @@ local function addChatLine(richText)
 	label({
 		RichText = true,
 		Text = richText,
-		TextSize = 13,
+		Font = Kit.FONT_BOLD,
+		TextSize = 16,
+		TextColor3 = Color3.new(1, 1, 1),
+		TextStrokeTransparency = 0.3,
+		TextStrokeColor3 = Color3.new(0, 0, 0),
 		TextWrapped = true,
 		TextTruncate = Enum.TextTruncate.None,
 		TextYAlignment = Enum.TextYAlignment.Top,
@@ -1559,16 +1840,20 @@ local function renderParty()
 	if partyView.Visible ~= inParty then
 		-- Joining or leaving a crew always brings you to the Play tab
 		switchTab("Play")
-		local view = inParty and partyView or hubView
-		view.Position = UDim2.fromOffset(0, 24)
-		Kit.tween(view, Kit.SMOOTH, { Position = UDim2.new() })
+		if inParty then
+			setSettingsOpen(false)
+		else
+			hubView.Position = UDim2.fromOffset(0, 24)
+			Kit.tween(hubView, Kit.SMOOTH, { Position = UDim2.new() })
+		end
 	end
 	hubView.Visible = not inParty
 	partyView.Visible = inParty
-	tabLabels.Play.Text = inParty and "🎮  CREW" or "🎮  PLAY"
+	updatePartyLayers()
 	if fit then
 		fit()
 	end
+	tabLabels.Play.Text = inParty and "🎮  CREW" or "🎮  PLAY"
 	connectChat(inParty and currentParty.channel or nil)
 	if not inParty then
 		return
@@ -1591,17 +1876,7 @@ local function renderParty()
 	end
 	hostText.Text = host and "👑  You're the host" or ("👑  Host: " .. hostName)
 
-	crewTitle.Text = ("CREW  %d/%d"):format(#members, settings.partySize)
-	Kit.clearRows(membersList)
-	for i = 1, settings.partySize do
-		if members[i] then
-			memberRow(members[i], i, host)
-		else
-			emptySlot(i)
-		end
-	end
-
-	hideout:setMembers(members, settings.partySize)
+	hideout:setMembers(members, settings.partySize, host)
 	renderSettings(host, settings, members)
 	renderFooter(host, settings, members)
 end
@@ -1735,6 +2010,7 @@ function fit()
 	fitScale = math.min(cap, (screen.X - 16) / CANVAS.X, (screen.Y - 16) / CANVAS.Y)
 	applyScale()
 	Overlays.setFit(math.min(1, fitScale))
+	layoutParty(screen, fitScale)
 end
 gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
 
