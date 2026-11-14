@@ -667,9 +667,102 @@ local function onLoadoutChanged(player)
 	end
 end
 
+---------------------------------------------------------------- quests
+-- Lifetime goals that pay cash and XP. Progress is read from stats the heist already saves
+-- (heists, robberWins, copWins, xp). Each quest has tiers; claiming one unlocks the next.
+-- Claimed tiers are saved in the player's data as quests[questId] = tiers claimed.
+local QUESTS = {
+	{
+		id = "play",
+		icon = "🎮",
+		title = "Play heists",
+		stat = "heists",
+		tiers = {
+			{ goal = 1, cash = 100, xp = 25 },
+			{ goal = 5, cash = 250, xp = 60 },
+			{ goal = 15, cash = 600, xp = 150 },
+			{ goal = 40, cash = 1500, xp = 400 },
+			{ goal = 100, cash = 4000, xp = 1000 },
+		},
+	},
+	{
+		id = "robberWins",
+		icon = "💰",
+		title = "Win as a robber",
+		stat = "robberWins",
+		tiers = {
+			{ goal = 1, cash = 150, xp = 40 },
+			{ goal = 5, cash = 400, xp = 100 },
+			{ goal = 15, cash = 1000, xp = 250 },
+			{ goal = 50, cash = 3000, xp = 700 },
+		},
+	},
+	{
+		id = "copWins",
+		icon = "🕵️",
+		title = "Win as the undercover cop",
+		stat = "copWins",
+		tiers = {
+			{ goal = 1, cash = 200, xp = 50 },
+			{ goal = 3, cash = 450, xp = 120 },
+			{ goal = 10, cash = 1200, xp = 300 },
+			{ goal = 25, cash = 3000, xp = 700 },
+		},
+	},
+	{
+		id = "xp",
+		icon = "⭐",
+		title = "Earn XP",
+		stat = "xp",
+		tiers = {
+			{ goal = 100, cash = 100, xp = 0 },
+			{ goal = 500, cash = 300, xp = 0 },
+			{ goal = 1500, cash = 800, xp = 0 },
+			{ goal = 5000, cash = 2500, xp = 0 },
+		},
+	},
+}
+
+-- What the client's Quests window shows
+local function questState(player)
+	local data = PlayerData.get(player)
+	if not data then
+		return nil
+	end
+	data.quests = data.quests or {}
+	local list = {}
+	for _, quest in ipairs(QUESTS) do
+		table.insert(list, {
+			id = quest.id,
+			icon = quest.icon,
+			title = quest.title,
+			tiers = quest.tiers,
+			claimed = data.quests[quest.id] or 0,
+			value = data[quest.stat] or 0,
+		})
+	end
+	return list
+end
+
+local function pushQuests(player)
+	local state = questState(player)
+	if state then
+		LobbyUpdate:FireClient(player, "Quests", state)
+	end
+end
+
+function handlers.GetQuests(player)
+	return true, questState(player)
+end
+
 -- Pays out the next tier of a quest once its goal is reached
 function handlers.ClaimQuest(player, questId)
-	local quest = type(questId) == "string" and Config.getQuest(questId)
+	local quest
+	for _, q in ipairs(QUESTS) do
+		if q.id == questId then
+			quest = q
+		end
+	end
 	if not quest then
 		return false, "Unknown quest."
 	end
@@ -677,6 +770,7 @@ function handlers.ClaimQuest(player, questId)
 	if not data then
 		return false, "Your profile is still loading."
 	end
+	data.quests = data.quests or {}
 	local claimed = data.quests[quest.id] or 0
 	local tier = quest.tiers[claimed + 1]
 	if not tier then
@@ -689,6 +783,7 @@ function handlers.ClaimQuest(player, questId)
 	data.cash += tier.cash
 	data.xp += tier.xp
 	pushProfile(player)
+	pushQuests(player)
 	-- Rank shows on the party's name tags, so refresh the party too
 	local party = partyOf[player]
 	if party then
@@ -814,6 +909,7 @@ local function onPlayerAdded(player)
 		return
 	end
 	pushProfile(player)
+	pushQuests(player)
 
 	-- Back from a heist: say what they earned. The numbers come from the client's teleport
 	-- data, so they're only shown, never added (the heist server already saved them).
